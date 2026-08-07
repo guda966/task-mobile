@@ -1,13 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 
 const NEWS_ITEMS = [
@@ -15,58 +7,47 @@ const NEWS_ITEMS = [
   'Students from TASK-approved colleges can browse and join training batches.',
   'Trainers may apply online; TASK Admin approval is required before assignment.',
   'Certificates require minimum 75% attendance and completed assignments.',
+  'Skill offerings cover Engineering, Degree, Pharmacy, Polytechnic, and PG programmes.',
 ];
 
+const ITEM_HEIGHT = 36;
+
 export function NewsTicker() {
-  const { width: windowWidth } = useWindowDimensions();
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [textWidth, setTextWidth] = useState(0);
-  const [trackWidth, setTrackWidth] = useState(0);
-  const message = NEWS_ITEMS.join('     •     ');
-  const gap = 48;
+  const translateY = useRef(new Animated.Value(0)).current;
   const useNativeDriver = Platform.OS !== 'web';
+  const loopItems = [...NEWS_ITEMS, NEWS_ITEMS[0]];
 
   useEffect(() => {
-    if (textWidth <= 0 || trackWidth <= 0) return;
-
-    const travel = textWidth + gap;
-    translateX.setValue(0);
-
-    const anim = Animated.loop(
-      Animated.timing(translateX, {
-        toValue: -travel,
-        duration: Math.max(14000, travel * 25),
+    translateY.setValue(0);
+    const step = Animated.sequence([
+      Animated.delay(2200),
+      Animated.timing(translateY, {
+        toValue: -ITEM_HEIGHT * NEWS_ITEMS.length,
+        duration: NEWS_ITEMS.length * 2600,
         easing: Easing.linear,
         useNativeDriver,
       }),
-    );
+    ]);
+    const anim = Animated.loop(step);
     anim.start();
     return () => {
       anim.stop();
-      translateX.stopAnimation();
+      translateY.stopAnimation();
     };
-  }, [textWidth, trackWidth, windowWidth, translateX, useNativeDriver]);
+  }, [translateY, useNativeDriver]);
 
   return (
     <View style={styles.ticker}>
       <Text style={styles.tickerLabel}>Updates</Text>
-      <View
-        style={styles.tickerTrack}
-        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-      >
-        <Animated.View
-          style={[styles.tickerRow, { transform: [{ translateX }] }]}
-        >
-          <Text
-            style={styles.tickerText}
-            numberOfLines={1}
-            onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
-          >
-            {message}
-          </Text>
-          <Text style={[styles.tickerText, { marginLeft: gap }]} numberOfLines={1}>
-            {message}
-          </Text>
+      <View style={styles.tickerTrack}>
+        <Animated.View style={{ transform: [{ translateY }] }}>
+          {loopItems.map((item, index) => (
+            <View key={`${item}-${index}`} style={styles.tickerItem}>
+              <Text style={styles.tickerText} numberOfLines={2}>
+                {item}
+              </Text>
+            </View>
+          ))}
         </Animated.View>
       </View>
     </View>
@@ -77,12 +58,11 @@ const styles = StyleSheet.create({
   ticker: {
     backgroundColor: colors.primaryDark,
     borderRadius: 10,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 10,
-    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     overflow: 'hidden',
   },
   tickerLabel: {
@@ -94,23 +74,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     overflow: 'hidden',
+    alignSelf: 'flex-start',
+    marginTop: 4,
   },
   tickerTrack: {
     flex: 1,
+    height: ITEM_HEIGHT,
     overflow: 'hidden',
-    height: 22,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
-  tickerRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
+  tickerItem: {
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    paddingRight: 4,
   },
   tickerText: {
     color: '#E8F6F6',
     fontSize: 13,
     fontWeight: '600',
-    flexShrink: 0,
-    ...(Platform.OS === 'web' ? ({ whiteSpace: 'nowrap' } as object) : null),
+    lineHeight: 18,
   },
 });

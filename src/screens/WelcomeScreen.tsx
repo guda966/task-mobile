@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
-  Platform,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,19 +12,23 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
-import { DropdownField, PrimaryButton } from '../components/ui';
+import { DropdownField, FormField, PrimaryButton } from '../components/ui';
+import {
+  DUMMY_COLLEGE_CONTACTS,
+  DUMMY_COLLEGE_PASSWORD,
+} from '../constants/demoData';
+import { DUMMY_STUDENT } from '../constants/student';
+import { DUMMY_TRAINER } from '../constants/trainer';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
-import {
-  DEMO_CREDENTIALS_SUMMARY,
-  DEMO_SEED_VERSION,
-  ensureDemoData,
-} from '../services/demoSeedApi';
+import { ensureDemoData } from '../services/demoSeedApi';
 import { colors } from '../theme/colors';
+import type { UserRole } from '../types/enrollment';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
 type RegistrationType = 'college' | 'student' | 'trainer';
+type PortalModal = 'register' | 'signin' | null;
 
 const REGISTRATION_OPTIONS = [
   { value: 'college', label: 'College Registration' },
@@ -31,93 +36,162 @@ const REGISTRATION_OPTIONS = [
   { value: 'trainer', label: 'Trainer Registration' },
 ];
 
+const SIGN_IN_ROLES = [
+  { value: 'college_admin', label: 'College Admin' },
+  { value: 'task_admin', label: 'TASK Admin' },
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'student', label: 'Student' },
+  { value: 'trainer', label: 'Trainer' },
+];
+
+/** Published TASK decade impact figures (NITI Aayog / public reports). */
+const TASK_STATS = [
+  { value: '9.84L+', label: 'Students trained' },
+  { value: '761', label: 'Registered colleges' },
+  { value: '18,650+', label: 'Faculty trained' },
+  { value: '35,000+', label: 'Placements facilitated' },
+];
+
+const TASK_ADMIN_DEMO = {
+  email: 'admin@task.telangana.gov.in',
+  password: 'TaskAdmin@123',
+};
+
+const SUPER_ADMIN_DEMO = {
+  email: 'superadmin@task.telangana.gov.in',
+  password: 'SuperAdmin@123',
+};
+
 export function WelcomeScreen({ navigation }: Props) {
-  const { signOut } = useAuth();
+  const { signIn } = useAuth();
   const { width } = useWindowDimensions();
-  const compact = width < 720;
+  const compact = width < 760;
+  const [portalModal, setPortalModal] = useState<PortalModal>(null);
+
   const [regType, setRegType] = useState<RegistrationType | ''>('');
-  const [seedReady, setSeedReady] = useState(false);
-  const [seeding, setSeeding] = useState(false);
+  const [role, setRole] = useState<UserRole | ''>('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        await ensureDemoData();
-      } finally {
-        if (alive) setSeedReady(true);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+    void ensureDemoData();
   }, []);
 
-  const startRegistration = () => {
+  const closePortal = () => {
+    setPortalModal(null);
+    setRegType('');
+    setRole('');
+    setEmail('');
+    setPassword('');
+  };
+
+  const onRoleChange = (value: string) => {
+    const next = value as UserRole | '';
+    setRole(next);
+    if (next === 'task_admin') {
+      setEmail(TASK_ADMIN_DEMO.email);
+      setPassword(TASK_ADMIN_DEMO.password);
+    } else if (next === 'super_admin') {
+      setEmail(SUPER_ADMIN_DEMO.email);
+      setPassword(SUPER_ADMIN_DEMO.password);
+    } else if (next === 'college_admin') {
+      setEmail(DUMMY_COLLEGE_CONTACTS.officialEmail);
+      setPassword(DUMMY_COLLEGE_PASSWORD);
+    } else if (next === 'student') {
+      setEmail(DUMMY_STUDENT.email);
+      setPassword(DUMMY_STUDENT.password);
+    } else if (next === 'trainer') {
+      setEmail(DUMMY_TRAINER.email);
+      setPassword(DUMMY_TRAINER.password);
+    } else {
+      setEmail('');
+      setPassword('');
+    }
+  };
+
+  const continueRegistration = () => {
     if (!regType) {
       Alert.alert('Select registration type', 'Choose College, Student, or Trainer registration.');
       return;
     }
-    if (regType === 'college') navigation.navigate('OtpVerify');
-    else if (regType === 'student') navigation.navigate('StudentOtp');
-    else navigation.navigate('TrainerOtp');
+    const route =
+      regType === 'college' ? 'OtpVerify' : regType === 'student' ? 'StudentOtp' : 'TrainerOtp';
+    closePortal();
+    navigation.navigate(route);
   };
 
-  const loadFreshDemo = () => {
-    const run = async () => {
-      setSeeding(true);
-      try {
-        await signOut();
-        await ensureDemoData({ force: true });
-        setSeedReady(true);
-        Alert.alert(
-          'Fresh demo data loaded',
-          `Seed ${DEMO_SEED_VERSION} is ready.\n\n${DEMO_CREDENTIALS_SUMMARY}`,
-        );
-      } catch (e) {
-        Alert.alert('Could not load demo data', e instanceof Error ? e.message : 'Unknown error');
-      } finally {
-        setSeeding(false);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      const ok =
-        typeof window !== 'undefined'
-          ? window.confirm(
-              'This clears all local demo data in this browser and reloads fresh dummy records. Continue?',
-            )
-          : true;
-      if (ok) void run();
+  const submitSignIn = async () => {
+    if (!role) {
+      Alert.alert('Select role', 'Please choose a sign-in role.');
       return;
     }
-
-    Alert.alert(
-      'Load fresh demo data?',
-      'This clears all local demo data on this device and reloads fresh dummy records.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Load fresh data', style: 'destructive', onPress: () => void run() },
-      ],
-    );
+    try {
+      setSigningIn(true);
+      const user = await signIn(email, password);
+      if (user.role !== role) {
+        Alert.alert(
+          'Wrong role selected',
+          `These credentials belong to a ${user.role.replace('_', ' ')} account.`,
+        );
+        return;
+      }
+      closePortal();
+      if (user.role === 'super_admin') {
+        navigation.reset({ index: 0, routes: [{ name: 'SuperAdminHome' }] });
+      } else if (user.role === 'task_admin') {
+        navigation.reset({ index: 0, routes: [{ name: 'TaskAdminHome' }] });
+      } else if (user.role === 'student') {
+        navigation.reset({ index: 0, routes: [{ name: 'StudentHome' }] });
+      } else if (user.role === 'trainer') {
+        navigation.reset({ index: 0, routes: [{ name: 'TrainerHome' }] });
+      } else {
+        navigation.reset({ index: 0, routes: [{ name: 'CollegeHome' }] });
+      }
+    } catch (e) {
+      Alert.alert('Sign in failed', e instanceof Error ? e.message : 'Unable to sign in');
+    } finally {
+      setSigningIn(false);
+    }
   };
 
-  const portraitSize = compact ? 70 : 92;
-  const logoSize = compact ? 78 : 108;
+  const emblemSize = compact ? 48 : 64;
+  const portraitSize = compact ? 56 : 76;
+  const taskLogoSize = compact ? 64 : 86;
 
   return (
     <View style={styles.page}>
       <View style={styles.topBar}>
-        <Text style={styles.topBarText}>040-35485290</Text>
-        <Text style={styles.topBarDot}>·</Text>
-        <Text style={styles.topBarText}>enquiry_task@telangana.gov.in</Text>
+        <View style={styles.topBarLeft}>
+          <Text style={styles.topBarText}>040-35485290</Text>
+          <Text style={styles.topBarDot}>·</Text>
+          <Text style={styles.topBarText}>enquiry_task@telangana.gov.in</Text>
+        </View>
+        <View style={styles.topBarRight}>
+          <Pressable
+            style={styles.topLink}
+            onPress={() => setPortalModal('register')}
+            accessibilityRole="button"
+            accessibilityLabel="Register / Sign up"
+          >
+            <Text style={styles.topLinkText}>Register / Sign up</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.topLink, styles.topLinkPrimary]}
+            onPress={() => setPortalModal('signin')}
+            accessibilityRole="button"
+            accessibilityLabel="Sign In"
+          >
+            <Text style={styles.topLinkPrimaryText}>Sign In</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <View style={[styles.brandHeader, compact && styles.brandHeaderCompact]}>
-        <View style={styles.brandLeft}>
+      <View style={styles.brandHeader}>
+        <View style={styles.brandSide}>
           <Image
             source={require('../../assets/brand/ts-logo.png')}
-            style={{ width: logoSize * 0.85, height: logoSize * 0.85 }}
+            style={{ width: emblemSize, height: emblemSize }}
             resizeMode="contain"
             accessibilityLabel="Government of Telangana"
           />
@@ -129,13 +203,15 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.brandCenter}>
-          <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]}>
+          <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]} numberOfLines={2}>
             Telangana Academy for Skill and Knowledge
           </Text>
-          <Text style={styles.brandSubtitle}>Department of ITE&C, Government of Telangana</Text>
+          <Text style={styles.brandSubtitle} numberOfLines={1}>
+            Department of ITE&C, Government of Telangana
+          </Text>
         </View>
 
-        <View style={styles.brandRight}>
+        <View style={[styles.brandSide, styles.brandSideRight]}>
           <OfficialPortrait
             source={require('../../assets/officials/minister-site.jpg')}
             size={portraitSize}
@@ -143,7 +219,7 @@ export function WelcomeScreen({ navigation }: Props) {
           />
           <Image
             source={require('../../assets/brand/task-logo.png')}
-            style={{ width: logoSize, height: logoSize }}
+            style={{ width: taskLogoSize, height: taskLogoSize }}
             resizeMode="contain"
             accessibilityLabel="TASK logo"
           />
@@ -159,89 +235,161 @@ export function WelcomeScreen({ navigation }: Props) {
           <View style={[styles.card, styles.aboutCard]}>
             <Text style={styles.cardHeading}>About Us</Text>
             <Text style={styles.aboutText}>
-              Telangana Academy for Skill and Knowledge was established by the Government of Telangana
-              for enhancing skilling synergy among institutions of Government, Industry and Academia.
-              TASK works with colleges, students and trainers to build employability skills for today’s
-              job market.
+              TASK is a not-for-profit organization created by the Government of Telangana to bring
+              synergy among Government, Industry and Academia. Established in 2004 as IEG/JKC and
+              renamed TASK in 2014, it skills youth and builds employability for today’s workplace.
             </Text>
           </View>
 
           <View style={[styles.card, styles.announceCard]}>
             <Text style={styles.cardHeading}>Announcements</Text>
             <NewsTicker />
-            <Text style={styles.announceHint}>
-              College registrations, student batches and trainer approvals stay active through this
-              portal.
-            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.statsHeading}>TASK at a glance</Text>
+        <View style={[styles.statsRow, compact && styles.statsRowCompact]}>
+          {TASK_STATS.map((stat) => (
+            <View key={stat.label} style={styles.statCard}>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.statsSource}>
+          Impact figures from TASK’s first decade of operations (public reports).
+        </Text>
+
+        <View style={styles.detailsBox}>
+          <Text style={styles.detailsTitle}>Important details</Text>
+          <View style={[styles.detailsGrid, compact && styles.detailsGridCompact]}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Skill offerings</Text>
+              <Text style={styles.detailText}>
+                Engineering, Degree, Pharmacy, Polytechnic, and MBA / MCA / PG programmes.
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Who can join</Text>
+              <Text style={styles.detailText}>
+                Colleges register with TASK; students enrol from approved colleges; trainers apply for
+                Admin approval.
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Focus areas</Text>
+              <Text style={styles.detailText}>
+                Technology skills, soft skills, finishing school, jobs & internships, and training
+                calendar programmes.
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Contact</Text>
+              <Text style={styles.detailText}>
+                040-35485290 · enquiry_task@telangana.gov.in{'\n'}
+                Sanketika Vidya Bhavan, Masabtank, Hyderabad - 500028
+              </Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.accessBox}>
-          <Text style={styles.accessTitle}>Portal access</Text>
+          <Text style={styles.accessTitle}>Portal login</Text>
           <Text style={styles.accessSubtitle}>
-            Create a new account or sign in to your existing TASK portal account.
+            Open Register or Sign In in a popup to continue your account flow.
           </Text>
-
-          <DropdownField
-            label="Register as"
-            required
-            placeholder="Select College, Student, or Trainer"
-            options={REGISTRATION_OPTIONS}
-            value={regType}
-            onChange={(v) => setRegType(v as RegistrationType | '')}
-          />
-
           <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
             <View style={styles.accessBtn}>
-              <PrimaryButton title="Create account / Register" onPress={startRegistration} />
+              <PrimaryButton
+                title="Register / Sign up"
+                onPress={() => setPortalModal('register')}
+              />
             </View>
             <View style={styles.accessBtn}>
               <PrimaryButton
                 title="Sign In"
                 variant="secondary"
-                onPress={() => navigation.navigate('SignIn')}
+                onPress={() => setPortalModal('signin')}
               />
             </View>
           </View>
-        </View>
-
-        <View style={styles.noteBox}>
-          <Text style={styles.noteTitle}>Important note</Text>
-          <Text style={styles.bullet}>
-            • Use a valid email and mobile number — all official communication is sent there.
-          </Text>
-          <Text style={styles.bullet}>• Fields marked * are mandatory.</Text>
-          <Text style={styles.bullet}>
-            • Students can register only from TASK-approved colleges.
-          </Text>
-          <Text style={styles.bullet}>
-            • Trainers must submit a resume for TASK Admin approval.
-          </Text>
-        </View>
-
-        <View style={styles.demoBox}>
-          <Text style={styles.demoTitle}>Team demo</Text>
-          <Text style={styles.demoBody}>
-            {seedReady
-              ? 'Dummy data is ready. Load fresh demo data before a walkthrough.'
-              : 'Preparing demo data…'}
-          </Text>
-          <PrimaryButton
-            title={seeding ? 'Loading…' : 'Load fresh demo data'}
-            variant="secondary"
-            onPress={loadFreshDemo}
-            disabled={seeding}
-          />
-          <Text style={styles.hint}>
-            Demo sign-in autofills after you select a role.{'\n'}
-            Dummy OTP — Email: 111111 · Mobile: 222222
-          </Text>
         </View>
 
         <Text style={styles.footer}>
           Telangana Academy for Skill and Knowledge · Masabtank, Hyderabad
         </Text>
       </ScrollView>
+
+      <Modal
+        visible={portalModal === 'register'}
+        transparent
+        animationType="fade"
+        onRequestClose={closePortal}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closePortal}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Register / Sign up</Text>
+            <Text style={styles.modalBody}>
+              Choose how you want to create a TASK portal account.
+            </Text>
+            <DropdownField
+              label="Register as"
+              required
+              placeholder="Select College, Student, or Trainer"
+              options={REGISTRATION_OPTIONS}
+              value={regType}
+              onChange={(v) => setRegType(v as RegistrationType | '')}
+            />
+            <PrimaryButton title="Continue registration" onPress={continueRegistration} />
+            <View style={styles.modalGap} />
+            <PrimaryButton title="Cancel" variant="secondary" onPress={closePortal} />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={portalModal === 'signin'}
+        transparent
+        animationType="fade"
+        onRequestClose={closePortal}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closePortal}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Sign In</Text>
+            <Text style={styles.modalBody}>Select your role to continue.</Text>
+            <DropdownField
+              label="Sign in as"
+              required
+              placeholder="Select role"
+              options={SIGN_IN_ROLES}
+              value={role}
+              onChange={onRoleChange}
+            />
+            <FormField
+              label="Email"
+              required
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <FormField
+              label="Password"
+              required
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            <PrimaryButton
+              title={signingIn ? 'Signing in…' : 'Sign In'}
+              onPress={submitSignIn}
+              disabled={signingIn}
+            />
+            <View style={styles.modalGap} />
+            <PrimaryButton title="Cancel" variant="secondary" onPress={closePortal} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -256,7 +404,7 @@ function OfficialPortrait({
   label: string;
 }) {
   return (
-    <View style={styles.portraitWrap} accessibilityLabel={label}>
+    <View accessibilityLabel={label}>
       <Image
         source={source}
         style={{
@@ -280,12 +428,23 @@ const styles = StyleSheet.create({
   },
   topBar: {
     backgroundColor: colors.primaryDark,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   topBarText: {
@@ -297,57 +456,69 @@ const styles = StyleSheet.create({
     color: '#9FD0D0',
     fontSize: 12,
   },
+  topLink: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  topLinkText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  topLinkPrimary: {
+    backgroundColor: colors.white,
+    borderColor: colors.white,
+  },
+  topLinkPrimaryText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   brandHeader: {
     backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  brandHeaderCompact: {
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  brandLeft: {
+  brandSide: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    flexShrink: 0,
   },
-  brandRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  brandSideRight: {
+    justifyContent: 'flex-end',
   },
   brandCenter: {
     flex: 1,
-    minWidth: 180,
+    minWidth: 0,
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
   },
   brandTitle: {
     color: colors.primary,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 26,
   },
   brandTitleCompact: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 18,
   },
   brandSubtitle: {
     color: '#2F6F9F',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 4,
-  },
-  portraitWrap: {
-    alignItems: 'center',
+    marginTop: 3,
   },
   navStrip: {
     backgroundColor: '#F7F9FA',
@@ -355,11 +526,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
   },
   navActive: {
+    alignSelf: 'flex-start',
     color: colors.primary,
     fontWeight: '800',
     fontSize: 13,
@@ -374,7 +543,7 @@ const styles = StyleSheet.create({
   mainGrid: {
     flexDirection: 'row',
     gap: 14,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   mainGridCompact: {
     flexDirection: 'column',
@@ -387,7 +556,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   aboutCard: {
-    flex: 1.2,
+    flex: 1.15,
   },
   announceCard: {
     flex: 1,
@@ -403,11 +572,89 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
-  announceHint: {
-    marginTop: 8,
+  statsHeading: {
+    color: colors.primaryDark,
+    fontWeight: '800',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 6,
+  },
+  statsRowCompact: {
+    flexWrap: 'wrap',
+  },
+  statCard: {
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 140,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  statValue: {
+    color: colors.primary,
+    fontWeight: '800',
+    fontSize: 22,
+  },
+  statLabel: {
+    marginTop: 4,
     color: colors.textMuted,
     fontSize: 12,
-    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statsSource: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginBottom: 16,
+  },
+  detailsBox: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 14,
+  },
+  detailsTitle: {
+    color: colors.primary,
+    fontWeight: '800',
+    fontSize: 18,
+    marginBottom: 12,
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  detailsGridCompact: {
+    flexDirection: 'column',
+  },
+  detailItem: {
+    flexGrow: 1,
+    flexBasis: '46%',
+    minWidth: 160,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 10,
+    padding: 12,
+  },
+  detailLabel: {
+    color: colors.primaryDark,
+    fontWeight: '800',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  detailText: {
+    color: colors.text,
+    fontSize: 13,
+    lineHeight: 19,
   },
   accessBox: {
     backgroundColor: colors.white,
@@ -416,10 +663,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
   },
   accessTitle: {
     color: colors.primaryDark,
@@ -436,7 +679,6 @@ const styles = StyleSheet.create({
   accessActions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 4,
   },
   accessActionsCompact: {
     flexDirection: 'column',
@@ -444,56 +686,40 @@ const styles = StyleSheet.create({
   accessBtn: {
     flex: 1,
   },
-  noteBox: {
-    backgroundColor: '#FFF8F3',
-    borderWidth: 1,
-    borderColor: '#F0D9C8',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 14,
-  },
-  noteTitle: {
-    color: colors.accent,
-    fontWeight: '800',
-    marginBottom: 8,
-    fontSize: 14,
-  },
-  bullet: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  demoBox: {
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 18,
-    gap: 10,
-  },
-  demoTitle: {
-    fontWeight: '800',
-    color: colors.primaryDark,
-    fontSize: 14,
-  },
-  demoBody: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  hint: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-  },
   footer: {
     textAlign: 'center',
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 4,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 35, 35, 0.55)',
+    justifyContent: 'center',
+    padding: 18,
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    padding: 18,
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
+    maxHeight: '90%',
+  },
+  modalTitle: {
+    color: colors.primaryDark,
+    fontWeight: '800',
+    fontSize: 20,
+    marginBottom: 6,
+  },
+  modalBody: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  modalGap: {
+    height: 10,
   },
 });
