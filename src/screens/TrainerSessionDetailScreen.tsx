@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -11,6 +11,14 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  DataCard,
+  EmptyState,
+  PanelHeader,
+  SectionLabel,
+  SegmentedTabs,
+  StatTiles,
+} from '../components/college/PanelChrome';
 import { FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -33,6 +41,7 @@ import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
 type Tab =
+  | 'overview'
   | 'materials'
   | 'assignments'
   | 'attendance'
@@ -40,12 +49,68 @@ type Tab =
   | 'feedback'
   | 'queries';
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+type Eligibility = {
+  eligible: boolean;
+  attendancePercent: number;
+  attendedDays: number;
+  totalDays: number;
+  assignmentsTotal: number;
+  assignmentsAccepted: number;
+  reasons: string[];
+};
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function clampDate(date: string, start: string, end: string): string {
+  if (date < start) return start;
+  if (date > end) return end;
+  return date;
+}
+
+function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function StatusChip({
+  label,
+  active,
+  tone,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  tone?: 'ok' | 'warn' | 'danger' | 'neutral';
+  onPress: () => void;
+}) {
+  const toneStyle =
+    tone === 'ok'
+      ? styles.chipOk
+      : tone === 'warn'
+        ? styles.chipWarn
+        : tone === 'danger'
+          ? styles.chipDanger
+          : styles.chipNeutral;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, toneStyle, active && styles.chipActive]}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export function TrainerSessionDetailScreen({ route }: Props) {
   const { requestId } = route.params;
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>('materials');
+  const [tab, setTab] = useState<Tab>('overview');
   const [session, setSession] = useState<CourseRequest | null>(null);
   const [materials, setMaterials] = useState<SessionMaterial[]>([]);
   const [assignments, setAssignments] = useState<SessionAssignment[]>([]);
@@ -53,29 +118,19 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [roster, setRoster] = useState<TrainingRegistration[]>([]);
   const [attendance, setAttendance] = useState<SessionAttendance[]>([]);
   const [certificates, setCertificates] = useState<SessionCertificate[]>([]);
-  const [eligibility, setEligibility] = useState<
-    Record<
-      string,
-      {
-        eligible: boolean;
-        attendancePercent: number;
-        attendedDays: number;
-        totalDays: number;
-        assignmentsTotal: number;
-        assignmentsAccepted: number;
-        reasons: string[];
-      }
-    >
-  >({});
+  const [eligibility, setEligibility] = useState<Record<string, Eligibility>>({});
   const [feedback, setFeedback] = useState<TrainerFeedback[]>([]);
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
+  const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
   const [matDesc, setMatDesc] = useState('');
   const [asgTitle, setAsgTitle] = useState('');
   const [asgInstructions, setAsgInstructions] = useState('');
   const [asgDue, setAsgDue] = useState('');
+  const [showPostAssignment, setShowPostAssignment] = useState(false);
+  const [showAddMaterial, setShowAddMaterial] = useState(false);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
@@ -83,29 +138,22 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
   const [selectedCerts, setSelectedCerts] = useState<Record<string, boolean>>({});
 
-  const load = useCallback(async () => {
+  const loadCore = useCallback(async () => {
     if (!user?.trainerId) return;
     const item = await sessionContentApi.getSession(requestId);
     setSession(item);
+    if (item && !dateReady) {
+      const preferred = clampDate(todayIso(), item.startDate, item.endDate);
+      setAttendanceDate(preferred);
+      setDateReady(true);
+    }
     setMaterials(await sessionContentApi.listMaterials(requestId));
     setAssignments(await sessionContentApi.listAssignments(requestId));
     setSubmissions(await sessionContentApi.listSubmissions(requestId));
-    setAttendance(await sessionContentApi.listAttendance(requestId, attendanceDate));
     setCertificates(await sessionContentApi.listCertificates(requestId));
     const regs = await trainingApi.listRegistrationsForSession(requestId);
     setRoster(regs);
-    const nextElig: Record<
-      string,
-      {
-        eligible: boolean;
-        attendancePercent: number;
-        attendedDays: number;
-        totalDays: number;
-        assignmentsTotal: number;
-        assignmentsAccepted: number;
-        reasons: string[];
-      }
-    > = {};
+    const nextElig: Record<string, Eligibility> = {};
     for (const reg of regs) {
       nextElig[reg.studentId] = await sessionContentApi.getCertificateEligibility(
         requestId,
@@ -117,13 +165,33 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     setFeedback(allFb.filter((f) => f.requestId === requestId));
     const allQ = await trainerApi.listQueries(user.trainerId);
     setQueries(allQ.filter((q) => q.requestId === requestId));
-  }, [attendanceDate, requestId, user?.trainerId]);
+  }, [dateReady, requestId, user?.trainerId]);
+
+  const loadAttendance = useCallback(async () => {
+    if (!DATE_RE.test(attendanceDate)) {
+      setAttendance([]);
+      return;
+    }
+    setAttendance(await sessionContentApi.listAttendance(requestId, attendanceDate));
+  }, [attendanceDate, requestId]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      loadCore();
+    }, [loadCore]),
   );
+
+  useEffect(() => {
+    if (!dateReady) return;
+    loadAttendance();
+  }, [dateReady, loadAttendance]);
+
+  const refreshAll = async () => {
+    setRefreshing(true);
+    await loadCore();
+    await loadAttendance();
+    setRefreshing(false);
+  };
 
   const attendanceMap = useMemo(() => {
     const map: Record<string, AttendanceStatus> = {};
@@ -136,8 +204,76 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     [certificates],
   );
 
+  const openQueries = useMemo(() => queries.filter((q) => q.status === 'open'), [queries]);
+  const answeredQueries = useMemo(
+    () => queries.filter((q) => q.status === 'answered'),
+    [queries],
+  );
+  const pendingSubs = useMemo(
+    () => submissions.filter((s) => s.status === 'submitted'),
+    [submissions],
+  );
+  const eligibleForCert = useMemo(
+    () =>
+      roster.filter(
+        (r) => !certifiedIds.has(r.studentId) && eligibility[r.studentId]?.eligible,
+      ),
+    [roster, certifiedIds, eligibility],
+  );
+  const notReadyCert = useMemo(
+    () =>
+      roster.filter(
+        (r) => !certifiedIds.has(r.studentId) && !eligibility[r.studentId]?.eligible,
+      ),
+    [roster, certifiedIds, eligibility],
+  );
+
+  const attStats = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let absent = 0;
+    let unmarked = 0;
+    for (const reg of roster) {
+      const s = attendanceMap[reg.studentId];
+      if (s === 'present') present += 1;
+      else if (s === 'late') late += 1;
+      else if (s === 'absent') absent += 1;
+      else unmarked += 1;
+    }
+    return { present, late, absent, unmarked };
+  }, [roster, attendanceMap]);
+
+  const selectedAttendanceList = useMemo(
+    () => roster.filter((r) => selectedAttendance[r.studentId]),
+    [roster, selectedAttendance],
+  );
+  const selectedCertList = useMemo(
+    () => roster.filter((r) => selectedCerts[r.studentId]),
+    [roster, selectedCerts],
+  );
+
+  const roleLabel =
+    session?.trainerId === user?.trainerId ? 'Primary trainer' : 'Backup trainer';
+
+  const setDateWithinSession = (next: string) => {
+    if (!session) {
+      setAttendanceDate(next);
+      return;
+    }
+    if (!DATE_RE.test(next)) {
+      setAttendanceDate(next);
+      return;
+    }
+    setAttendanceDate(clampDate(next, session.startDate, session.endDate));
+    setSelectedAttendance({});
+  };
+
   const addMaterial = async () => {
     if (!user?.trainerId) return;
+    if (!matTitle.trim()) {
+      Alert.alert('Title required', 'Enter a material title before uploading.');
+      return;
+    }
     try {
       setSaving(true);
       const file = await pickMockDocument();
@@ -150,8 +286,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       });
       setMatTitle('');
       setMatDesc('');
-      Alert.alert('Added', 'Material is available to registered students.');
-      await load();
+      setShowAddMaterial(false);
+      Alert.alert('Published', 'Students can now see this material.');
+      await loadCore();
     } catch (e) {
       if (e instanceof Error && e.message === 'Cancelled') return;
       Alert.alert('Unable to add', e instanceof Error ? e.message : 'Try again');
@@ -162,6 +299,10 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
   const addAssignment = async () => {
     if (!user?.trainerId) return;
+    if (!asgTitle.trim() || !asgInstructions.trim()) {
+      Alert.alert('Missing details', 'Title and instructions are required.');
+      return;
+    }
     try {
       setSaving(true);
       let file;
@@ -181,8 +322,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       setAsgTitle('');
       setAsgInstructions('');
       setAsgDue('');
-      Alert.alert('Added', 'Assignment is visible to registered students.');
-      await load();
+      setShowPostAssignment(false);
+      Alert.alert('Posted', 'Assignment is visible to registered students.');
+      await loadCore();
     } catch (e) {
       Alert.alert('Unable to add', e instanceof Error ? e.message : 'Try again');
     } finally {
@@ -192,6 +334,10 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
   const mark = async (reg: TrainingRegistration, status: AttendanceStatus) => {
     if (!user?.trainerId) return;
+    if (!DATE_RE.test(attendanceDate)) {
+      Alert.alert('Invalid date', 'Use YYYY-MM-DD within the batch dates.');
+      return;
+    }
     try {
       await sessionContentApi.markAttendance({
         requestId,
@@ -201,63 +347,26 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         sessionDate: attendanceDate,
         status,
       });
-      await load();
+      await loadAttendance();
+      await loadCore();
     } catch (e) {
       Alert.alert('Attendance failed', e instanceof Error ? e.message : 'Try again');
     }
   };
 
-  const selectedAttendanceList = useMemo(
-    () => roster.filter((r) => selectedAttendance[r.studentId]),
-    [roster, selectedAttendance],
-  );
-
-  const eligibleForCert = useMemo(
-    () =>
-      roster.filter(
-        (r) => !certifiedIds.has(r.studentId) && eligibility[r.studentId]?.eligible,
-      ),
-    [roster, certifiedIds, eligibility],
-  );
-
-  const selectedCertList = useMemo(
-    () => roster.filter((r) => selectedCerts[r.studentId]),
-    [roster, selectedCerts],
-  );
-
-  const toggleAttendance = (studentId: string) => {
-    setSelectedAttendance((prev) => ({ ...prev, [studentId]: !prev[studentId] }));
-  };
-
-  const toggleCert = (studentId: string) => {
-    setSelectedCerts((prev) => ({ ...prev, [studentId]: !prev[studentId] }));
-  };
-
-  const selectAllAttendance = () => {
-    const next: Record<string, boolean> = {};
-    for (const r of roster) next[r.studentId] = true;
-    setSelectedAttendance(next);
-  };
-
-  const clearAttendanceSelection = () => setSelectedAttendance({});
-
-  const selectAllEligibleCerts = () => {
-    const next: Record<string, boolean> = {};
-    for (const r of eligibleForCert) next[r.studentId] = true;
-    setSelectedCerts(next);
-  };
-
-  const clearCertSelection = () => setSelectedCerts({});
-
-  const markSelected = async (status: AttendanceStatus) => {
+  const markMany = async (regs: TrainingRegistration[], status: AttendanceStatus) => {
     if (!user?.trainerId) return;
-    if (selectedAttendanceList.length === 0) {
-      Alert.alert('Select students', 'Select one or more students to mark attendance.');
+    if (!DATE_RE.test(attendanceDate)) {
+      Alert.alert('Invalid date', 'Use YYYY-MM-DD within the batch dates.');
+      return;
+    }
+    if (regs.length === 0) {
+      Alert.alert('No students', 'Select students or use Mark all.');
       return;
     }
     try {
       setSaving(true);
-      for (const reg of selectedAttendanceList) {
+      for (const reg of regs) {
         await sessionContentApi.markAttendance({
           requestId,
           trainerId: user.trainerId,
@@ -267,54 +376,15 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           status,
         });
       }
-      clearAttendanceSelection();
+      setSelectedAttendance({});
       Alert.alert(
-        'Attendance saved',
-        `Marked ${selectedAttendanceList.length} student(s) as ${status.replace('_', ' ')}.`,
+        'Saved',
+        `Marked ${regs.length} student(s) as ${status === 'present' ? 'Present' : status === 'late' ? 'Late' : 'Absent'}.`,
       );
-      await load();
+      await loadAttendance();
+      await loadCore();
     } catch (e) {
       Alert.alert('Attendance failed', e instanceof Error ? e.message : 'Try again');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const issueSelected = async () => {
-    if (!user?.trainerId) return;
-    const targets = selectedCertList.filter(
-      (r) => !certifiedIds.has(r.studentId) && eligibility[r.studentId]?.eligible,
-    );
-    if (targets.length === 0) {
-      Alert.alert(
-        'Select students',
-        'Select one or more eligible students to issue certificates.',
-      );
-      return;
-    }
-    try {
-      setSaving(true);
-      let count = 0;
-      for (const reg of targets) {
-        try {
-          await sessionContentApi.issueCertificate({
-            requestId,
-            trainerId: user.trainerId,
-            trainerName: user.name,
-            studentId: reg.studentId,
-            studentName: reg.studentName,
-            collegeName: reg.collegeName,
-          });
-          count += 1;
-        } catch {
-          // skip failures for individual students
-        }
-      }
-      clearCertSelection();
-      Alert.alert('Certificates', `Issued ${count} certificate(s).`);
-      await load();
-    } catch (e) {
-      Alert.alert('Unable to issue', e instanceof Error ? e.message : 'Try again');
     } finally {
       setSaving(false);
     }
@@ -328,9 +398,13 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     try {
       const scoreRaw = scoreDrafts[submissionId]?.trim();
       const score =
-        status === 'accepted' && scoreRaw !== undefined && scoreRaw !== ''
+        status === 'accepted' && scoreRaw
           ? Number(scoreRaw)
           : undefined;
+      if (status === 'accepted' && scoreRaw && (Number.isNaN(score!) || score! < 0 || score! > 20)) {
+        Alert.alert('Invalid score', 'Enter a score between 0 and 20, or leave blank.');
+        return;
+      }
       await sessionContentApi.reviewSubmission({
         submissionId,
         trainerId: user.trainerId,
@@ -341,7 +415,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       });
       setReviewDrafts((prev) => ({ ...prev, [submissionId]: '' }));
       setScoreDrafts((prev) => ({ ...prev, [submissionId]: '' }));
-      await load();
+      await loadCore();
     } catch (e) {
       Alert.alert('Review failed', e instanceof Error ? e.message : 'Try again');
     }
@@ -359,13 +433,50 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         collegeName: reg.collegeName,
       });
       Alert.alert('Issued', `Certificate issued to ${reg.studentName}.`);
-      await load();
+      await loadCore();
     } catch (e) {
       Alert.alert('Unable to issue', e instanceof Error ? e.message : 'Try again');
     }
   };
 
-  const issueAll = async () => {
+  const issueSelected = async () => {
+    if (!user?.trainerId) return;
+    const targets = selectedCertList.filter(
+      (r) => !certifiedIds.has(r.studentId) && eligibility[r.studentId]?.eligible,
+    );
+    if (targets.length === 0) {
+      Alert.alert('Select eligible students', 'Only eligible students can receive certificates.');
+      return;
+    }
+    try {
+      setSaving(true);
+      let count = 0;
+      for (const reg of targets) {
+        try {
+          await sessionContentApi.issueCertificate({
+            requestId,
+            trainerId: user.trainerId,
+            trainerName: user.name,
+            studentId: reg.studentId,
+            studentName: reg.studentName,
+            collegeName: reg.collegeName,
+          });
+          count += 1;
+        } catch {
+          // skip individual failures
+        }
+      }
+      setSelectedCerts({});
+      Alert.alert('Certificates', `Issued ${count} certificate(s).`);
+      await loadCore();
+    } catch (e) {
+      Alert.alert('Unable to issue', e instanceof Error ? e.message : 'Try again');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const issueAllEligible = async () => {
     if (!user?.trainerId) return;
     try {
       setSaving(true);
@@ -377,10 +488,10 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       Alert.alert(
         'Certificates',
         count === 0
-          ? 'No new certificates issued. Need ≥75% attendance (Present/Late) and all assignments accepted.'
+          ? 'No one is eligible yet. Need ≥75% attendance (Present/Late) and all assignments accepted.'
           : `Issued ${count} certificate(s).`,
       );
-      await load();
+      await loadCore();
     } catch (e) {
       Alert.alert('Unable to issue', e instanceof Error ? e.message : 'Try again');
     } finally {
@@ -389,17 +500,41 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   };
 
   const answerQuery = async (queryId: string) => {
+    const answer = (answerDrafts[queryId] || '').trim();
+    if (!answer) {
+      Alert.alert('Answer required', 'Type a reply before sending.');
+      return;
+    }
     try {
-      await trainerApi.answerQuery(queryId, answerDrafts[queryId] || '');
+      await trainerApi.answerQuery(queryId, answer);
       setAnswerDrafts((prev) => ({ ...prev, [queryId]: '' }));
-      await load();
+      await loadCore();
     } catch (e) {
       Alert.alert('Unable to answer', e instanceof Error ? e.message : 'Try again');
     }
   };
 
-  const openQueries = queries.filter((q) => q.status === 'open').length;
-  const pendingSubs = submissions.filter((s) => s.status === 'submitted').length;
+  const tabOptions: { value: Tab; label: string }[] = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'materials', label: `Materials (${materials.length})` },
+    {
+      value: 'assignments',
+      label: pendingSubs.length ? `Assignments (${pendingSubs.length})` : 'Assignments',
+    },
+    {
+      value: 'attendance',
+      label: attStats.unmarked ? `Attendance (${attStats.unmarked})` : 'Attendance',
+    },
+    {
+      value: 'certificates',
+      label: eligibleForCert.length ? `Certificates (${eligibleForCert.length})` : 'Certificates',
+    },
+    { value: 'feedback', label: `Feedback (${feedback.length})` },
+    {
+      value: 'queries',
+      label: openQueries.length ? `Queries (${openQueries.length})` : 'Queries',
+    },
+  ];
 
   return (
     <Screen
@@ -414,63 +549,123 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={async () => {
-              setRefreshing(true);
-              await load();
-              setRefreshing(false);
-            }}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={refreshAll} />
         }
+        keyboardShouldPersistTaps="handled"
       >
         {session ? (
-          <View style={styles.card}>
-            <Text style={styles.workspaceLabel}>Session workspace</Text>
+          <DataCard>
+            <Text style={styles.eyebrow}>Session workspace</Text>
             <Text style={styles.meta}>
-              {session.branch} · Batch {session.batchSize} · Grad year {session.yearOfGraduation}
+              {session.branch} · Batch {session.batchSize} · YOG {session.yearOfGraduation}
             </Text>
             <Text style={styles.meta}>
-              Your role:{' '}
-              {session.trainerId === user?.trainerId ? 'Primary trainer' : 'Backup trainer'}
+              {roleLabel} · {roster.length} student{roster.length === 1 ? '' : 's'} enrolled
             </Text>
-            <Text style={styles.meta}>
-              Students: {roster.length} · Pending reviews: {pendingSubs} · Open queries:{' '}
-              {openQueries}
-            </Text>
-          </View>
+          </DataCard>
         ) : null}
 
-        <View style={styles.tabs}>
-          {(
-            [
-              ['materials', 'Materials'],
-              ['assignments', `Assignments${pendingSubs ? ` (${pendingSubs})` : ''}`],
-              ['attendance', 'Attendance'],
-              ['certificates', 'Certificates'],
-              ['feedback', 'Feedback'],
-              ['queries', `Queries${openQueries ? ` (${openQueries})` : ''}`],
-            ] as const
-          ).map(([key, label]) => (
-            <Pressable
-              key={key}
-              onPress={() => setTab(key)}
-              style={[styles.tab, tab === key && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SegmentedTabs value={tab} options={tabOptions} onChange={setTab} />
+
+        {tab === 'overview' ? (
+          <>
+            <PanelHeader
+              title="What needs attention"
+              subtitle="Jump to the work that is waiting on you"
+            />
+            <StatTiles
+              items={[
+                {
+                  label: 'Pending reviews',
+                  value: String(pendingSubs.length),
+                  hint: 'Assignment submissions',
+                  onPress: () => setTab('assignments'),
+                },
+                {
+                  label: 'Open queries',
+                  value: String(openQueries.length),
+                  onPress: () => setTab('queries'),
+                },
+                {
+                  label: 'Unmarked today',
+                  value: String(attStats.unmarked),
+                  hint: attendanceDate,
+                  onPress: () => setTab('attendance'),
+                },
+                {
+                  label: 'Ready for cert',
+                  value: String(eligibleForCert.length),
+                  onPress: () => setTab('certificates'),
+                },
+              ]}
+            />
+            <SectionLabel>Suggested workflow</SectionLabel>
+            <DataCard>
+              <Text style={styles.body}>
+                1. Upload materials → 2. Post assignments → 3. Mark attendance each day → 4. Review
+                submissions → 5. Answer queries → 6. Issue certificates when eligible.
+              </Text>
+            </DataCard>
+            {pendingSubs.length > 0 ? (
+              <PrimaryButton
+                title={`Review ${pendingSubs.length} submission(s)`}
+                onPress={() => setTab('assignments')}
+              />
+            ) : null}
+            <View style={styles.gap} />
+            {openQueries.length > 0 ? (
+              <PrimaryButton
+                title={`Answer ${openQueries.length} open quer${openQueries.length === 1 ? 'y' : 'ies'}`}
+                variant="secondary"
+                onPress={() => setTab('queries')}
+              />
+            ) : null}
+          </>
+        ) : null}
 
         {tab === 'materials' ? (
           <>
-            <Text style={styles.h2}>Session materials</Text>
+            <PanelHeader
+              title="Learning materials"
+              subtitle="Students see these in their session Materials tab"
+              action={
+                <PrimaryButton
+                  title={showAddMaterial ? 'Cancel' : 'Add material'}
+                  variant="secondary"
+                  onPress={() => setShowAddMaterial((v) => !v)}
+                />
+              }
+            />
+            {showAddMaterial ? (
+              <DataCard>
+                <FormField
+                  label="Title"
+                  required
+                  value={matTitle}
+                  onChangeText={setMatTitle}
+                  placeholder="e.g. Day 1 slides"
+                />
+                <FormField
+                  label="Description (optional)"
+                  value={matDesc}
+                  onChangeText={setMatDesc}
+                />
+                <PrimaryButton
+                  title={saving ? 'Uploading…' : 'Choose file & publish'}
+                  onPress={addMaterial}
+                  disabled={saving}
+                />
+              </DataCard>
+            ) : null}
             {materials.length === 0 ? (
-              <Text style={styles.muted}>No materials yet. Upload PDFs, slides, or notes.</Text>
+              <EmptyState
+                title="No materials yet"
+                body="Add slides, notes, or handouts so students can download them."
+              />
             ) : (
               materials.map((item) => (
-                <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
+                <DataCard key={item.id}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
                   {item.description ? <Text style={styles.meta}>{item.description}</Text> : null}
                   <Text style={styles.meta}>
                     {item.file.fileName} · {item.file.sizeLabel}
@@ -479,36 +674,120 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                     onPress={async () => {
                       if (!user?.trainerId) return;
                       await sessionContentApi.removeMaterial(item.id, user.trainerId);
-                      await load();
+                      await loadCore();
                     }}
                   >
                     <Text style={styles.linkDanger}>Remove</Text>
                   </Pressable>
-                </View>
+                </DataCard>
               ))
             )}
-            <Text style={styles.h2}>Add material</Text>
-            <FormField label="Title" value={matTitle} onChangeText={setMatTitle} required />
-            <FormField label="Description (optional)" value={matDesc} onChangeText={setMatDesc} />
-            <PrimaryButton
-              title={saving ? 'Uploading…' : 'Upload material file'}
-              onPress={addMaterial}
-              disabled={saving}
-            />
           </>
         ) : null}
 
         {tab === 'assignments' ? (
           <>
-            <Text style={styles.h2}>Assignments & submissions</Text>
+            <PanelHeader
+              title="Assignments"
+              subtitle="Post work, then accept or send back for revision (score out of 20 on accept)"
+              action={
+                <PrimaryButton
+                  title={showPostAssignment ? 'Cancel' : 'Post assignment'}
+                  variant="secondary"
+                  onPress={() => setShowPostAssignment((v) => !v)}
+                />
+              }
+            />
+
+            {showPostAssignment ? (
+              <DataCard>
+                <FormField label="Title" required value={asgTitle} onChangeText={setAsgTitle} />
+                <FormField
+                  label="Instructions"
+                  required
+                  value={asgInstructions}
+                  onChangeText={setAsgInstructions}
+                  multiline
+                  style={{ minHeight: 80, textAlignVertical: 'top' }}
+                />
+                <FormField
+                  label="Due date (YYYY-MM-DD, optional)"
+                  value={asgDue}
+                  onChangeText={setAsgDue}
+                  placeholder="2026-08-20"
+                />
+                <PrimaryButton
+                  title={saving ? 'Saving…' : 'Choose optional file & post'}
+                  onPress={addAssignment}
+                  disabled={saving}
+                />
+              </DataCard>
+            ) : null}
+
+            {pendingSubs.length > 0 ? (
+              <>
+                <SectionLabel>{`Needs your review (${pendingSubs.length})`}</SectionLabel>
+                {pendingSubs.map((sub) => {
+                  const asgTitle =
+                    assignments.find((a) => a.id === sub.assignmentId)?.title || 'Assignment';
+                  return (
+                  <DataCard key={sub.id}>
+                    <View style={styles.row}>
+                      <Text style={styles.cardTitle}>{sub.studentName}</Text>
+                      <StatusBadge status={sub.status} />
+                    </View>
+                    <Text style={styles.meta}>{asgTitle}</Text>
+                    <Text style={styles.meta}>
+                      {sub.file.fileName} · {sub.file.sizeLabel}
+                    </Text>
+                    {sub.notes ? <Text style={styles.meta}>Student note: {sub.notes}</Text> : null}
+                    <TextInput
+                      style={styles.answerBox}
+                      placeholder="Remark to student (optional)"
+                      placeholderTextColor={colors.textMuted}
+                      value={reviewDrafts[sub.id] || ''}
+                      onChangeText={(v) =>
+                        setReviewDrafts((prev) => ({ ...prev, [sub.id]: v }))
+                      }
+                    />
+                    <FormField
+                      label="Score / 20 (optional when accepting)"
+                      value={scoreDrafts[sub.id] || ''}
+                      onChangeText={(v) =>
+                        setScoreDrafts((prev) => ({ ...prev, [sub.id]: v }))
+                      }
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 16"
+                    />
+                    <View style={styles.rowBtns}>
+                      <PrimaryButton title="Accept" onPress={() => review(sub.id, 'accepted')} />
+                      <PrimaryButton
+                        title="Needs revision"
+                        variant="secondary"
+                        onPress={() => review(sub.id, 'needs_revision')}
+                      />
+                    </View>
+                  </DataCard>
+                  );
+                })}
+              </>
+            ) : (
+              <EmptyState
+                title="No pending reviews"
+                body="When students submit work, it appears here for Accept / Needs revision."
+              />
+            )}
+
+            <SectionLabel>{`Posted assignments (${assignments.length})`}</SectionLabel>
             {assignments.length === 0 ? (
-              <Text style={styles.muted}>No assignments posted for this session.</Text>
+              <EmptyState title="No assignments posted" body="Use Post assignment to create one." />
             ) : (
               assignments.map((item) => {
                 const subs = submissions.filter((s) => s.assignmentId === item.id);
+                const waiting = subs.filter((s) => s.status === 'submitted').length;
                 return (
-                  <View key={item.id} style={styles.item}>
-                    <Text style={styles.itemTitle}>{item.title}</Text>
+                  <DataCard key={item.id}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
                     <Text style={styles.body}>{item.instructions}</Text>
                     {item.dueDate ? <Text style={styles.meta}>Due: {item.dueDate}</Text> : null}
                     {item.file ? (
@@ -516,180 +795,201 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                         File: {item.file.fileName} · {item.file.sizeLabel}
                       </Text>
                     ) : null}
+                    <Text style={styles.meta}>
+                      Submissions: {subs.length}
+                      {waiting ? ` · ${waiting} waiting review` : ''}
+                    </Text>
                     <Pressable
                       onPress={async () => {
                         if (!user?.trainerId) return;
-                        await sessionContentApi.removeAssignment(item.id, user.trainerId);
-                        await load();
+                        Alert.alert('Remove assignment?', 'Students will no longer see it.', [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Remove',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await sessionContentApi.removeAssignment(item.id, user.trainerId!);
+                              await loadCore();
+                            },
+                          },
+                        ]);
                       }}
                     >
                       <Text style={styles.linkDanger}>Remove assignment</Text>
                     </Pressable>
-
-                    <Text style={styles.subHead}>Submissions ({subs.length})</Text>
-                    {subs.length === 0 ? (
-                      <Text style={styles.muted}>No student submissions yet.</Text>
-                    ) : (
-                      subs.map((sub) => (
-                        <View key={sub.id} style={styles.subCard}>
-                          <View style={styles.row}>
-                            <Text style={styles.itemTitle}>{sub.studentName}</Text>
-                            <StatusBadge status={sub.status} />
-                          </View>
-                          <Text style={styles.meta}>
-                            {sub.file.fileName} · {sub.file.sizeLabel}
-                          </Text>
-                          {sub.notes ? <Text style={styles.meta}>Note: {sub.notes}</Text> : null}
-                          {sub.trainerRemark ? (
-                            <Text style={styles.ok}>Remark: {sub.trainerRemark}</Text>
-                          ) : null}
-                          {sub.score !== undefined && sub.maxScore !== undefined ? (
-                            <Text style={styles.ok}>
-                              Score: {sub.score} / {sub.maxScore}
-                            </Text>
-                          ) : null}
-                          {sub.status === 'submitted' ? (
-                            <>
-                              <TextInput
-                                style={styles.answerBox}
-                                placeholder="Review remark (optional)"
-                                placeholderTextColor={colors.textMuted}
-                                value={reviewDrafts[sub.id] || ''}
-                                onChangeText={(v) =>
-                                  setReviewDrafts((prev) => ({ ...prev, [sub.id]: v }))
-                                }
-                              />
-                              <FormField
-                                label="Score out of 20 (optional, on Accept)"
-                                value={scoreDrafts[sub.id] || ''}
-                                onChangeText={(v) =>
-                                  setScoreDrafts((prev) => ({ ...prev, [sub.id]: v }))
-                                }
-                                keyboardType="decimal-pad"
-                                placeholder="e.g. 16"
-                              />
-                              <View style={styles.rowBtns}>
-                                <PrimaryButton
-                                  title="Accept"
-                                  onPress={() => review(sub.id, 'accepted')}
-                                />
-                                <PrimaryButton
-                                  title="Needs revision"
-                                  variant="secondary"
-                                  onPress={() => review(sub.id, 'needs_revision')}
-                                />
-                              </View>
-                            </>
-                          ) : null}
-                        </View>
-                      ))
-                    )}
-                  </View>
+                  </DataCard>
                 );
               })
             )}
-            <Text style={styles.h2}>Post assignment</Text>
-            <FormField label="Title" value={asgTitle} onChangeText={setAsgTitle} required />
-            <FormField
-              label="Instructions"
-              value={asgInstructions}
-              onChangeText={setAsgInstructions}
-              multiline
-              style={{ minHeight: 80, textAlignVertical: 'top' }}
-              required
-            />
-            <FormField
-              label="Due date (YYYY-MM-DD, optional)"
-              value={asgDue}
-              onChangeText={setAsgDue}
-              placeholder="2026-08-20"
-            />
-            <PrimaryButton
-              title={saving ? 'Saving…' : 'Add assignment (+ optional file)'}
-              onPress={addAssignment}
-              disabled={saving}
-            />
           </>
         ) : null}
 
         {tab === 'attendance' ? (
           <>
-            <Text style={styles.h2}>Mark attendance</Text>
-            <FormField
-              label="Session date"
-              value={attendanceDate}
-              onChangeText={setAttendanceDate}
-              placeholder="YYYY-MM-DD"
+            <PanelHeader
+              title="Daily attendance"
+              subtitle={
+                session
+                  ? `Mark for one day between ${session.startDate} and ${session.endDate}`
+                  : 'Mark Present, Late, or Absent'
+              }
             />
-            <PrimaryButton title="Load date" variant="secondary" onPress={load} />
+
+            <DataCard>
+              <Text style={styles.sectionHint}>Session day</Text>
+              <View style={styles.dateRow}>
+                <PrimaryButton
+                  title="← Prev"
+                  variant="secondary"
+                  onPress={() => {
+                    if (!session || !DATE_RE.test(attendanceDate)) return;
+                    setDateWithinSession(shiftDate(attendanceDate, -1));
+                  }}
+                />
+                <View style={styles.dateField}>
+                  <FormField
+                    label="Date (YYYY-MM-DD)"
+                    value={attendanceDate}
+                    onChangeText={setDateWithinSession}
+                    placeholder="2026-08-07"
+                  />
+                </View>
+                <PrimaryButton
+                  title="Next →"
+                  variant="secondary"
+                  onPress={() => {
+                    if (!session || !DATE_RE.test(attendanceDate)) return;
+                    setDateWithinSession(shiftDate(attendanceDate, 1));
+                  }}
+                />
+              </View>
+              <Text style={styles.meta}>
+                Roster updates automatically for this date — no separate Load step.
+              </Text>
+            </DataCard>
 
             {roster.length === 0 ? (
-              <Text style={styles.muted}>No registered students in this batch yet.</Text>
+              <EmptyState
+                title="No students enrolled"
+                body="Attendance appears after students register for this batch."
+              />
             ) : (
               <>
-                <View style={styles.bulkBar}>
-                  <Text style={styles.bulkTitle}>
-                    Bulk select · {selectedAttendanceList.length} selected
-                  </Text>
-                  <View style={styles.rowBtns}>
-                    <PrimaryButton title="Select all" variant="secondary" onPress={selectAllAttendance} />
-                    <PrimaryButton
-                      title="Clear"
-                      variant="secondary"
-                      onPress={clearAttendanceSelection}
-                    />
-                  </View>
-                  <View style={styles.rowBtns}>
-                    <PrimaryButton
-                      title={saving ? 'Saving…' : 'Mark Present'}
-                      onPress={() => markSelected('present')}
-                      disabled={saving || selectedAttendanceList.length === 0}
-                    />
-                    <PrimaryButton
-                      title="Mark Late"
-                      variant="secondary"
-                      onPress={() => markSelected('late')}
-                      disabled={saving || selectedAttendanceList.length === 0}
-                    />
-                    <PrimaryButton
-                      title="Mark Absent"
-                      variant="danger"
-                      onPress={() => markSelected('absent')}
-                      disabled={saving || selectedAttendanceList.length === 0}
-                    />
-                  </View>
+                <StatTiles
+                  items={[
+                    { label: 'Present', value: String(attStats.present) },
+                    { label: 'Late', value: String(attStats.late) },
+                    { label: 'Absent', value: String(attStats.absent) },
+                    { label: 'Not marked', value: String(attStats.unmarked) },
+                  ]}
+                />
+
+                <SectionLabel>Quick actions</SectionLabel>
+                <View style={styles.rowBtns}>
+                  <PrimaryButton
+                    title={saving ? 'Saving…' : 'Mark all Present'}
+                    onPress={() => markMany(roster, 'present')}
+                    disabled={saving}
+                  />
+                  <PrimaryButton
+                    title="Mark unmarked Absent"
+                    variant="secondary"
+                    onPress={() =>
+                      markMany(
+                        roster.filter((r) => !attendanceMap[r.studentId]),
+                        'absent',
+                      )
+                    }
+                    disabled={saving || attStats.unmarked === 0}
+                  />
                 </View>
 
+                <SectionLabel>
+                  {`Selected (${selectedAttendanceList.length}) — then apply status`}
+                </SectionLabel>
+                <View style={styles.rowBtns}>
+                  <PrimaryButton
+                    title="Select all"
+                    variant="secondary"
+                    onPress={() => {
+                      const next: Record<string, boolean> = {};
+                      for (const r of roster) next[r.studentId] = true;
+                      setSelectedAttendance(next);
+                    }}
+                  />
+                  <PrimaryButton
+                    title="Clear"
+                    variant="secondary"
+                    onPress={() => setSelectedAttendance({})}
+                  />
+                </View>
+                <View style={styles.rowBtns}>
+                  <PrimaryButton
+                    title="Present"
+                    onPress={() => markMany(selectedAttendanceList, 'present')}
+                    disabled={saving || selectedAttendanceList.length === 0}
+                  />
+                  <PrimaryButton
+                    title="Late"
+                    variant="secondary"
+                    onPress={() => markMany(selectedAttendanceList, 'late')}
+                    disabled={saving || selectedAttendanceList.length === 0}
+                  />
+                  <PrimaryButton
+                    title="Absent"
+                    variant="danger"
+                    onPress={() => markMany(selectedAttendanceList, 'absent')}
+                    disabled={saving || selectedAttendanceList.length === 0}
+                  />
+                </View>
+
+                <SectionLabel>Student roster</SectionLabel>
                 {roster.map((reg) => {
                   const status = attendanceMap[reg.studentId];
                   const checked = !!selectedAttendance[reg.studentId];
                   return (
-                    <View
-                      key={reg.id}
-                      style={[styles.item, checked && styles.itemSelected]}
-                    >
-                      <Pressable style={styles.row} onPress={() => toggleAttendance(reg.studentId)}>
+                    <DataCard key={reg.id}>
+                      <Pressable
+                        style={styles.row}
+                        onPress={() =>
+                          setSelectedAttendance((prev) => ({
+                            ...prev,
+                            [reg.studentId]: !prev[reg.studentId],
+                          }))
+                        }
+                      >
                         <View style={[styles.check, checked && styles.checkOn]}>
                           {checked ? <Text style={styles.checkMark}>✓</Text> : null}
                         </View>
-                        <Text style={styles.itemTitle}>{reg.studentName}</Text>
-                        {status ? <StatusBadge status={status} /> : null}
+                        <View style={styles.flex}>
+                          <Text style={styles.cardTitle}>{reg.studentName}</Text>
+                          <Text style={styles.meta}>{reg.studentEmail}</Text>
+                        </View>
+                        {status ? <StatusBadge status={status} /> : (
+                          <Text style={styles.unmarked}>Not marked</Text>
+                        )}
                       </Pressable>
-                      <Text style={styles.meta}>{reg.studentEmail}</Text>
-                      <View style={styles.rowBtns}>
-                        <PrimaryButton title="Present" onPress={() => mark(reg, 'present')} />
-                        <PrimaryButton
-                          title="Late"
-                          variant="secondary"
+                      <View style={styles.chipRow}>
+                        <StatusChip
+                          label="Present"
+                          tone="ok"
+                          active={status === 'present'}
+                          onPress={() => mark(reg, 'present')}
+                        />
+                        <StatusChip
+                          label="Late"
+                          tone="warn"
+                          active={status === 'late'}
                           onPress={() => mark(reg, 'late')}
                         />
-                        <PrimaryButton
-                          title="Absent"
-                          variant="danger"
+                        <StatusChip
+                          label="Absent"
+                          tone="danger"
+                          active={status === 'absent'}
                           onPress={() => mark(reg, 'absent')}
                         />
                       </View>
-                    </View>
+                    </DataCard>
                   );
                 })}
               </>
@@ -699,48 +999,53 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
         {tab === 'certificates' ? (
           <>
-            <Text style={styles.h2}>Issue certificates</Text>
-            <Text style={styles.muted}>
-              Criteria: minimum 75% attendance (Present or Late across marked session days) and all
-              posted assignments accepted. Issuing marks the registration as completed.
-            </Text>
+            <PanelHeader
+              title="Certificates"
+              subtitle="Issue only when attendance ≥75% (Present/Late) and all assignments are accepted"
+            />
+            <StatTiles
+              items={[
+                { label: 'Issued', value: String(certificates.length) },
+                { label: 'Eligible now', value: String(eligibleForCert.length) },
+                { label: 'Not ready', value: String(notReadyCert.length) },
+              ]}
+            />
 
             {roster.length === 0 ? (
-              <Text style={styles.muted}>No registered students.</Text>
+              <EmptyState title="No students in this batch" />
             ) : (
               <>
-                <View style={styles.bulkBar}>
-                  <Text style={styles.bulkTitle}>
-                    Bulk issue · {selectedCertList.length} selected · {eligibleForCert.length}{' '}
-                    eligible
-                  </Text>
-                  <View style={styles.rowBtns}>
-                    <PrimaryButton
-                      title="Select all eligible"
-                      variant="secondary"
-                      onPress={selectAllEligibleCerts}
-                    />
-                    <PrimaryButton
-                      title="Clear"
-                      variant="secondary"
-                      onPress={clearCertSelection}
-                    />
-                  </View>
-                  <View style={styles.rowBtns}>
-                    <PrimaryButton
-                      title={saving ? 'Issuing…' : 'Issue selected'}
-                      onPress={issueSelected}
-                      disabled={saving || selectedCertList.length === 0}
-                    />
-                    <PrimaryButton
-                      title="Issue all eligible"
-                      variant="secondary"
-                      onPress={issueAll}
-                      disabled={saving || eligibleForCert.length === 0}
-                    />
-                  </View>
+                <View style={styles.rowBtns}>
+                  <PrimaryButton
+                    title={saving ? 'Issuing…' : 'Issue all eligible'}
+                    onPress={issueAllEligible}
+                    disabled={saving || eligibleForCert.length === 0}
+                  />
+                  <PrimaryButton
+                    title="Select all eligible"
+                    variant="secondary"
+                    onPress={() => {
+                      const next: Record<string, boolean> = {};
+                      for (const r of eligibleForCert) next[r.studentId] = true;
+                      setSelectedCerts(next);
+                    }}
+                  />
+                </View>
+                <View style={styles.rowBtns}>
+                  <PrimaryButton
+                    title={`Issue selected (${selectedCertList.length})`}
+                    variant="secondary"
+                    onPress={issueSelected}
+                    disabled={saving || selectedCertList.length === 0}
+                  />
+                  <PrimaryButton
+                    title="Clear selection"
+                    variant="secondary"
+                    onPress={() => setSelectedCerts({})}
+                  />
                 </View>
 
+                <SectionLabel>Students</SectionLabel>
                 {roster.map((reg) => {
                   const issued = certifiedIds.has(reg.studentId);
                   const cert = certificates.find((c) => c.studentId === reg.studentId);
@@ -748,14 +1053,15 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   const canSelect = !issued && !!elig?.eligible;
                   const checked = !!selectedCerts[reg.studentId];
                   return (
-                    <View
-                      key={reg.id}
-                      style={[styles.item, checked && styles.itemSelected]}
-                    >
+                    <DataCard key={reg.id}>
                       <Pressable
                         style={styles.row}
                         onPress={() => {
-                          if (canSelect) toggleCert(reg.studentId);
+                          if (!canSelect) return;
+                          setSelectedCerts((prev) => ({
+                            ...prev,
+                            [reg.studentId]: !prev[reg.studentId],
+                          }));
                         }}
                         disabled={!canSelect}
                       >
@@ -766,7 +1072,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                         ) : (
                           <View style={styles.checkSpacer} />
                         )}
-                        <Text style={styles.itemTitle}>{reg.studentName}</Text>
+                        <Text style={[styles.cardTitle, styles.flex]}>{reg.studentName}</Text>
                         <StatusBadge
                           status={issued ? 'issued' : elig?.eligible ? 'eligible' : 'pending'}
                         />
@@ -774,25 +1080,32 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                       {elig && !issued ? (
                         <Text style={styles.meta}>
                           Attendance {elig.attendancePercent}% ({elig.attendedDays}/
-                          {elig.totalDays}) · Assignments {elig.assignmentsAccepted}/
+                          {elig.totalDays} days) · Assignments {elig.assignmentsAccepted}/
                           {elig.assignmentsTotal} accepted
                         </Text>
                       ) : null}
                       {elig && !issued && !elig.eligible
                         ? elig.reasons.map((reason) => (
                             <Text key={reason} style={styles.warnLine}>
-                              {reason}
+                              · {reason}
                             </Text>
                           ))
                         : null}
                       {cert ? (
                         <Text style={styles.ok}>
-                          {cert.certificateCode} · {new Date(cert.issuedAt).toLocaleDateString()}
+                          {cert.certificateCode} · issued{' '}
+                          {new Date(cert.issuedAt).toLocaleDateString()}
                         </Text>
                       ) : canSelect ? (
-                        <PrimaryButton title="Issue certificate" onPress={() => issueOne(reg)} />
+                        <>
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title="Issue certificate"
+                            onPress={() => issueOne(reg)}
+                          />
+                        </>
                       ) : null}
-                    </View>
+                    </DataCard>
                   );
                 })}
               </>
@@ -802,19 +1115,25 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
         {tab === 'feedback' ? (
           <>
-            <Text style={styles.h2}>Student feedback for this session</Text>
+            <PanelHeader
+              title="Student feedback"
+              subtitle="Ratings and comments for this batch only"
+            />
             {feedback.length === 0 ? (
-              <Text style={styles.muted}>No student feedback yet for this session.</Text>
+              <EmptyState
+                title="No feedback yet"
+                body="Feedback appears after students submit it for this session."
+              />
             ) : (
               feedback.map((item) => (
-                <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemTitle}>
+                <DataCard key={item.id}>
+                  <Text style={styles.cardTitle}>
                     {item.fromName}
                     {item.rating ? ` · ${item.rating}/5` : ''}
                   </Text>
                   <Text style={styles.body}>{item.comment}</Text>
                   <Text style={styles.meta}>{new Date(item.createdAt).toLocaleString()}</Text>
-                </View>
+                </DataCard>
               ))
             )}
           </>
@@ -822,37 +1141,51 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
         {tab === 'queries' ? (
           <>
-            <Text style={styles.h2}>Student queries for this session</Text>
-            {queries.length === 0 ? (
-              <Text style={styles.muted}>No queries from students for this session.</Text>
+            <PanelHeader
+              title="Student queries"
+              subtitle="Answer open questions; answered threads stay for reference"
+            />
+            <SectionLabel>{`Open (${openQueries.length})`}</SectionLabel>
+            {openQueries.length === 0 ? (
+              <EmptyState title="No open queries" body="New student questions will show here." />
             ) : (
-              queries.map((item) => (
-                <View key={item.id} style={styles.item}>
+              openQueries.map((item) => (
+                <DataCard key={item.id}>
                   <View style={styles.row}>
-                    <Text style={styles.itemTitle}>{item.studentName}</Text>
+                    <Text style={styles.cardTitle}>{item.studentName}</Text>
                     <StatusBadge status={item.status} />
                   </View>
                   <Text style={styles.body}>{item.question}</Text>
-                  {item.answer ? (
-                    <Text style={styles.ok}>Answer: {item.answer}</Text>
-                  ) : (
-                    <>
-                      <TextInput
-                        style={styles.answerBox}
-                        placeholder="Type your answer"
-                        placeholderTextColor={colors.textMuted}
-                        value={answerDrafts[item.id] || ''}
-                        onChangeText={(v) =>
-                          setAnswerDrafts((prev) => ({ ...prev, [item.id]: v }))
-                        }
-                        multiline
-                      />
-                      <PrimaryButton title="Send answer" onPress={() => answerQuery(item.id)} />
-                    </>
-                  )}
-                </View>
+                  <TextInput
+                    style={styles.answerBox}
+                    placeholder="Type your answer"
+                    placeholderTextColor={colors.textMuted}
+                    value={answerDrafts[item.id] || ''}
+                    onChangeText={(v) =>
+                      setAnswerDrafts((prev) => ({ ...prev, [item.id]: v }))
+                    }
+                    multiline
+                  />
+                  <PrimaryButton title="Send answer" onPress={() => answerQuery(item.id)} />
+                </DataCard>
               ))
             )}
+
+            {answeredQueries.length > 0 ? (
+              <>
+                <SectionLabel>{`Answered (${answeredQueries.length})`}</SectionLabel>
+                {answeredQueries.map((item) => (
+                  <DataCard key={item.id}>
+                    <View style={styles.row}>
+                      <Text style={styles.cardTitle}>{item.studentName}</Text>
+                      <StatusBadge status={item.status} />
+                    </View>
+                    <Text style={styles.body}>{item.question}</Text>
+                    <Text style={styles.ok}>Answer: {item.answer}</Text>
+                  </DataCard>
+                ))}
+              </>
+            ) : null}
           </>
         ) : null}
       </ScrollView>
@@ -861,104 +1194,68 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 40 },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  workspaceLabel: {
+  content: { paddingBottom: 40, gap: 0 },
+  eyebrow: {
     fontWeight: '800',
     color: colors.primaryDark,
-    fontSize: 12,
-    letterSpacing: 0.3,
+    fontSize: 11,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
     marginBottom: 6,
   },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  tab: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  tabTextActive: { color: colors.white },
-  h2: { marginTop: 14, marginBottom: 8, fontWeight: '800', color: colors.text, fontSize: 15 },
-  muted: { color: colors.textMuted, lineHeight: 20, marginBottom: 8 },
-  item: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-  },
-  itemSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-  },
-  bulkBar: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  bulkTitle: { fontWeight: '700', color: colors.text, marginBottom: 8, fontSize: 13 },
-  check: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-    backgroundColor: colors.background,
-  },
-  checkOn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkMark: { color: colors.white, fontSize: 12, fontWeight: '800' },
-  checkSpacer: { width: 30 },
-  subCard: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
-  rowBtns: { marginTop: 8, gap: 8 },
-  itemTitle: { flex: 1, fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
-  ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },
-  warnLine: { marginTop: 4, color: colors.warning, fontSize: 12, lineHeight: 17 },
-  linkDanger: { color: colors.danger, marginTop: 6, fontWeight: '600', fontSize: 12 },
-  subHead: { marginTop: 12, fontWeight: '700', color: colors.primaryDark, fontSize: 13 },
+  cardTitle: { fontWeight: '800', color: colors.text, fontSize: 15 },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  body: { color: colors.text, fontSize: 14, lineHeight: 21, marginTop: 6 },
+  ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 13, lineHeight: 18 },
+  warnLine: { color: colors.warning, fontSize: 12, marginTop: 4, fontWeight: '600' },
+  linkDanger: { color: colors.danger, marginTop: 10, fontWeight: '700', fontSize: 13 },
   gap: { height: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  flex: { flex: 1 },
+  rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   answerBox: {
-    minHeight: 56,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 10,
+    minHeight: 72,
     marginTop: 8,
     marginBottom: 8,
     color: colors.text,
     textAlignVertical: 'top',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
+  dateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  dateField: { flex: 1 },
+  sectionHint: { fontWeight: '700', color: colors.text, marginBottom: 4 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+  },
+  chipNeutral: {},
+  chipOk: { borderColor: '#8FCB9B' },
+  chipWarn: { borderColor: '#E0B35A' },
+  chipDanger: { borderColor: '#E08A8A' },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontWeight: '700', fontSize: 12, color: colors.text },
+  chipTextActive: { color: colors.white },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  checkOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkMark: { color: colors.white, fontWeight: '800', fontSize: 12 },
+  checkSpacer: { width: 22 },
+  unmarked: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
 });
