@@ -11,6 +11,7 @@ import { OtpVerifyScreen } from '../screens/OtpVerifyScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { RequestCourseScreen } from '../screens/RequestCourseScreen';
+import { CorporateHomeScreen } from '../screens/CorporateHomeScreen';
 import { CorporateOtpScreen } from '../screens/CorporateOtpScreen';
 import { CorporateRegistrationScreen } from '../screens/CorporateRegistrationScreen';
 import { SignInScreen } from '../screens/SignInScreen';
@@ -41,6 +42,7 @@ function homeForRole(role: string) {
   if (role === 'task_admin') return 'TaskAdminHome';
   if (role === 'student') return 'StudentHome';
   if (role === 'trainer') return 'TrainerHome';
+  if (role === 'corporate') return 'CorporateHome';
   return 'CollegeHome';
 }
 
@@ -161,6 +163,11 @@ export function RootNavigator() {
           name="CorporateRegistration"
           component={CorporateRegistrationScreen}
           options={{ title: 'Corporate Profile' }}
+        />
+        <Stack.Screen
+          name="CorporateHome"
+          component={CorporateHomeScreen}
+          options={{ title: 'Corporate', headerBackVisible: false }}
         />
         <Stack.Screen
           name="TrainerSessionDetail"

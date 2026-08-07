@@ -36,6 +36,7 @@ export type RootStackParamList = {
     email: string;
     mobile: string;
   };
+  CorporateHome: undefined;
   TaskAdminHome: undefined;
   TaskAdminCourses: undefined;
   TaskAdminCourseForm: {

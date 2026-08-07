@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-07-demo-v2';
+export const DEMO_SEED_VERSION = '2026-08-07-demo-v3';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -456,6 +456,18 @@ export async function ensureDemoData(options?: {
   await write('task.trainerFeedback.v1', []);
   await write('task.trainerMessages.v1', []);
   await write('task.trainerQueries.v1', []);
+  await write('task.corporateRegistrations.v1', [
+    {
+      id: 'corp_demo_1',
+      companyName: 'Demo Corporate Partners Pvt Ltd',
+      contactName: 'HR Demo Lead',
+      email: 'hr@demo-corporate.in',
+      mobile: '9876500011',
+      passwordHash: 'Corporate@123',
+      status: 'active',
+      createdAt: nowIso(),
+    },
+  ]);
   await write(META_KEY, {
     version: DEMO_SEED_VERSION,
     loadedAt: nowIso(),
@@ -464,6 +476,7 @@ export async function ensureDemoData(options?: {
       student: student.email,
       trainer: trainer.email,
       pendingTrainer: pendingTrainer.email,
+      corporate: 'hr@demo-corporate.in',
       otps: { email: '111111', mobile: '222222' },
     },
   });
@@ -476,6 +489,7 @@ export const DEMO_CREDENTIALS_SUMMARY = [
   'TASK Admin — admin@task.telangana.gov.in / TaskAdmin@123',
   'College — admin@vivekananda-demo.ac.in / College@123',
   'Student — student.demo@gmail.com / Student@123',
-  'Trainer — trainer.demo@task.telangana.gov.in / Trainer@123',
+  'Mentor — trainer.demo@task.telangana.gov.in / Trainer@123',
+  'Corporate — hr@demo-corporate.in / Corporate@123',
   'OTPs — Email 111111 · Mobile 222222',
 ].join('\n');

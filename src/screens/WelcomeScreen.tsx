@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
-  Alert,
   Image,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,121 +11,20 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
 import { RollingStats } from '../components/RollingStats';
-import { DropdownField, FormField, PrimaryButton } from '../components/ui';
-import {
-  DUMMY_COLLEGE_CONTACTS,
-  DUMMY_COLLEGE_PASSWORD,
-} from '../constants/demoData';
-import { DUMMY_STUDENT } from '../constants/student';
-import { DUMMY_TRAINER } from '../constants/trainer';
-import { useAuth } from '../context/AuthContext';
+import { PrimaryButton } from '../components/ui';
 import type { RootStackParamList } from '../navigation/types';
 import { ensureDemoData } from '../services/demoSeedApi';
 import { colors } from '../theme/colors';
-import type { UserRole } from '../types/enrollment';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
-type PortalModal = 'signin' | null;
-
-const SIGN_IN_ROLES = [
-  { value: 'college_admin', label: 'College Admin' },
-  { value: 'task_admin', label: 'TASK Admin' },
-  { value: 'super_admin', label: 'Super Admin' },
-  { value: 'student', label: 'Student' },
-  { value: 'trainer', label: 'Mentor' },
-];
-
-/** Published TASK decade impact figures (NITI Aayog / public reports). */
-const TASK_ADMIN_DEMO = {
-  email: 'admin@task.telangana.gov.in',
-  password: 'TaskAdmin@123',
-};
-
-const SUPER_ADMIN_DEMO = {
-  email: 'superadmin@task.telangana.gov.in',
-  password: 'SuperAdmin@123',
-};
-
 export function WelcomeScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
   const { width } = useWindowDimensions();
   const compact = width < 760;
-  const [portalModal, setPortalModal] = useState<PortalModal>(null);
-
-  const [role, setRole] = useState<UserRole | ''>('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     void ensureDemoData();
   }, []);
-
-  const closePortal = () => {
-    setPortalModal(null);
-    setRole('');
-    setEmail('');
-    setPassword('');
-  };
-
-  const onRoleChange = (value: string) => {
-    const next = value as UserRole | '';
-    setRole(next);
-    if (next === 'task_admin') {
-      setEmail(TASK_ADMIN_DEMO.email);
-      setPassword(TASK_ADMIN_DEMO.password);
-    } else if (next === 'super_admin') {
-      setEmail(SUPER_ADMIN_DEMO.email);
-      setPassword(SUPER_ADMIN_DEMO.password);
-    } else if (next === 'college_admin') {
-      setEmail(DUMMY_COLLEGE_CONTACTS.officialEmail);
-      setPassword(DUMMY_COLLEGE_PASSWORD);
-    } else if (next === 'student') {
-      setEmail(DUMMY_STUDENT.email);
-      setPassword(DUMMY_STUDENT.password);
-    } else if (next === 'trainer') {
-      setEmail(DUMMY_TRAINER.email);
-      setPassword(DUMMY_TRAINER.password);
-    } else {
-      setEmail('');
-      setPassword('');
-    }
-  };
-
-  const submitSignIn = async () => {
-    if (!role) {
-      Alert.alert('Select role', 'Please choose a sign-in role.');
-      return;
-    }
-    try {
-      setSigningIn(true);
-      const user = await signIn(email, password);
-      if (user.role !== role) {
-        Alert.alert(
-          'Wrong role selected',
-          `These credentials belong to a ${user.role.replace('_', ' ')} account.`,
-        );
-        return;
-      }
-      closePortal();
-      if (user.role === 'super_admin') {
-        navigation.reset({ index: 0, routes: [{ name: 'SuperAdminHome' }] });
-      } else if (user.role === 'task_admin') {
-        navigation.reset({ index: 0, routes: [{ name: 'TaskAdminHome' }] });
-      } else if (user.role === 'student') {
-        navigation.reset({ index: 0, routes: [{ name: 'StudentHome' }] });
-      } else if (user.role === 'trainer') {
-        navigation.reset({ index: 0, routes: [{ name: 'TrainerHome' }] });
-      } else {
-        navigation.reset({ index: 0, routes: [{ name: 'CollegeHome' }] });
-      }
-    } catch (e) {
-      Alert.alert('Sign in failed', e instanceof Error ? e.message : 'Unable to sign in');
-    } finally {
-      setSigningIn(false);
-    }
-  };
 
   const emblemSize = compact ? 44 : 64;
   const portraitSize = compact ? 52 : 76;
@@ -152,7 +49,7 @@ export function WelcomeScreen({ navigation }: Props) {
           </Pressable>
           <Pressable
             style={[styles.topLink, styles.topLinkPrimary]}
-            onPress={() => setPortalModal('signin')}
+            onPress={() => navigation.navigate('SignIn')}
             accessibilityRole="button"
             accessibilityLabel="Sign In"
           >
@@ -263,7 +160,7 @@ export function WelcomeScreen({ navigation }: Props) {
         <View style={styles.accessBox}>
           <Text style={styles.accessTitle}>Portal login</Text>
           <Text style={styles.accessSubtitle}>
-            Open Register or Sign In in a popup to continue your account flow.
+            Register a new account or sign in to continue to your dashboard.
           </Text>
           <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
             <View style={styles.accessBtn}>
@@ -276,7 +173,7 @@ export function WelcomeScreen({ navigation }: Props) {
               <PrimaryButton
                 title="Sign In"
                 variant="secondary"
-                onPress={() => setPortalModal('signin')}
+                onPress={() => navigation.navigate('SignIn')}
               />
             </View>
           </View>
@@ -286,50 +183,6 @@ export function WelcomeScreen({ navigation }: Props) {
           Telangana Academy for Skill and Knowledge · Masabtank, Hyderabad
         </Text>
       </ScrollView>
-
-      <Modal
-        visible={portalModal === 'signin'}
-        transparent
-        animationType="fade"
-        onRequestClose={closePortal}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={closePortal}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Sign In</Text>
-            <Text style={styles.modalBody}>Select your role to continue.</Text>
-            <DropdownField
-              label="Sign in as"
-              required
-              placeholder="Select role"
-              options={SIGN_IN_ROLES}
-              value={role}
-              onChange={onRoleChange}
-            />
-            <FormField
-              label="Email"
-              required
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <FormField
-              label="Password"
-              required
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <PrimaryButton
-              title={signingIn ? 'Signing in…' : 'Sign In'}
-              onPress={submitSignIn}
-              disabled={signingIn}
-            />
-            <View style={styles.modalGap} />
-            <PrimaryButton title="Cancel" variant="secondary" onPress={closePortal} />
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -590,35 +443,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 4,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 35, 35, 0.55)',
-    justifyContent: 'center',
-    padding: 18,
-  },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 18,
-    maxWidth: 440,
-    width: '100%',
-    alignSelf: 'center',
-    maxHeight: '90%',
-  },
-  modalTitle: {
-    color: colors.primaryDark,
-    fontWeight: '800',
-    fontSize: 20,
-    marginBottom: 6,
-  },
-  modalBody: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 12,
-  },
-  modalGap: {
-    height: 10,
   },
 });

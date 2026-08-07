@@ -31,7 +31,7 @@ export function RegisterScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen showLogo={false} title="Register / Sign up" subtitle="Create your TASK portal account">
+    <Screen showLogo={false} subtitle="Create your TASK portal account">
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.logoWrap}>
           <Image

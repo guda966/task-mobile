@@ -7,7 +7,13 @@ import type {
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'rejected';
 
-export type UserRole = 'college_admin' | 'task_admin' | 'super_admin' | 'student' | 'trainer';
+export type UserRole =
+  | 'college_admin'
+  | 'task_admin'
+  | 'super_admin'
+  | 'student'
+  | 'trainer'
+  | 'corporate';
 
 export interface CollegeEnrollment {
   id: string;

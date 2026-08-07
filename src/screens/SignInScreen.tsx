@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DropdownField, FormField, PrimaryButton, Screen } from '../components/ui';
 import {
   DUMMY_COLLEGE_CONTACTS,
@@ -10,24 +19,19 @@ import { DUMMY_STUDENT } from '../constants/student';
 import { DUMMY_TRAINER } from '../constants/trainer';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
+import { mockApi } from '../services/mockApi';
 import { colors } from '../theme/colors';
 import type { UserRole } from '../types/enrollment';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignIn'>;
 
 const SIGN_IN_ROLES = [
-  { value: 'college_admin', label: 'College Admin' },
-  { value: 'task_admin', label: 'TASK Admin' },
-  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'college_admin', label: 'College' },
   { value: 'student', label: 'Student' },
   { value: 'trainer', label: 'Mentor' },
-] as const;
-
-const REGISTRATION_OPTIONS = [
-  { value: 'college', label: 'College' },
-  { value: 'student', label: 'Student' },
-  { value: 'mentor', label: 'Mentor' },
   { value: 'corporate', label: 'Corporate' },
+  { value: 'task_admin', label: 'TASK Admin' },
+  { value: 'super_admin', label: 'Super Admin' },
 ];
 
 const TASK_ADMIN_DEMO = {
@@ -40,10 +44,25 @@ const SUPER_ADMIN_DEMO = {
   password: 'SuperAdmin@123',
 };
 
+const CORPORATE_DEMO = {
+  email: 'hr@demo-corporate.in',
+  password: 'Corporate@123',
+};
+
+const CORPORATE_KEY = 'task.corporateRegistrations.v1';
+
+type CorporateRecord = {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  passwordHash: string;
+  status: string;
+};
+
 export function SignInScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, setUser } = useAuth();
   const [role, setRole] = useState<UserRole | ''>('');
-  const [regType, setRegType] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,41 +85,73 @@ export function SignInScreen({ navigation }: Props) {
     } else if (next === 'trainer') {
       setEmail(DUMMY_TRAINER.email);
       setPassword(DUMMY_TRAINER.password);
+    } else if (next === 'corporate') {
+      setEmail(CORPORATE_DEMO.email);
+      setPassword(CORPORATE_DEMO.password);
     } else {
       setEmail('');
       setPassword('');
     }
   };
 
+  const goHome = (signedRole: UserRole) => {
+    if (signedRole === 'super_admin') {
+      navigation.reset({ index: 0, routes: [{ name: 'SuperAdminHome' }] });
+    } else if (signedRole === 'task_admin') {
+      navigation.reset({ index: 0, routes: [{ name: 'TaskAdminHome' }] });
+    } else if (signedRole === 'student') {
+      navigation.reset({ index: 0, routes: [{ name: 'StudentHome' }] });
+    } else if (signedRole === 'trainer') {
+      navigation.reset({ index: 0, routes: [{ name: 'TrainerHome' }] });
+    } else if (signedRole === 'corporate') {
+      navigation.reset({ index: 0, routes: [{ name: 'CorporateHome' }] });
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: 'CollegeHome' }] });
+    }
+  };
+
   const onSubmit = async () => {
     if (!role) {
-      Alert.alert(
-        'Select role',
-        'Please choose College Admin, TASK Admin, Super Admin, Student, or Mentor.',
-      );
+      Alert.alert('Select role', 'Please choose who you are signing in as.');
       return;
     }
+    if (!email.trim() || !password) {
+      Alert.alert('Missing details', 'Enter email and password.');
+      return;
+    }
+
     try {
       setLoading(true);
-      const user = await signIn(email, password);
+
+      if (role === 'corporate') {
+        const raw = await AsyncStorage.getItem(CORPORATE_KEY);
+        const items = raw ? (JSON.parse(raw) as CorporateRecord[]) : [];
+        const match = items.find(
+          (c) => c.email === email.trim().toLowerCase() && c.passwordHash === password,
+        );
+        if (!match) {
+          throw new Error('Invalid corporate email or password. Register first if needed.');
+        }
+        const session = {
+          role: 'corporate' as const,
+          email: match.email,
+          name: match.contactName || match.companyName,
+        };
+        await mockApi.setSession(session);
+        setUser(session);
+        goHome('corporate');
+        return;
+      }
+
+      const user = await signIn(email.trim(), password);
       if (user.role !== role) {
         Alert.alert(
           'Wrong role selected',
-          `These credentials belong to a ${user.role.replace('_', ' ')} account. Select the matching role.`,
+          `These credentials belong to a ${user.role.replace(/_/g, ' ')} account.`,
         );
         return;
       }
-      if (user.role === 'super_admin') {
-        navigation.reset({ index: 0, routes: [{ name: 'SuperAdminHome' }] });
-      } else if (user.role === 'task_admin') {
-        navigation.reset({ index: 0, routes: [{ name: 'TaskAdminHome' }] });
-      } else if (user.role === 'student') {
-        navigation.reset({ index: 0, routes: [{ name: 'StudentHome' }] });
-      } else if (user.role === 'trainer') {
-        navigation.reset({ index: 0, routes: [{ name: 'TrainerHome' }] });
-      } else {
-        navigation.reset({ index: 0, routes: [{ name: 'CollegeHome' }] });
-      }
+      goHome(user.role);
     } catch (e) {
       Alert.alert('Sign in failed', e instanceof Error ? e.message : 'Unable to sign in');
     } finally {
@@ -109,13 +160,22 @@ export function SignInScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen title="Sign In" subtitle="Choose your role, then sign in">
+    <Screen showLogo={false} subtitle="Access your TASK portal account">
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.logoWrap}>
+          <Image
+            source={require('../../assets/brand/task-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="TASK logo"
+          />
+        </View>
+
         <DropdownField
           label="Sign in as"
           required
-          placeholder="Select role"
-          options={SIGN_IN_ROLES.map((r) => ({ value: r.value, label: r.label }))}
+          placeholder="Select College, Student, Mentor, or Corporate"
+          options={SIGN_IN_ROLES}
           value={role}
           onChange={onRoleChange}
         />
@@ -126,9 +186,7 @@ export function SignInScreen({ navigation }: Props) {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          placeholder={
-            role === 'student' ? 'student@email.com' : 'official@college.ac.in'
-          }
+          placeholder="name@example.com"
         />
         <FormField
           label="Password"
@@ -138,67 +196,56 @@ export function SignInScreen({ navigation }: Props) {
           onChangeText={setPassword}
           placeholder="Enter password"
         />
-        <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgot}>
+
+        <Pressable
+          onPress={() => navigation.navigate('ForgotPassword')}
+          style={styles.forgot}
+          accessibilityRole="button"
+        >
           <Text style={styles.forgotText}>Forgot password?</Text>
         </Pressable>
+
         <PrimaryButton
           title={loading ? 'Signing in…' : 'Sign In'}
           onPress={onSubmit}
           disabled={loading}
         />
 
-        <Text style={styles.regLabel}>New registration</Text>
-        <DropdownField
-          label="Register as"
-          placeholder="Select registration type"
-          options={REGISTRATION_OPTIONS}
-          value={regType}
-          onChange={setRegType}
-        />
+        <View style={styles.gap} />
         <PrimaryButton
-          title="Continue to registration"
+          title="New to TASK? Register / Sign up"
           variant="secondary"
-          onPress={() => {
-            if (!regType) {
-              Alert.alert(
-                'Select registration type',
-                'Choose College, Student, Mentor, or Corporate.',
-              );
-              return;
-            }
-            if (regType === 'college') navigation.navigate('OtpVerify');
-            else if (regType === 'student') navigation.navigate('StudentOtp');
-            else if (regType === 'mentor') navigation.navigate('TrainerOtp');
-            else navigation.navigate('CorporateOtp');
-          }}
+          onPress={() => navigation.navigate('Register')}
         />
-        <Text style={styles.hint}>
-          {role === 'student'
-            ? 'Demo student credentials are prefilled. Register first if sign-in fails.'
-            : role === 'task_admin'
-              ? 'Demo TASK Admin credentials are prefilled for testing.'
-              : role === 'super_admin'
-                ? 'Demo Super Admin credentials are prefilled — full platform + reports.'
-                : role === 'college_admin'
-                  ? 'Demo college credentials are prefilled.'
-                  : role === 'trainer'
-                    ? 'Demo mentor credentials are prefilled (approved profile).'
-                    : 'Select a role to continue.'}
-        </Text>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 40 },
-  forgot: { alignSelf: 'flex-end', marginBottom: 12, marginTop: -4 },
-  forgotText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
-  regLabel: {
-    marginTop: 20,
-    marginBottom: 4,
-    fontWeight: '700',
-    color: colors.text,
+  content: {
+    paddingBottom: 40,
   },
-  hint: { marginTop: 16, color: colors.textMuted, fontSize: 12, lineHeight: 18 },
+  logoWrap: {
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  logo: {
+    width: 140,
+    height: 140,
+  },
+  forgot: {
+    alignSelf: 'flex-end',
+    marginBottom: 14,
+    marginTop: -4,
+  },
+  forgotText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  gap: {
+    height: 10,
+  },
 });
