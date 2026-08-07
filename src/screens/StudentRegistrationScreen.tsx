@@ -246,10 +246,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
   };
 
   return (
-    <Screen
-      showLogo={false}
-      subtitle={`Step ${step + 1} of 4 — ${STEP_LABELS.join(' · ')}`}
-    >
+    <Screen showLogo={false} subtitle={`Step ${step + 1} of 4`}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.stepper}>
           {STEP_LABELS.map((label, index) => (

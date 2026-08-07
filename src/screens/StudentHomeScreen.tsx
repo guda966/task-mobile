@@ -17,7 +17,6 @@ import {
   PanelHeader,
   SearchInput,
   SectionLabel,
-  StatTiles,
 } from '../components/college/PanelChrome';
 import { StudentShell, type StudentMenuKey } from '../components/StudentShell';
 import { PrimaryButton, StatusBadge } from '../components/ui';
@@ -166,70 +165,76 @@ export function StudentHomeScreen({ navigation }: Props) {
           }
         >
           <PanelHeader
-            title="Home"
-            subtitle="Browse sessions that match your college, branch, and graduation year."
-          />
-
-          <StatTiles
-            items={[
-              { label: 'Active trainings', value: active.length },
-              { label: 'Open sessions', value: sessions.length },
-              { label: 'Unread alerts', value: unreadCount },
-              { label: 'Branch', value: student?.branch || '—' },
-            ]}
+            title={student ? `Hi, ${student.firstName}` : 'Home'}
+            subtitle={
+              student
+                ? `${student.collegeName} · ${student.branch}`
+                : 'Your TASK trainings and updates'
+            }
           />
 
           {deadlineAlerts.length > 0 ? (
-            <Pressable style={styles.deadlineBanner} onPress={() => setMenu('alerts')}>
-              <Text style={styles.deadlineTitle}>
-                {deadlineAlerts.length} assignment deadline alert
-                {deadlineAlerts.length === 1 ? '' : 's'}
+            <Pressable
+              style={styles.deadlineBanner}
+              onPress={() => {
+                const related = deadlineAlerts[0].relatedRequestId;
+                if (related) {
+                  navigation.navigate('StudentSessionDetail', { requestId: related });
+                } else {
+                  setMenu('alerts');
+                }
+              }}
+            >
+              <Text style={styles.deadlineTitle}>Action needed</Text>
+              <Text style={styles.deadlineBody} numberOfLines={2}>
+                {deadlineAlerts[0].title}
+                {deadlineAlerts.length > 1
+                  ? ` · +${deadlineAlerts.length - 1} more`
+                  : ''}
               </Text>
-              <Text style={styles.deadlineBody}>{deadlineAlerts[0].body}</Text>
-              <Text style={styles.deadlineLink}>View all alerts →</Text>
+              <Text style={styles.deadlineLink}>
+                {deadlineAlerts[0].relatedRequestId ? 'Open assignment →' : 'View alerts →'}
+              </Text>
+            </Pressable>
+          ) : unreadCount > 0 ? (
+            <Pressable style={styles.softBanner} onPress={() => setMenu('alerts')}>
+              <Text style={styles.softBannerText}>
+                You have {unreadCount} unread alert{unreadCount === 1 ? '' : 's'}
+              </Text>
             </Pressable>
           ) : null}
 
-          {student ? (
+          <SectionLabel>Continue learning</SectionLabel>
+          {active.length === 0 ? (
             <DataCard>
-              <View style={styles.row}>
-                <Text style={styles.name}>
-                  {student.firstName} {student.lastName}
-                </Text>
-                <StatusBadge status={student.status.toLowerCase()} />
-              </View>
-              <Text style={styles.meta}>{student.collegeName}</Text>
+              <Text style={styles.name}>No active training yet</Text>
               <Text style={styles.meta}>
-                {student.branch} · Roll {student.collegeRollNo} · ID {student.username}
+                Find an approved session for your branch and register to get materials and
+                assignments.
               </Text>
+              <View style={styles.gap} />
+              <PrimaryButton title="Find sessions" onPress={() => setMenu('sessions')} />
             </DataCard>
           ) : (
-            <EmptyState title="Loading profile…" />
+            active.map((item) => (
+              <DataCard key={item.id} accent>
+                <Text style={styles.name}>{item.courseName}</Text>
+                <Text style={styles.meta}>
+                  {item.startDate} to {item.endDate}
+                  {item.branch ? ` · ${item.branch}` : ''}
+                </Text>
+                <View style={styles.gap} />
+                <PrimaryButton
+                  title="Open training"
+                  onPress={() =>
+                    navigation.navigate('StudentSessionDetail', {
+                      requestId: item.courseRequestId,
+                    })
+                  }
+                />
+              </DataCard>
+            ))
           )}
-
-          <SectionLabel>Quick links</SectionLabel>
-          <View style={styles.actions}>
-            <Pressable style={styles.action} onPress={() => setMenu('alerts')}>
-              <Text style={styles.actionTitle}>Alerts</Text>
-              <Text style={styles.actionBody}>
-                {unreadCount > 0
-                  ? `${unreadCount} unread from TASK, college, or deadlines`
-                  : 'TASK, college, and deadline updates'}
-              </Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('sessions')}>
-              <Text style={styles.actionTitle}>Find sessions</Text>
-              <Text style={styles.actionBody}>Register for approved TASK batches</Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('trainings')}>
-              <Text style={styles.actionTitle}>My trainings</Text>
-              <Text style={styles.actionBody}>{active.length} active registration(s)</Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('profile')}>
-              <Text style={styles.actionTitle}>Profile & academics</Text>
-              <Text style={styles.actionBody}>View 10th / 12th and college details</Text>
-            </Pressable>
-          </View>
         </ScrollView>
       ) : null}
 
@@ -238,7 +243,7 @@ export function StudentHomeScreen({ navigation }: Props) {
           <View style={styles.toolbar}>
             <PanelHeader
               title="Alerts"
-              subtitle="Messages from TASK, your college, and assignment deadline reminders."
+              subtitle="From TASK, your college, and assignment deadlines."
               action={
                 unreadCount > 0 ? (
                   <PrimaryButton
@@ -250,7 +255,7 @@ export function StudentHomeScreen({ navigation }: Props) {
               }
             />
             <Text style={styles.resultText}>
-              {alerts.length} alert(s) · {unreadCount} unread
+              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
             </Text>
           </View>
           <FlatList
@@ -532,16 +537,6 @@ const styles = StyleSheet.create({
   meta: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 2 },
   muted: { color: colors.textMuted },
   resultText: { color: colors.textMuted, fontWeight: '600', fontSize: 12, marginTop: 4 },
-  actions: { gap: 8 },
-  action: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 14,
-  },
-  actionTitle: { fontWeight: '700', color: colors.primaryDark, marginBottom: 4 },
-  actionBody: { color: colors.textMuted, fontSize: 13 },
   gap: { height: 10 },
   cancelBtn: { marginTop: 10, alignSelf: 'flex-start' },
   cancelText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
@@ -556,6 +551,13 @@ const styles = StyleSheet.create({
   deadlineTitle: { fontWeight: '800', color: colors.warning, marginBottom: 4 },
   deadlineBody: { color: colors.text, fontSize: 13, lineHeight: 18 },
   deadlineLink: { marginTop: 8, color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
+  softBanner: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  softBannerText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
   sourcePill: {
     backgroundColor: colors.primarySoft,
     borderRadius: 999,

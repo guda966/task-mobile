@@ -15,8 +15,6 @@ import {
   DataCard,
   EmptyState,
   PanelHeader,
-  SectionLabel,
-  StatTiles,
 } from '../components/college/PanelChrome';
 import { DropdownField, FormField, PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
@@ -179,9 +177,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
     return map;
   }, [submissions]);
 
-  const presentCount = attendance.filter(
-    (a) => a.status === 'present' || a.status === 'late',
-  ).length;
   const pendingAssignments = assignments.filter((a) => {
     const mine = submissionByAssignment[a.id];
     return !mine || mine.status === 'needs_revision';
@@ -287,25 +282,26 @@ export function StudentSessionDetailScreen({ route }: Props) {
           title={session?.courseName || 'Session'}
           subtitle={
             session
-              ? `${session.startDate} to ${session.endDate} · ${session.branch || 'Batch'}`
+              ? `${session.startDate} to ${session.endDate}${
+                  session.trainerName ? ` · Trainer ${session.trainerName}` : ''
+                }`
               : 'Loading session…'
           }
         />
 
-        <StatTiles
-          items={[
-            { label: 'Trainer', value: session?.trainerName || 'TBA' },
-            { label: 'Materials', value: materials.length },
-            { label: 'Pending work', value: pendingAssignments },
-            { label: 'Days marked', value: presentCount },
-          ]}
-        />
+        {pendingAssignments > 0 ? (
+          <Pressable style={styles.pendingChip} onPress={() => setTab('assignments')}>
+            <Text style={styles.pendingChipText}>
+              {pendingAssignments} assignment{pendingAssignments === 1 ? '' : 's'} need your action
+            </Text>
+          </Pressable>
+        ) : null}
 
         {!session?.trainerId ? (
           <DataCard>
             <Text style={styles.warnTitle}>Trainer not assigned yet</Text>
             <Text style={styles.warnBody}>
-              Materials, feedback, and queries unlock after TASK Admin assigns a trainer.
+              Materials and assignments appear after TASK assigns a trainer.
             </Text>
           </DataCard>
         ) : null}
@@ -336,10 +332,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'materials' ? (
           <>
-            <SectionLabel>Learning materials</SectionLabel>
-            <Text style={styles.helpText}>
-              Use these files to prepare for class. Open to preview or Download to save a copy.
-            </Text>
             {materials.length === 0 ? (
               <EmptyState
                 title="No materials yet"
@@ -354,36 +346,20 @@ export function StudentSessionDetailScreen({ route }: Props) {
                     </View>
                     <View style={styles.cardMain}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
+                      {item.description ? (
+                        <Text style={styles.meta}>{item.description}</Text>
+                      ) : null}
                       <Text style={styles.meta}>
-                        Posted {new Date(item.createdAt).toLocaleDateString('en-IN')}
-                        {session?.trainerName ? ` · by ${session.trainerName}` : ''}
+                        {item.file.fileName} · {item.file.sizeLabel}
                       </Text>
                     </View>
                   </View>
-                  {item.description ? (
-                    <View style={styles.infoBox}>
-                      <Text style={styles.infoLabel}>What this is</Text>
-                      <Text style={styles.infoBody}>{item.description}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.infoBox}>
-                    <Text style={styles.infoLabel}>File</Text>
-                    <Text style={styles.infoBody}>
-                      {item.file.fileName} · {item.file.sizeLabel}
-                    </Text>
-                  </View>
                   <View style={styles.actionRow}>
-                    <Pressable
-                      style={styles.ghostBtn}
-                      onPress={() => demoOpenFile(item.file.fileName)}
-                    >
-                      <Text style={styles.ghostBtnText}>Open / preview</Text>
-                    </Pressable>
                     <Pressable
                       style={styles.primarySoftBtn}
                       onPress={() => demoOpenFile(item.file.fileName)}
                     >
-                      <Text style={styles.primarySoftBtnText}>Download</Text>
+                      <Text style={styles.primarySoftBtnText}>View file</Text>
                     </Pressable>
                   </View>
                 </DataCard>
@@ -394,11 +370,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'assignments' ? (
           <>
-            <SectionLabel>Assignments</SectionLabel>
-            <Text style={styles.helpText}>
-              Read the instructions, download any template, upload your work, then submit before the
-              due date.
-            </Text>
             {assignments.length === 0 ? (
               <EmptyState
                 title="No assignments posted"
@@ -416,81 +387,49 @@ export function StudentSessionDetailScreen({ route }: Props) {
                       <Text style={styles.itemTitle}>{item.title}</Text>
                       <StatusBadge status={mine?.status || 'pending'} />
                     </View>
-
                     {due ? (
-                      <View style={[styles.dueBox, due.urgent && styles.dueBoxUrgent]}>
-                        <Text style={[styles.dueText, due.urgent && styles.dueTextUrgent]}>
-                          {due.text}
-                        </Text>
-                      </View>
+                      <Text style={[styles.dueInline, due.urgent && styles.dueInlineUrgent]}>
+                        {due.text}
+                      </Text>
                     ) : null}
-
-                    <View style={[styles.statusBox, mine?.status === 'accepted' && styles.statusOk]}>
-                      <Text style={styles.infoLabel}>Your submission status</Text>
-                      <Text style={styles.statusLabel}>{statusCopy.label}</Text>
-                      <Text style={styles.infoBody}>{statusCopy.hint}</Text>
-                    </View>
-
-                    <View style={styles.infoBox}>
-                      <Text style={styles.infoLabel}>What to do</Text>
-                      <Text style={styles.infoBody}>{item.instructions}</Text>
-                    </View>
+                    <Text style={styles.body}>{item.instructions}</Text>
+                    <Text style={styles.statusHint}>{statusCopy.hint}</Text>
 
                     {item.file ? (
-                      <View style={styles.infoBox}>
-                        <Text style={styles.infoLabel}>Template / attachment from trainer</Text>
-                        <Text style={styles.infoBody}>
-                          {item.file.fileName} · {item.file.sizeLabel}
+                      <Pressable
+                        onPress={() => demoOpenFile(item.file!.fileName)}
+                        style={styles.inlineLink}
+                      >
+                        <Text style={styles.linkText}>
+                          Template: {item.file.fileName} · {item.file.sizeLabel}
                         </Text>
-                        <Pressable
-                          onPress={() => demoOpenFile(item.file!.fileName)}
-                          style={styles.inlineLink}
-                        >
-                          <Text style={styles.linkText}>Download template</Text>
-                        </Pressable>
-                      </View>
+                      </Pressable>
                     ) : null}
 
                     {mine ? (
-                      <View style={styles.infoBox}>
-                        <Text style={styles.infoLabel}>Your uploaded file</Text>
-                        <Text style={styles.infoBody}>
-                          {mine.file.fileName} · {mine.file.sizeLabel}
-                        </Text>
-                        <Text style={styles.meta}>
-                          Submitted {new Date(mine.submittedAt).toLocaleString('en-IN')}
-                        </Text>
-                        {mine.trainerRemark ? (
-                          <Text style={styles.ok}>Trainer remark: {mine.trainerRemark}</Text>
-                        ) : null}
-                      </View>
+                      <Text style={styles.meta}>
+                        Your file: {mine.file.fileName}
+                        {mine.trainerRemark ? ` · Trainer: ${mine.trainerRemark}` : ''}
+                      </Text>
                     ) : null}
 
                     {canSubmit ? (
                       <View style={styles.submitBox}>
-                        <Text style={styles.infoLabel}>
-                          {mine ? 'Step: resubmit your work' : 'Step: submit your work'}
-                        </Text>
-                        <Text style={styles.stepLine}>1. Prepare your file (PDF / DOC)</Text>
-                        <Text style={styles.stepLine}>2. Add optional notes for the trainer</Text>
-                        <Text style={styles.stepLine}>
-                          3. Tap {mine ? 'Resubmit' : 'Submit'} — a demo file picker will open
-                        </Text>
                         <FormField
-                          label="Notes for trainer (optional)"
+                          label="Notes (optional)"
                           value={submitNotes[item.id] || ''}
                           onChangeText={(v) =>
                             setSubmitNotes((prev) => ({ ...prev, [item.id]: v }))
                           }
-                          placeholder="Example: uploaded revised reflection"
+                          placeholder="Anything the trainer should know"
                         />
                         <PrimaryButton
                           title={
                             saving
                               ? 'Uploading…'
                               : mine
-                                ? 'Resubmit assignment'
-                                : 'Submit assignment'
+                                ? 'Resubmit file'
+                                : 'Upload & submit'
                           }
                           onPress={() => submitWork(item.id)}
                           disabled={saving}
@@ -506,7 +445,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'attendance' ? (
           <>
-            <SectionLabel>Your attendance</SectionLabel>
             {attendance.length === 0 ? (
               <EmptyState
                 title="No attendance marked"
@@ -519,9 +457,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
                     <Text style={styles.itemTitle}>{item.sessionDate}</Text>
                     <StatusBadge status={item.status} />
                   </View>
-                  <Text style={styles.meta}>
-                    Updated {new Date(item.updatedAt).toLocaleString()}
-                  </Text>
                 </DataCard>
               ))
             )}
@@ -530,11 +465,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'certificates' ? (
           <>
-            <SectionLabel>Your certificates</SectionLabel>
             {certificates.length === 0 ? (
               <EmptyState
                 title="No certificate yet"
-                body="Needs at least 75% attendance (Present/Late) and all assignments accepted."
+                body="Needs at least 75% attendance and all assignments accepted."
               />
             ) : (
               certificates.map((item) => (
@@ -542,9 +476,8 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   <Text style={styles.itemTitle}>{item.courseName}</Text>
                   <Text style={styles.ok}>{item.certificateCode}</Text>
                   <Text style={styles.meta}>
-                    Issued by {item.issuedByName} · {new Date(item.issuedAt).toLocaleDateString()}
+                    Issued {new Date(item.issuedAt).toLocaleDateString()} · {item.issuedByName}
                   </Text>
-                  <Text style={styles.meta}>{item.collegeName}</Text>
                   <View style={styles.actionRow}>
                     <Pressable
                       style={styles.primarySoftBtn}
@@ -555,7 +488,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                         )
                       }
                     >
-                      <Text style={styles.primarySoftBtnText}>Download certificate</Text>
+                      <Text style={styles.primarySoftBtnText}>Download</Text>
                     </Pressable>
                   </View>
                 </DataCard>
@@ -566,11 +499,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'feedback' ? (
           <>
-            <SectionLabel>Your feedback</SectionLabel>
             {myFeedback.length === 0 ? (
               <EmptyState
-                title="No feedback submitted"
-                body="Share a short rating and comment after attending the session."
+                title="No feedback yet"
+                body="Share a short rating after attending the session."
               />
             ) : (
               myFeedback.map((item) => (
@@ -583,38 +515,35 @@ export function StudentSessionDetailScreen({ route }: Props) {
               ))
             )}
             {session?.trainerId ? (
-              <>
-                <SectionLabel>Share feedback with trainer</SectionLabel>
-                <DataCard>
-                  <DropdownField
-                    label="Rating (optional)"
-                    value={rating}
-                    onChange={setRating}
-                    options={RATING_OPTIONS}
-                    placeholder="Select rating"
-                  />
-                  <FormField
-                    label="Comments"
-                    value={comment}
-                    onChangeText={setComment}
-                    multiline
-                    style={{ minHeight: 80, textAlignVertical: 'top' }}
-                    required
-                  />
-                  <PrimaryButton
-                    title={saving ? 'Sending…' : 'Submit feedback'}
-                    onPress={submitFeedback}
-                    disabled={saving}
-                  />
-                </DataCard>
-              </>
+              <DataCard>
+                <Text style={styles.itemTitle}>Share feedback</Text>
+                <DropdownField
+                  label="Rating (optional)"
+                  value={rating}
+                  onChange={setRating}
+                  options={RATING_OPTIONS}
+                  placeholder="Select rating"
+                />
+                <FormField
+                  label="Comments"
+                  value={comment}
+                  onChangeText={setComment}
+                  multiline
+                  style={{ minHeight: 80, textAlignVertical: 'top' }}
+                  required
+                />
+                <PrimaryButton
+                  title={saving ? 'Sending…' : 'Submit feedback'}
+                  onPress={submitFeedback}
+                  disabled={saving}
+                />
+              </DataCard>
             ) : null}
           </>
         ) : null}
 
         {tab === 'queries' ? (
           <>
-            <SectionLabel>Your queries</SectionLabel>
             {queries.length === 0 ? (
               <EmptyState
                 title="No queries yet"
@@ -637,24 +566,22 @@ export function StudentSessionDetailScreen({ route }: Props) {
               ))
             )}
             {session?.trainerId ? (
-              <>
-                <SectionLabel>Ask the trainer</SectionLabel>
-                <DataCard>
-                  <TextInput
-                    style={styles.queryInput}
-                    placeholder="Type your question…"
-                    placeholderTextColor={colors.textMuted}
-                    value={question}
-                    onChangeText={setQuestion}
-                    multiline
-                  />
-                  <PrimaryButton
-                    title={saving ? 'Sending…' : 'Send query'}
-                    onPress={askQuery}
-                    disabled={saving}
-                  />
-                </DataCard>
-              </>
+              <DataCard>
+                <Text style={styles.itemTitle}>Ask the trainer</Text>
+                <TextInput
+                  style={styles.queryInput}
+                  placeholder="Type your question…"
+                  placeholderTextColor={colors.textMuted}
+                  value={question}
+                  onChangeText={setQuestion}
+                  multiline
+                />
+                <PrimaryButton
+                  title={saving ? 'Sending…' : 'Send query'}
+                  onPress={askQuery}
+                  disabled={saving}
+                />
+              </DataCard>
             ) : null}
           </>
         ) : null}
@@ -703,15 +630,6 @@ const styles = StyleSheet.create({
   },
   fileChipText: { color: colors.primaryDark, fontWeight: '800', fontSize: 11 },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  ghostBtn: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-  },
-  ghostBtnText: { color: colors.text, fontWeight: '700', fontSize: 13 },
   primarySoftBtn: {
     borderRadius: 8,
     paddingHorizontal: 14,
@@ -719,8 +637,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   primarySoftBtnText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
-  inlineLink: { marginTop: 6, alignSelf: 'flex-start' },
+  inlineLink: { marginTop: 8, alignSelf: 'flex-start' },
   linkText: { color: colors.primaryDark, fontWeight: '600', fontSize: 12 },
+  pendingChip: {
+    backgroundColor: colors.warningSoft,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  pendingChipText: { color: colors.warning, fontWeight: '700', fontSize: 13 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -729,56 +655,21 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   itemTitle: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 2, lineHeight: 17 },
-  helpText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 10,
-    marginTop: -4,
-  },
-  infoBox: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 10,
-  },
-  infoLabel: {
+  meta: { color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 17 },
+  dueInline: {
     color: colors.primaryDark,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.3,
+    fontWeight: '700',
+    fontSize: 12,
     marginBottom: 4,
-    textTransform: 'uppercase',
   },
-  infoBody: { color: colors.text, fontSize: 13, lineHeight: 19 },
-  dueBox: {
-    marginTop: 8,
-    backgroundColor: colors.primarySoft,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  dueBoxUrgent: { backgroundColor: colors.warningSoft },
-  dueText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
-  dueTextUrgent: { color: colors.warning },
-  statusBox: {
-    marginTop: 10,
-    backgroundColor: colors.pendingSoft,
-    borderRadius: 8,
-    padding: 10,
-  },
-  statusOk: { backgroundColor: colors.successSoft },
-  statusLabel: { color: colors.text, fontWeight: '800', fontSize: 14, marginBottom: 2 },
+  dueInlineUrgent: { color: colors.warning },
+  statusHint: { color: colors.textMuted, fontSize: 12, marginTop: 6, lineHeight: 17 },
   submitBox: {
     marginTop: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 10,
   },
-  stepLine: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 2 },
   body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
   ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },
   warnTitle: { fontWeight: '700', color: colors.warning, marginBottom: 4 },
@@ -790,6 +681,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
+    marginTop: 8,
     color: colors.text,
     textAlignVertical: 'top',
     backgroundColor: colors.background,

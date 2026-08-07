@@ -160,15 +160,6 @@ export function StudentShell({
         <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
       </View>
 
-      <View style={styles.nameBanner}>
-        <Text style={styles.nameBannerText} numberOfLines={1}>
-          {studentName}
-        </Text>
-        <Pressable onPress={onSignOut} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.signOutCompact}>Sign out</Text>
-        </Pressable>
-      </View>
-
       <View style={styles.content}>{children}</View>
 
       <Modal
@@ -259,7 +250,6 @@ const styles = StyleSheet.create({
   menuBadgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   signOut: { marginTop: 8, padding: 10 },
   signOutText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
-  signOutCompact: { color: colors.danger, fontWeight: '700', fontSize: 12 },
   main: { flex: 1 },
   topBar: {
     backgroundColor: colors.surface,
@@ -321,18 +311,6 @@ const styles = StyleSheet.create({
   mobileBrandText: { flex: 1, minWidth: 0 },
   mobileTitle: { color: colors.primaryDark, fontWeight: '800', fontSize: 13 },
   mobileSection: { color: colors.textMuted, fontSize: 11, fontWeight: '600', marginTop: 1 },
-  nameBanner: {
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  nameBannerText: { flex: 1, color: colors.textMuted, fontWeight: '600', fontSize: 12 },
   bellBtn: {
     width: 40,
     height: 40,
