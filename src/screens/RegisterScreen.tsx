@@ -7,12 +7,11 @@ import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-type RegistrationType = 'college' | 'student' | 'mentor' | 'corporate';
+type RegistrationType = 'college' | 'student' | 'corporate';
 
 const REGISTRATION_OPTIONS = [
   { value: 'college', label: 'College' },
   { value: 'student', label: 'Student' },
-  { value: 'mentor', label: 'Mentor' },
   { value: 'corporate', label: 'Corporate' },
 ];
 
@@ -21,12 +20,11 @@ export function RegisterScreen({ navigation }: Props) {
 
   const continueRegistration = () => {
     if (!regType) {
-      Alert.alert('Select registration type', 'Choose College, Student, Mentor, or Corporate.');
+      Alert.alert('Select registration type', 'Choose College, Student, or Corporate.');
       return;
     }
     if (regType === 'college') navigation.navigate('OtpVerify');
     else if (regType === 'student') navigation.navigate('StudentOtp');
-    else if (regType === 'mentor') navigation.navigate('TrainerOtp');
     else navigation.navigate('CorporateOtp');
   };
 
@@ -43,14 +41,14 @@ export function RegisterScreen({ navigation }: Props) {
         </View>
 
         <Text style={styles.lead}>
-          Select your registration type to continue. College, Student, Mentor, and Corporate accounts
-          are supported.
+          Select your registration type to continue. College, Student, and Corporate accounts can
+          register here. Trainer accounts are created by TASK Admin.
         </Text>
 
         <DropdownField
           label="Register as"
           required
-          placeholder="Select College, Student, Mentor, or Corporate"
+          placeholder="Select College, Student, or Corporate"
           options={REGISTRATION_OPTIONS}
           value={regType}
           onChange={(v) => setRegType(v as RegistrationType | '')}

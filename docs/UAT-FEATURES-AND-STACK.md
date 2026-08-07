@@ -124,10 +124,10 @@ Also:
 
 ### 4.5 Trainer
 
-- Self-registration (resume required; certificates & achievements optional)  
-- Status: pending → active / rejected (TASK Admin approval)  
-- Pending trainers: limited home (no session tools until approved)  
-- Approved trainer dashboard:  
+- Created only by TASK Admin (no public self-registration)  
+- Admin sets profile + login credentials; trainer signs in as **Trainer**  
+- Status: active / inactive  
+- Trainer dashboard:  
   - Sessions (open session workspace)  
   - Docs (resume / certs / achievements)  
   - History  
@@ -151,9 +151,9 @@ Issuing a certificate marks the student’s registration as **completed**.
 
 ### 4.7 TASK Admin
 
-- Actions inbox (college approvals, trainer approvals, course approvals, assign/edit trainers)  
+- Actions inbox (college approvals, course approvals, assign/edit trainers)  
 - Course catalogue CRUD  
-- Trainers directory CRUD / approve / reject  
+- Trainers directory — create/edit trainers and credentials  
 - Assign primary + optional backup trainer to approved course requests  
 - Edit assignment after save  
 

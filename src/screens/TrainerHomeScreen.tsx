@@ -151,18 +151,18 @@ export function TrainerHomeScreen({ navigation }: Props) {
             <Text style={styles.skills}>{profile.skills.join(' · ')}</Text>
             {profile.status === 'pending' ? (
               <Text style={styles.warn}>
-                Awaiting TASK Admin approval. You cannot be assigned to courses until approved.
+                Your trainer account is not active yet. Contact TASK Admin if you cannot access
+                sessions.
               </Text>
             ) : null}
             {profile.status === 'rejected' ? (
               <Text style={styles.danger}>
-                Application rejected
-                {profile.rejectionReason ? `: ${profile.rejectionReason}` : '.'} Update your
-                profile to resubmit for review.
+                This trainer account is inactive or blocked
+                {profile.rejectionReason ? `: ${profile.rejectionReason}` : '.'} Contact TASK Admin.
               </Text>
             ) : null}
             {profile.status === 'active' ? (
-              <Text style={styles.ok}>Authorised TASK trainer — eligible for course assignment.</Text>
+              <Text style={styles.ok}>Active TASK trainer — assigned sessions appear below.</Text>
             ) : null}
           </View>
         ) : (

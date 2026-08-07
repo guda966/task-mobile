@@ -50,13 +50,6 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
         action: () => navigation.navigate('TaskAdminHome'),
       });
     }
-    if (summary.trainersPending > 0) {
-      items.push({
-        title: `${summary.trainersPending} trainer(s) waiting approval`,
-        detail: 'Review trainer applications in Trainers.',
-        action: () => navigation.navigate('TaskAdminTrainers'),
-      });
-    }
     if (summary.submissionsPending > 0) {
       items.push({
         title: `${summary.submissionsPending} assignment submission(s) pending review`,
@@ -151,7 +144,7 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
               <BigNumber
                 label="To do"
                 value={
-                  summary.collegesPending + summary.trainersPending + summary.submissionsPending
+                  summary.collegesPending + summary.submissionsPending
                 }
                 hint="pending items"
                 warn

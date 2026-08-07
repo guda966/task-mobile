@@ -3,7 +3,7 @@ import { SEED_COURSES } from '../constants/courses';
 import { createDummyCollegeDraft } from '../constants/demoData';
 import { REGIONAL_CENTERS } from '../constants/lookups';
 import { DUMMY_STUDENT } from '../constants/student';
-import { createDemoTrainerDraft, createTrainerRegistrationSeed } from '../constants/trainer';
+import { createDemoTrainerDraft } from '../constants/trainer';
 import type { CollegeStudent, CourseRequest } from '../types/collegePortal';
 import type { CollegeEnrollment } from '../types/enrollment';
 import type {
@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v9';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v10';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -25,7 +25,6 @@ const IDS = {
   college: 'enr_demo_vivekananda',
   pendingCollege: 'enr_demo_pending',
   trainer: 'trn_demo_ananya',
-  pendingTrainer: 'trn_demo_pending',
   student: 'stu_demo_ananya',
   studentRohan: 'stu_demo_rohan',
   batch: 'req_demo_cse_2027',
@@ -374,42 +373,6 @@ function buildApprovedTrainer(): TrainerRecord {
     createdAt: now,
     updatedAt: now,
     createdBy: 'task_admin',
-  };
-}
-
-function buildPendingTrainer(): TrainerRecord {
-  const draft = createTrainerRegistrationSeed();
-  const now = nowIso();
-  return {
-    id: IDS.pendingTrainer,
-    firstName: draft.firstName,
-    lastName: draft.lastName,
-    email: draft.email.trim().toLowerCase(),
-    mobile: draft.mobile,
-    skills: draft.skills,
-    bio: draft.bio,
-    experienceYears: draft.experienceYears,
-    city: draft.city,
-    status: 'pending',
-    passwordHash: draft.password,
-    profileComplete: true,
-    resume: draft.resume,
-    certificates: draft.certificates.map((c, i) => ({
-      id: `cert_pending_${i + 1}`,
-      title: c.title,
-      issuer: c.issuer,
-      year: c.year,
-      file: c.file,
-    })),
-    achievements: draft.achievements.map((a, i) => ({
-      id: `ach_pending_${i + 1}`,
-      title: a.title,
-      description: a.description,
-      year: a.year,
-    })),
-    createdAt: now,
-    updatedAt: now,
-    createdBy: 'self',
   };
 }
 
@@ -762,7 +725,6 @@ export async function ensureDemoData(options?: {
   const sampleColleges = buildSampleApprovedColleges();
   const pendingCollege = buildPendingCollege();
   const trainer = buildApprovedTrainer();
-  const pendingTrainer = buildPendingTrainer();
   const student = buildDemoStudent(college);
   const rohan = buildRohanStudent(college);
   const batches = buildBatches(college, trainer);
@@ -777,7 +739,7 @@ export async function ensureDemoData(options?: {
   await write('task.collegeRegistrations.v2', [college, ...sampleColleges, pendingCollege]);
   await write('task.courses.v3', SEED_COURSES.map((c) => ({ ...c, enabled: c.enabled !== false })));
   await write('task.students.v1', buildCollegeStudents());
-  await write('task.trainers.v2', [trainer, pendingTrainer]);
+  await write('task.trainers.v2', [trainer]);
   await write('task.studentRegistrations.v1', [student, rohan]);
   await write('task.courseRequests.v1', batches);
   await write('task.trainingRegistrations.v1', [training, trainingRohan]);
@@ -809,7 +771,6 @@ export async function ensureDemoData(options?: {
       college: college.officialEmail,
       student: student.email,
       trainer: trainer.email,
-      pendingTrainer: pendingTrainer.email,
       corporate: 'hr@demo-corporate.in',
       otps: { email: '111111', mobile: '222222' },
     },
@@ -823,7 +784,7 @@ export const DEMO_CREDENTIALS_SUMMARY = [
   'TASK Admin — admin@task.telangana.gov.in / TaskAdmin@123',
   'College — admin@vivekananda-demo.ac.in / College@123',
   'Student — student.demo@gmail.com / Student@123',
-  'Mentor — trainer.demo@task.telangana.gov.in / Trainer@123',
+  'Trainer — trainer.demo@task.telangana.gov.in / Trainer@123',
   'Corporate — hr@demo-corporate.in / Corporate@123',
   'OTPs — Email 111111 · Mobile 222222',
 ].join('\n');

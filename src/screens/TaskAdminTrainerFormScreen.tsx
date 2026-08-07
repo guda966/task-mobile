@@ -50,7 +50,6 @@ export function TaskAdminTrainerFormScreen({ navigation, route }: Props) {
   const [draft, setDraft] = useState<TrainerDraft>(emptyDraft());
   const [record, setRecord] = useState<TrainerRecord | null>(null);
   const [status, setStatus] = useState('active');
-  const [rejectReason, setRejectReason] = useState('');
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackRating, setFeedbackRating] = useState('5');
   const [loading, setLoading] = useState(false);
@@ -172,44 +171,12 @@ export function TaskAdminTrainerFormScreen({ navigation, route }: Props) {
         });
         Alert.alert('Saved', 'Trainer profile updated.');
       } else {
-        await trainerApi.createTrainer(draft, 'task_admin');
-        Alert.alert('Added', 'Authorised trainer added with complete profile.');
+        await trainerApi.createTrainer(draft);
+        Alert.alert('Created', 'Trainer profile and login credentials are ready.');
       }
       navigation.goBack();
     } catch (e) {
       Alert.alert('Unable to save', e instanceof Error ? e.message : 'Try again');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const approve = async () => {
-    if (!trainerId) return;
-    try {
-      setLoading(true);
-      await trainerApi.approveTrainer(trainerId, user?.name || 'TASK Administrator');
-      Alert.alert('Approved', 'Trainer is now authorised for course assignment.');
-      await load();
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Approval failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const reject = async () => {
-    if (!trainerId) return;
-    try {
-      setLoading(true);
-      await trainerApi.rejectTrainer(
-        trainerId,
-        rejectReason,
-        user?.name || 'TASK Administrator',
-      );
-      Alert.alert('Rejected', 'Trainer application was rejected.');
-      await load();
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Rejection failed');
     } finally {
       setLoading(false);
     }
@@ -234,11 +201,11 @@ export function TaskAdminTrainerFormScreen({ navigation, route }: Props) {
 
   return (
     <Screen
-      title={isEdit ? 'Review Trainer' : 'Add Authorised Trainer'}
+      title={isEdit ? 'Edit Trainer' : 'Create Trainer'}
       subtitle={
         isEdit
-          ? 'Approve self-registrations or manage authorised trainers'
-          : 'Complete profile with resume; certificates and achievements are optional'
+          ? 'Update trainer profile, status, or credentials'
+          : 'Create trainer profile and login credentials for assignment'
       }
       showLogo={false}
     >
@@ -246,40 +213,15 @@ export function TaskAdminTrainerFormScreen({ navigation, route }: Props) {
         {record ? (
           <View style={styles.banner}>
             <View style={styles.row}>
-              <Text style={styles.bannerTitle}>Application status</Text>
+              <Text style={styles.bannerTitle}>Trainer status</Text>
               <StatusBadge status={record.status} />
             </View>
             <Text style={styles.meta}>
-              Source: {record.createdBy === 'self' ? 'Self-registration' : 'TASK Admin'}
+              Created by TASK Admin · credentials for trainer login
             </Text>
             {record.rejectionReason ? (
               <Text style={styles.danger}>Rejection reason: {record.rejectionReason}</Text>
             ) : null}
-          </View>
-        ) : null}
-
-        {record?.status === 'pending' ? (
-          <View style={styles.actions}>
-            <PrimaryButton
-              title={loading ? 'Working…' : 'Approve trainer'}
-              onPress={approve}
-              disabled={loading}
-            />
-            <Text style={styles.rejectLabel}>Or reject with reason</Text>
-            <TextInput
-              style={styles.reason}
-              multiline
-              placeholder="Rejection reason"
-              placeholderTextColor={colors.textMuted}
-              value={rejectReason}
-              onChangeText={setRejectReason}
-            />
-            <PrimaryButton
-              title="Reject application"
-              variant="danger"
-              onPress={reject}
-              disabled={loading}
-            />
           </View>
         ) : null}
 
@@ -338,7 +280,7 @@ export function TaskAdminTrainerFormScreen({ navigation, route }: Props) {
           />
         ))}
 
-        {!isEdit || record?.status === 'pending' ? (
+        {!isEdit ? (
           <>
             <Text style={styles.h2}>Resume *</Text>
             {draft.resume ? (
@@ -443,16 +385,14 @@ export function TaskAdminTrainerFormScreen({ navigation, route }: Props) {
           </>
         ) : null}
 
-        {isEdit && record?.status !== 'pending' ? (
+        {isEdit ? (
           <DropdownField
             label="Status"
             value={status}
             onChange={setStatus}
             options={[
-              { value: 'active', label: 'Approved / active' },
+              { value: 'active', label: 'Active' },
               { value: 'inactive', label: 'Inactive' },
-              { value: 'pending', label: 'Pending' },
-              { value: 'rejected', label: 'Rejected' },
             ]}
           />
         ) : null}

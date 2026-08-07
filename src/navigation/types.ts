@@ -25,11 +25,6 @@ export type RootStackParamList = {
   };
   StudentHome: undefined;
   StudentSessions: undefined;
-  TrainerOtp: undefined;
-  TrainerRegistration: {
-    email: string;
-    mobile: string;
-  };
   TrainerHome: undefined;
   CorporateOtp: undefined;
   CorporateRegistration: {

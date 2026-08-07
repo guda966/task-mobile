@@ -255,7 +255,7 @@ export const SEED_COURSES: Course[] = [
   },
   {
     id: 'crs_027',
-    title: 'Mentor Together Workshop',
+    title: 'Peer Learning Workshop',
     category: 'Soft Skills',
     description: '',
     graduationYears: ['2026', '2027', '2028', '2029', '2030', '2031', '2032'],

@@ -136,7 +136,7 @@ export function WelcomeScreen({ navigation }: Props) {
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Who can join</Text>
               <Text style={styles.detailText}>
-                Colleges, students, mentors, and corporates can register on this portal for TASK
+                Colleges, students, and corporates can register on this portal for TASK
                 programmes and partnerships.
               </Text>
             </View>

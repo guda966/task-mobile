@@ -28,8 +28,6 @@ import { TaskAdminReviewScreen } from '../screens/TaskAdminReviewScreen';
 import { TaskAdminTrainerFormScreen } from '../screens/TaskAdminTrainerFormScreen';
 import { TaskAdminTrainersScreen } from '../screens/TaskAdminTrainersScreen';
 import { TrainerHomeScreen } from '../screens/TrainerHomeScreen';
-import { TrainerOtpScreen } from '../screens/TrainerOtpScreen';
-import { TrainerRegistrationScreen } from '../screens/TrainerRegistrationScreen';
 import { TrainerSessionDetailScreen } from '../screens/TrainerSessionDetailScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { colors } from '../theme/colors';
@@ -140,19 +138,9 @@ export function RootNavigator() {
           options={{ title: 'Session' }}
         />
         <Stack.Screen
-          name="TrainerOtp"
-          component={TrainerOtpScreen}
-          options={{ title: 'Mentor Verify' }}
-        />
-        <Stack.Screen
-          name="TrainerRegistration"
-          component={TrainerRegistrationScreen}
-          options={{ title: 'Mentor Profile' }}
-        />
-        <Stack.Screen
           name="TrainerHome"
           component={TrainerHomeScreen}
-          options={{ title: 'Mentor', headerBackVisible: false }}
+          options={{ title: 'Trainer', headerBackVisible: false }}
         />
         <Stack.Screen
           name="CorporateOtp"

@@ -76,10 +76,6 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
     () => requests.filter((i) => i.status === 'pending'),
     [requests],
   );
-  const pendingTrainers = useMemo(
-    () => trainers.filter((t) => t.status === 'pending'),
-    [trainers],
-  );
   const needsTrainerAssign = useMemo(
     () => requests.filter((r) => r.status === 'approved' && !r.trainerId),
     [requests],
@@ -90,10 +86,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
   );
 
   const actionCount =
-    pendingRegs.length +
-    pendingReqs.length +
-    pendingTrainers.length +
-    needsTrainerAssign.length;
+    pendingRegs.length + pendingReqs.length + needsTrainerAssign.length;
 
   return (
     <Screen
@@ -140,8 +133,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
               <View style={styles.caughtUp}>
                 <Text style={styles.caughtUpTitle}>You are all caught up</Text>
                 <Text style={styles.caughtUpBody}>
-                  No pending college approvals, trainer approvals, course requests, or trainer
-                  assignments right now.
+                  No pending college approvals, course requests, or trainer assignments right now.
                 </Text>
               </View>
             ) : null}
@@ -161,27 +153,6 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                     cta="Review"
                     onPress={() =>
                       navigation.navigate('TaskAdminReview', { enrollmentId: item.id })
-                    }
-                  />
-                ))}
-              </ActionGroup>
-            ) : null}
-
-            {pendingTrainers.length > 0 ? (
-              <ActionGroup
-                title="Approve trainer applications"
-                count={pendingTrainers.length}
-                actionLabel="Review"
-              >
-                {pendingTrainers.slice(0, 5).map((item) => (
-                  <ActionRow
-                    key={item.id}
-                    title={`${item.firstName} ${item.lastName}`}
-                    meta={`${item.email} · ${item.city} · ${item.skills.join(', ')}`}
-                    badge="pending"
-                    cta="Review"
-                    onPress={() =>
-                      navigation.navigate('TaskAdminTrainerForm', { trainerId: item.id })
                     }
                   />
                 ))}
@@ -340,8 +311,8 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
           <>
             <Text style={styles.section}>Trainer directory</Text>
             <Text style={styles.lead}>
-              Self-registered trainers stay Pending until you approve them. Only approved trainers
-              can be assigned to course requests.
+              Create trainer profiles with login credentials. Active trainers can be assigned to
+              course requests.
             </Text>
             <PrimaryButton
               title="Open trainer directory"
@@ -349,7 +320,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
             />
             <View style={{ height: 10 }} />
             <PrimaryButton
-              title="Add trainer"
+              title="Create trainer"
               variant="secondary"
               onPress={() => navigation.navigate('TaskAdminTrainerForm', {})}
             />

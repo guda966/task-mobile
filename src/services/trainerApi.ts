@@ -65,7 +65,7 @@ function normalizeTrainer(raw: Partial<TrainerRecord> & { id: string; email: str
     achievements: raw.achievements || [],
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: raw.updatedAt || new Date().toISOString(),
-    createdBy: raw.createdBy || 'self',
+    createdBy: 'task_admin',
   };
 }
 
@@ -218,7 +218,7 @@ export const trainerApi = {
 
       const items = await readTrainers();
       const index = items.findIndex((t) => t.id === existing.id);
-      if (index < 0) return this.createTrainer(draft, 'task_admin');
+      if (index < 0) return this.createTrainer(draft);
 
       items[index] = {
         ...items[index],
@@ -245,13 +245,10 @@ export const trainerApi = {
       return items[index];
     }
 
-    return this.createTrainer(draft, 'task_admin');
+    return this.createTrainer(draft);
   },
 
-  async createTrainer(
-    draft: TrainerDraft,
-    createdBy: 'task_admin' | 'self',
-  ): Promise<TrainerRecord> {
+  async createTrainer(draft: TrainerDraft): Promise<TrainerRecord> {
     await delay(400);
     validateDraft(draft, true);
     const email = draft.email.trim().toLowerCase();
@@ -285,9 +282,9 @@ export const trainerApi = {
       bio: draft.bio.trim(),
       experienceYears: draft.experienceYears.trim() || '0',
       city: draft.city.trim(),
-      status: createdBy === 'task_admin' ? 'active' : 'pending',
-      reviewedAt: createdBy === 'task_admin' ? now : undefined,
-      reviewedBy: createdBy === 'task_admin' ? 'TASK Administrator' : undefined,
+      status: 'active',
+      reviewedAt: now,
+      reviewedBy: 'TASK Administrator',
       passwordHash: draft.password,
       profileComplete: true,
       resume: draft.resume,
@@ -295,18 +292,11 @@ export const trainerApi = {
       achievements,
       createdAt: now,
       updatedAt: now,
-      createdBy,
+      createdBy: 'task_admin',
     };
     items.unshift(record);
     await writeTrainers(items);
     return record;
-  },
-
-  async registerSelf(draft: TrainerDraft): Promise<SessionUser> {
-    const record = await this.createTrainer(draft, 'self');
-    const session = toSession(record);
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    return session;
   },
 
   async approveTrainer(id: string, reviewedBy = 'TASK Administrator'): Promise<TrainerRecord> {

@@ -44,7 +44,7 @@ export interface TrainerRecord {
   achievements: TrainerAchievement[];
   createdAt: string;
   updatedAt: string;
-  createdBy: 'task_admin' | 'self';
+  createdBy: 'task_admin';
 }
 
 export interface TrainerDraft {

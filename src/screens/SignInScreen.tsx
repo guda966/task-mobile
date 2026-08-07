@@ -28,7 +28,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'SignIn'>;
 const SIGN_IN_ROLES = [
   { value: 'college_admin', label: 'College' },
   { value: 'student', label: 'Student' },
-  { value: 'trainer', label: 'Mentor' },
+  { value: 'trainer', label: 'Trainer' },
   { value: 'corporate', label: 'Corporate' },
   { value: 'task_admin', label: 'TASK Admin' },
   { value: 'super_admin', label: 'Super Admin' },
@@ -174,7 +174,7 @@ export function SignInScreen({ navigation }: Props) {
         <DropdownField
           label="Sign in as"
           required
-          placeholder="Select College, Student, Mentor, or Corporate"
+          placeholder="Select College, Student, Trainer, Corporate, or Admin"
           options={SIGN_IN_ROLES}
           value={role}
           onChange={onRoleChange}
