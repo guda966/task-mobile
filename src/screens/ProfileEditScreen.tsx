@@ -7,6 +7,7 @@ import { TRAINER_SKILL_OPTIONS } from '../constants/trainer';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { accountApi } from '../services/accountApi';
+import { adminUsersApi } from '../services/adminUsersApi';
 import { mockApi } from '../services/mockApi';
 import { studentApi } from '../services/studentApi';
 import { trainerApi } from '../services/trainerApi';
@@ -127,18 +128,22 @@ export function ProfileEditScreen({ navigation }: Props) {
           newPassword: newPassword || undefined,
         });
         setUser(session);
-      } else if (user.role === 'task_admin') {
+      } else if (
+        user.role === 'task_admin' ||
+        user.role === 'super_admin' ||
+        user.role === 'placement_coordinator'
+      ) {
         if (!newPassword) {
           Alert.alert('Nothing to save', 'Update your password to save changes.');
           return;
         }
-        await accountApi.updateTaskAdminPassword(currentPassword, newPassword);
-      } else if (user.role === 'super_admin') {
-        if (!newPassword) {
-          Alert.alert('Nothing to save', 'Update your password to save changes.');
-          return;
+        if (!user.adminUserId) {
+          const byEmail = await adminUsersApi.getByEmail(user.email);
+          if (!byEmail) throw new Error('Admin profile not found.');
+          await adminUsersApi.updateOwnPassword(byEmail.id, currentPassword, newPassword);
+        } else {
+          await adminUsersApi.updateOwnPassword(user.adminUserId, currentPassword, newPassword);
         }
-        await accountApi.updateSuperAdminPassword(currentPassword, newPassword);
       } else {
         throw new Error('Unsupported account type.');
       }
@@ -168,8 +173,10 @@ export function ProfileEditScreen({ navigation }: Props) {
     <Screen
       title="Edit Profile"
       subtitle={
-        user.role === 'task_admin' || user.role === 'super_admin'
-          ? 'Change admin password'
+        user.role === 'task_admin' ||
+        user.role === 'super_admin' ||
+        user.role === 'placement_coordinator'
+          ? 'Change staff password'
           : user.role === 'trainer'
             ? 'Update your trainer profile'
             : 'Update contact details and password'

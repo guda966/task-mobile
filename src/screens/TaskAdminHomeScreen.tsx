@@ -9,7 +9,12 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { PrimaryButton, Screen, StatusBadge } from '../components/ui';
+import { AdminShell } from '../components/AdminShell';
+import {
+  PanelHeader,
+  StatTiles,
+} from '../components/college/PanelChrome';
+import { PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { collegePortalApi } from '../services/collegePortalApi';
@@ -89,38 +94,52 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
     pendingRegs.length + pendingReqs.length + needsTrainerAssign.length;
 
   return (
-    <Screen
-      title="TASK Admin"
-      subtitle={
-        actionCount
-          ? `${actionCount} action${actionCount === 1 ? '' : 's'} need your attention`
-          : 'All caught up · browse modules below'
-      }
+    <AdminShell
+      brandTitle="TASK Admin"
+      userName={user?.name || 'TASK Admin'}
+      active={tab}
+      onChange={(key) => setTab(key as AdminTab)}
+      onSignOut={onSignOut}
+      menu={[
+        { key: 'actions', label: 'Home', badge: actionCount || undefined },
+        { key: 'registrations', label: 'Colleges', badge: pendingRegs.length || undefined },
+        { key: 'courseRequests', label: 'Course requests', badge: pendingReqs.length || undefined },
+        { key: 'catalogue', label: 'Catalogue' },
+        { key: 'trainers', label: 'Trainers' },
+        { key: 'calendar', label: 'Calendar' },
+      ]}
     >
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={styles.tabs}>
-          {(
-            [
-              ['actions', `Actions (${actionCount})`],
-              ['registrations', `College Reg (${pendingRegs.length})`],
-              ['courseRequests', `Course Req (${pendingReqs.length})`],
-              ['catalogue', `Catalogue (${courseCount})`],
-              ['trainers', `Trainers (${trainers.length})`],
-              ['calendar', 'Calendar'],
-            ] as const
-          ).map(([key, label]) => (
-            <Pressable
-              key={key}
-              onPress={() => setTab(key)}
-              style={[styles.tab, tab === key && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {tab === 'actions' ? (
+          <>
+            <PanelHeader
+              title="Operations home"
+              subtitle={
+                actionCount
+                  ? `${actionCount} item${actionCount === 1 ? '' : 's'} need attention`
+                  : 'All caught up — browse modules from the menu'
+              }
+              action={
+                <PrimaryButton
+                  title="Profile"
+                  variant="secondary"
+                  onPress={() => navigation.navigate('ProfileEdit')}
+                />
+              }
+            />
+            <StatTiles
+              items={[
+                { label: 'Pending colleges', value: String(pendingRegs.length) },
+                { label: 'Course requests', value: String(pendingReqs.length) },
+                { label: 'Need trainers', value: String(needsTrainerAssign.length) },
+                { label: 'Active trainers', value: String(trainers.filter((t) => t.status === 'active').length) },
+              ]}
+            />
+          </>
+        ) : null}
 
         {tab === 'actions' ? (
           <>
@@ -364,7 +383,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
           </>
         ) : null}
 
-        {notifications.length > 0 ? (
+        {notifications.length > 0 && tab === 'actions' ? (
           <>
             <Text style={styles.section}>Notifications</Text>
             {notifications.slice(0, 4).map((n) => (
@@ -375,16 +394,8 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
             ))}
           </>
         ) : null}
-
-        <PrimaryButton
-          title="Edit profile"
-          variant="secondary"
-          onPress={() => navigation.navigate('ProfileEdit')}
-        />
-        <View style={{ height: 10 }} />
-        <PrimaryButton title="Sign Out" variant="secondary" onPress={onSignOut} />
       </ScrollView>
-    </Screen>
+    </AdminShell>
   );
 }
 
@@ -437,19 +448,7 @@ function ActionRow({
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 40 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  tab: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.text, fontWeight: '600', fontSize: 12 },
-  tabTextActive: { color: colors.white },
+  content: { padding: 16, paddingBottom: 40 },
   section: { fontWeight: '700', color: colors.text, marginBottom: 8, marginTop: 4 },
   lead: { color: colors.textMuted, marginBottom: 12, lineHeight: 18 },
   empty: { color: colors.textMuted, marginBottom: 12 },

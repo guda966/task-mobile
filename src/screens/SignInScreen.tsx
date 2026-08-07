@@ -30,19 +30,7 @@ const SIGN_IN_ROLES = [
   { value: 'student', label: 'Student' },
   { value: 'trainer', label: 'Trainer' },
   { value: 'corporate', label: 'Corporate' },
-  { value: 'task_admin', label: 'TASK Admin' },
-  { value: 'super_admin', label: 'Super Admin' },
 ];
-
-const TASK_ADMIN_DEMO = {
-  email: 'admin@task.telangana.gov.in',
-  password: 'TaskAdmin@123',
-};
-
-const SUPER_ADMIN_DEMO = {
-  email: 'superadmin@task.telangana.gov.in',
-  password: 'SuperAdmin@123',
-};
 
 const CORPORATE_DEMO = {
   email: 'hr@demo-corporate.in',
@@ -70,13 +58,7 @@ export function SignInScreen({ navigation }: Props) {
   const onRoleChange = (value: string) => {
     const next = value as UserRole | '';
     setRole(next);
-    if (next === 'task_admin') {
-      setEmail(TASK_ADMIN_DEMO.email);
-      setPassword(TASK_ADMIN_DEMO.password);
-    } else if (next === 'super_admin') {
-      setEmail(SUPER_ADMIN_DEMO.email);
-      setPassword(SUPER_ADMIN_DEMO.password);
-    } else if (next === 'college_admin') {
+    if (next === 'college_admin') {
       setEmail(DUMMY_COLLEGE_CONTACTS.officialEmail);
       setPassword(DUMMY_COLLEGE_PASSWORD);
     } else if (next === 'student') {
@@ -95,11 +77,7 @@ export function SignInScreen({ navigation }: Props) {
   };
 
   const goHome = (signedRole: UserRole) => {
-    if (signedRole === 'super_admin') {
-      navigation.reset({ index: 0, routes: [{ name: 'SuperAdminHome' }] });
-    } else if (signedRole === 'task_admin') {
-      navigation.reset({ index: 0, routes: [{ name: 'TaskAdminHome' }] });
-    } else if (signedRole === 'student') {
+    if (signedRole === 'student') {
       navigation.reset({ index: 0, routes: [{ name: 'StudentHome' }] });
     } else if (signedRole === 'trainer') {
       navigation.reset({ index: 0, routes: [{ name: 'TrainerHome' }] });
@@ -144,6 +122,17 @@ export function SignInScreen({ navigation }: Props) {
       }
 
       const user = await signIn(email.trim(), password);
+      if (
+        user.role === 'super_admin' ||
+        user.role === 'task_admin' ||
+        user.role === 'placement_coordinator'
+      ) {
+        Alert.alert(
+          'Staff account',
+          'Use Staff Sign In for Super Admin, TASK Admin, and Placement Coordinator.',
+        );
+        return;
+      }
       if (user.role !== role) {
         Alert.alert(
           'Wrong role selected',
@@ -174,7 +163,7 @@ export function SignInScreen({ navigation }: Props) {
         <DropdownField
           label="Sign in as"
           required
-          placeholder="Select College, Student, Trainer, Corporate, or Admin"
+          placeholder="Select College, Student, Trainer, or Corporate"
           options={SIGN_IN_ROLES}
           value={role}
           onChange={onRoleChange}
@@ -217,6 +206,14 @@ export function SignInScreen({ navigation }: Props) {
           variant="secondary"
           onPress={() => navigation.navigate('Register')}
         />
+
+        <Pressable
+          onPress={() => navigation.navigate('AdminSignIn')}
+          style={styles.staffLink}
+          accessibilityRole="button"
+        >
+          <Text style={styles.staffLinkText}>Staff / Admin sign in</Text>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -247,5 +244,16 @@ const styles = StyleSheet.create({
   },
   gap: {
     height: 10,
+  },
+  staffLink: {
+    marginTop: 18,
+    alignSelf: 'center',
+    paddingVertical: 8,
+  },
+  staffLinkText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

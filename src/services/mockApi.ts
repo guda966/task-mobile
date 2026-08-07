@@ -8,23 +8,13 @@ import type {
   SessionUser,
 } from '../types/enrollment';
 import { getFeeForDraft } from '../utils/validation';
-import { accountApi } from './accountApi';
+import { adminUsersApi } from './adminUsersApi';
 import { studentApi } from './studentApi';
 import { trainerApi } from './trainerApi';
 
 const ENROLLMENTS_KEY = 'task.collegeRegistrations.v2';
 const SESSION_KEY = 'task.session.v2';
 const OTP_KEY = 'task.otp.v1';
-
-const TASK_ADMIN = {
-  email: 'admin@task.telangana.gov.in',
-  name: 'TASK Administrator',
-};
-
-const SUPER_ADMIN = {
-  email: 'superadmin@task.telangana.gov.in',
-  name: 'TASK Super Administrator',
-};
 
 function uid(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -188,28 +178,9 @@ export const mockApi = {
     await delay();
     const normalized = email.trim().toLowerCase();
 
-    if (normalized === SUPER_ADMIN.email) {
-      const passwordOk = (await accountApi.getSuperAdminPassword()) === password;
-      if (!passwordOk) throw new Error('Invalid email or password.');
-      const user: SessionUser = {
-        role: 'super_admin',
-        email: SUPER_ADMIN.email,
-        name: SUPER_ADMIN.name,
-      };
-      await this.setSession(user);
-      return user;
-    }
-
-    if (normalized === TASK_ADMIN.email) {
-      const passwordOk = (await accountApi.getTaskAdminPassword()) === password;
-      if (!passwordOk) throw new Error('Invalid email or password.');
-      const user: SessionUser = {
-        role: 'task_admin',
-        email: TASK_ADMIN.email,
-        name: TASK_ADMIN.name,
-      };
-      await this.setSession(user);
-      return user;
+    const admin = await adminUsersApi.signIn(normalized, password);
+    if (admin) {
+      return admin;
     }
 
     const student = await studentApi.signIn(normalized, password);
@@ -373,7 +344,10 @@ export const mockApi = {
 
   getDemoCredentials() {
     return {
-      taskAdmin: TASK_ADMIN,
+      taskAdmin: {
+        email: 'admin@task.telangana.gov.in',
+        name: 'TASK Administrator',
+      },
       sampleFeeTable: REGISTRATION_FEES,
     };
   },

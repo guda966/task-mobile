@@ -3,6 +3,7 @@ import { DUMMY_EMAIL_OTP } from '../constants/demoData';
 import type { CollegeEnrollment, SessionUser, UserRole } from '../types/enrollment';
 import type { StudentRecord } from '../types/student';
 import { isValidMobile } from '../utils/validation';
+import { adminUsersApi } from './adminUsersApi';
 
 const ENROLLMENTS_KEY = 'task.collegeRegistrations.v2';
 const STUDENTS_REG_KEY = 'task.studentRegistrations.v1';
@@ -57,19 +58,13 @@ export const accountApi = {
     await delay();
     const normalized = email.trim().toLowerCase();
 
-    if (normalized === SUPER_ADMIN_EMAIL) {
+    const admin = await adminUsersApi.getByEmail(normalized);
+    if (admin) {
       return {
-        role: 'super_admin',
-        email: SUPER_ADMIN_EMAIL,
-        name: 'TASK Super Administrator',
-      };
-    }
-
-    if (normalized === TASK_ADMIN_EMAIL) {
-      return {
-        role: 'task_admin',
-        email: TASK_ADMIN_EMAIL,
-        name: 'TASK Administrator',
+        role: admin.role,
+        email: admin.email,
+        name: admin.name,
+        mobile: admin.mobile,
       };
     }
 
@@ -150,10 +145,18 @@ export const accountApi = {
     const account = await this.findAccountByEmail(normalized);
     if (!account) throw new Error('Account not found.');
 
-    if (account.role === 'task_admin') {
-      await AsyncStorage.setItem(TASK_ADMIN_PASSWORD_KEY, newPassword);
-    } else if (account.role === 'super_admin') {
-      await AsyncStorage.setItem(SUPER_ADMIN_PASSWORD_KEY, newPassword);
+    if (
+      account.role === 'task_admin' ||
+      account.role === 'super_admin' ||
+      account.role === 'placement_coordinator'
+    ) {
+      const admin = await adminUsersApi.getByEmail(normalized);
+      if (!admin) throw new Error('Admin account not found.');
+      await adminUsersApi.updateUser(admin.id, {
+        name: admin.name,
+        mobile: admin.mobile,
+        newPassword,
+      });
     } else if (account.role === 'student') {
       const students = await readJson<StudentRecord[]>(STUDENTS_REG_KEY, []);
       const index = students.findIndex((s) => s.email === normalized);

@@ -4,6 +4,7 @@ import { createDummyCollegeDraft } from '../constants/demoData';
 import { REGIONAL_CENTERS } from '../constants/lookups';
 import { DUMMY_STUDENT } from '../constants/student';
 import { createDemoTrainerDraft } from '../constants/trainer';
+import { adminUsersApi } from './adminUsersApi';
 import type { CollegeStudent, CourseRequest } from '../types/collegePortal';
 import type { CollegeEnrollment } from '../types/enrollment';
 import type {
@@ -17,7 +18,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v10';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v11';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -721,6 +722,8 @@ export async function ensureDemoData(options?: {
 
   await clearTaskStorage();
 
+  await adminUsersApi.ensureSeedAdmins();
+
   const college = buildApprovedCollege();
   const sampleColleges = buildSampleApprovedColleges();
   const pendingCollege = buildPendingCollege();
@@ -780,8 +783,9 @@ export async function ensureDemoData(options?: {
 }
 
 export const DEMO_CREDENTIALS_SUMMARY = [
-  'Super Admin — superadmin@task.telangana.gov.in / SuperAdmin@123',
-  'TASK Admin — admin@task.telangana.gov.in / TaskAdmin@123',
+  'Super Admin — superadmin@task.telangana.gov.in / SuperAdmin@123 (Staff Sign In)',
+  'TASK Admin — admin@task.telangana.gov.in / TaskAdmin@123 (Staff Sign In)',
+  'Placement — placement@task.telangana.gov.in / Placement@123 (Staff Sign In)',
   'College — admin@vivekananda-demo.ac.in / College@123',
   'Student — student.demo@gmail.com / Student@123',
   'Trainer — trainer.demo@task.telangana.gov.in / Trainer@123',

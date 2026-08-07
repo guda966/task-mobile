@@ -3,11 +3,13 @@ import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { AdminSignInScreen } from '../screens/AdminSignInScreen';
 import { CollegeHomeScreen } from '../screens/CollegeHomeScreen';
 import { CourseRequestDetailScreen } from '../screens/CourseRequestDetailScreen';
 import { EnrollmentFormScreen } from '../screens/EnrollmentFormScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { OtpVerifyScreen } from '../screens/OtpVerifyScreen';
+import { PlacementCoordinatorHomeScreen } from '../screens/PlacementCoordinatorHomeScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { RequestCourseScreen } from '../screens/RequestCourseScreen';
@@ -38,6 +40,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function homeForRole(role: string) {
   if (role === 'super_admin') return 'SuperAdminHome';
   if (role === 'task_admin') return 'TaskAdminHome';
+  if (role === 'placement_coordinator') return 'PlacementCoordinatorHome';
   if (role === 'student') return 'StudentHome';
   if (role === 'trainer') return 'TrainerHome';
   if (role === 'corporate') return 'CorporateHome';
@@ -77,6 +80,11 @@ export function RootNavigator() {
           options={{ title: 'Register / Sign up' }}
         />
         <Stack.Screen name="SignIn" component={SignInScreen} options={{ title: 'Sign In' }} />
+        <Stack.Screen
+          name="AdminSignIn"
+          component={AdminSignInScreen}
+          options={{ title: 'Staff Sign In' }}
+        />
         <Stack.Screen
           name="ForgotPassword"
           component={ForgotPasswordScreen}
@@ -166,14 +174,19 @@ export function RootNavigator() {
           name="TaskAdminHome"
           component={TaskAdminHomeScreen}
           options={({ navigation }) => ({
-            title: 'TASK Admin',
+            headerShown: false,
             headerBackVisible: navigation.canGoBack(),
           })}
         />
         <Stack.Screen
+          name="PlacementCoordinatorHome"
+          component={PlacementCoordinatorHomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="SuperAdminHome"
           component={SuperAdminHomeScreen}
-          options={{ title: 'Super Admin', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="TaskAdminCourses"

@@ -2,6 +2,7 @@ export type RootStackParamList = {
   Welcome: undefined;
   Register: undefined;
   SignIn: undefined;
+  AdminSignIn: undefined;
   ForgotPassword: undefined;
   ProfileEdit: undefined;
   OtpVerify: undefined;
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   };
   CorporateHome: undefined;
   TaskAdminHome: undefined;
+  PlacementCoordinatorHome: undefined;
   TaskAdminCourses: undefined;
   TaskAdminCourseForm: {
     courseId?: string;

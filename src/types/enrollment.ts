@@ -11,6 +11,7 @@ export type UserRole =
   | 'college_admin'
   | 'task_admin'
   | 'super_admin'
+  | 'placement_coordinator'
   | 'student'
   | 'trainer'
   | 'corporate';
@@ -63,6 +64,7 @@ export interface SessionUser {
   enrollmentId?: string;
   studentId?: string;
   trainerId?: string;
+  adminUserId?: string;
 }
 
 export interface EnrollmentDraft {

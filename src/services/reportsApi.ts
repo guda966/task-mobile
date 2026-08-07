@@ -84,17 +84,35 @@ export const reportsApi = {
     };
   },
 
-  async listBatchProgress(enrollmentId?: string): Promise<BatchProgressRow[]> {
+  async listBatchProgress(enrollmentId?: string, district?: string): Promise<BatchProgressRow[]> {
     await delay();
     const requests = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
+    const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
     const registrations = await readJson<TrainingRegistration[]>(TRAINING_KEY, []);
     const attendance = await readJson<SessionAttendance[]>(ATTENDANCE_KEY, []);
     const assignments = await readJson<SessionAssignment[]>(ASSIGNMENTS_KEY, []);
     const submissions = await readJson<AssignmentSubmission[]>(SUBMISSIONS_KEY, []);
     const certificates = await readJson<SessionCertificate[]>(CERTIFICATES_KEY, []);
 
+    const allowedEnrollmentIds = new Set(
+      enrollments
+        .filter((e) => {
+          if (e.status !== 'approved') return false;
+          if (enrollmentId && e.id !== enrollmentId) return false;
+          if (district && district !== 'All' && e.district !== district) return false;
+          return true;
+        })
+        .map((e) => e.id),
+    );
+
+    const useScope = Boolean(enrollmentId) || Boolean(district && district !== 'All');
+
     const sessions = requests
-      .filter((r) => r.status === 'approved' && (!enrollmentId || r.enrollmentId === enrollmentId))
+      .filter(
+        (r) =>
+          r.status === 'approved' &&
+          (!useScope || allowedEnrollmentIds.has(r.enrollmentId)),
+      )
       .sort((a, b) => b.startDate.localeCompare(a.startDate));
 
     const rows: BatchProgressRow[] = [];
@@ -447,5 +465,14 @@ export const reportsApi = {
         r.trainerName || '',
       ]),
     );
+  },
+
+  async listCollegesForReports(): Promise<{ id: string; name: string; district: string }[]> {
+    await delay(100);
+    const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
+    return enrollments
+      .filter((e) => e.status === 'approved')
+      .map((e) => ({ id: e.id, name: e.institutionName, district: e.district }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   },
 };
