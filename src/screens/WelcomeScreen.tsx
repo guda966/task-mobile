@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
-  Linking,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -104,10 +102,6 @@ export function WelcomeScreen({ navigation }: Props) {
     );
   };
 
-  const openOfficialSite = () => {
-    void Linking.openURL('https://task.telangana.gov.in/');
-  };
-
   const portraitSize = compact ? 70 : 92;
   const logoSize = compact ? 78 : 108;
 
@@ -158,9 +152,6 @@ export function WelcomeScreen({ navigation }: Props) {
 
       <View style={styles.navStrip}>
         <Text style={styles.navActive}>Home</Text>
-        <Pressable onPress={openOfficialSite} accessibilityRole="link">
-          <Text style={styles.navLink}>Official website</Text>
-        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -173,9 +164,6 @@ export function WelcomeScreen({ navigation }: Props) {
               TASK works with colleges, students and trainers to build employability skills for today’s
               job market.
             </Text>
-            <Pressable onPress={openOfficialSite}>
-              <Text style={styles.readMore}>Read More on task.telangana.gov.in</Text>
-            </Pressable>
           </View>
 
           <View style={[styles.card, styles.announceCard]}>
@@ -379,11 +367,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
     paddingBottom: 2,
   },
-  navLink: {
-    color: colors.textMuted,
-    fontWeight: '600',
-    fontSize: 13,
-  },
   content: {
     padding: 16,
     paddingBottom: 40,
@@ -419,12 +402,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     lineHeight: 22,
-  },
-  readMore: {
-    marginTop: 12,
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: 13,
   },
   announceHint: {
     marginTop: 8,
