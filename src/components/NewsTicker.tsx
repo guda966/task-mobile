@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { colors } from '../theme/colors';
 
 const NEWS_ITEMS = [
@@ -10,38 +18,56 @@ const NEWS_ITEMS = [
 ];
 
 export function NewsTicker() {
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const translateX = useRef(new Animated.Value(0)).current;
   const [textWidth, setTextWidth] = useState(0);
+  const [trackWidth, setTrackWidth] = useState(0);
   const message = NEWS_ITEMS.join('     •     ');
+  const gap = 48;
+  const useNativeDriver = Platform.OS !== 'web';
 
   useEffect(() => {
-    if (textWidth <= 0) return;
-    translateX.setValue(width);
-    const distance = textWidth + width;
+    if (textWidth <= 0 || trackWidth <= 0) return;
+
+    const travel = textWidth + gap;
+    translateX.setValue(0);
+
     const anim = Animated.loop(
       Animated.timing(translateX, {
-        toValue: -textWidth,
-        duration: Math.max(18000, distance * 18),
+        toValue: -travel,
+        duration: Math.max(14000, travel * 25),
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver,
       }),
     );
     anim.start();
-    return () => anim.stop();
-  }, [textWidth, width, translateX]);
+    return () => {
+      anim.stop();
+      translateX.stopAnimation();
+    };
+  }, [textWidth, trackWidth, windowWidth, translateX, useNativeDriver]);
 
   return (
     <View style={styles.ticker}>
       <Text style={styles.tickerLabel}>Updates</Text>
-      <View style={styles.tickerTrack}>
-        <Animated.Text
-          onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
-          style={[styles.tickerText, { transform: [{ translateX }] }]}
-          numberOfLines={1}
+      <View
+        style={styles.tickerTrack}
+        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+      >
+        <Animated.View
+          style={[styles.tickerRow, { transform: [{ translateX }] }]}
         >
-          {message}
-        </Animated.Text>
+          <Text
+            style={styles.tickerText}
+            numberOfLines={1}
+            onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
+          >
+            {message}
+          </Text>
+          <Text style={[styles.tickerText, { marginLeft: gap }]} numberOfLines={1}>
+            {message}
+          </Text>
+        </Animated.View>
       </View>
     </View>
   );
@@ -75,10 +101,16 @@ const styles = StyleSheet.create({
     height: 22,
     justifyContent: 'center',
   },
+  tickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+  },
   tickerText: {
-    position: 'absolute',
     color: '#E8F6F6',
     fontSize: 13,
     fontWeight: '600',
+    flexShrink: 0,
+    ...(Platform.OS === 'web' ? ({ whiteSpace: 'nowrap' } as object) : null),
   },
 });
