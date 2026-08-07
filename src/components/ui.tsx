@@ -84,6 +84,9 @@ export function DropdownField({
   onChange,
   error,
   placeholder = 'Select',
+  searchable = false,
+  disabled = false,
+  searchPlaceholder = 'Search…',
 }: {
   label: string;
   required?: boolean;
@@ -92,22 +95,43 @@ export function DropdownField({
   onChange: (value: string) => void;
   error?: string;
   placeholder?: string;
+  searchable?: boolean;
+  disabled?: boolean;
+  searchPlaceholder?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const selectedLabel = useMemo(
     () => options.find((o) => o.value === value)?.label,
     [options, value],
   );
+  const filteredOptions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
+    );
+  }, [options, query]);
 
-  if (Platform.OS === 'web') {
+  const useModalPicker = searchable || Platform.OS !== 'web';
+
+  if (!useModalPicker) {
     return (
       <View style={styles.field}>
         <Text style={styles.label}>
           {label}
           {required ? <Text style={styles.required}> *</Text> : null}
         </Text>
-        <View style={[styles.selectWrap, error ? styles.inputError : null]}>
+        <View
+          style={[
+            styles.selectWrap,
+            error ? styles.inputError : null,
+            disabled ? styles.dropdownDisabled : null,
+          ]}
+          pointerEvents={disabled ? 'none' : 'auto'}
+        >
           <Picker
+            enabled={!disabled}
             selectedValue={value}
             onValueChange={(itemValue) => onChange(String(itemValue ?? ''))}
             style={styles.webPicker}
@@ -136,26 +160,60 @@ export function DropdownField({
         {required ? <Text style={styles.required}> *</Text> : null}
       </Text>
       <Pressable
-        onPress={() => setOpen(true)}
-        style={[styles.dropdownTrigger, error ? styles.inputError : null]}
+        disabled={disabled}
+        onPress={() => {
+          setQuery('');
+          setOpen(true);
+        }}
+        style={[
+          styles.dropdownTrigger,
+          error ? styles.inputError : null,
+          disabled ? styles.dropdownDisabled : null,
+        ]}
       >
-        <Text style={selectedLabel ? styles.dropdownValue : styles.dropdownPlaceholder}>
+        <Text
+          style={
+            selectedLabel
+              ? styles.dropdownValue
+              : styles.dropdownPlaceholder
+          }
+          numberOfLines={2}
+        >
           {selectedLabel || placeholder}
         </Text>
         <Text style={styles.chevron}>▼</Text>
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
         <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>{label}</Text>
+            {searchable ? (
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder={searchPlaceholder}
+                placeholderTextColor={colors.textMuted}
+                style={styles.searchInput}
+                autoFocus
+              />
+            ) : null}
             <FlatList
-              data={options}
+              data={filteredOptions}
               keyExtractor={(item, index) =>
                 item.value === '' ? `__empty_${index}` : item.value
               }
               keyboardShouldPersistTaps="handled"
+              style={styles.optionList}
+              ListEmptyComponent={
+                <Text style={styles.emptyOptions}>No matches found</Text>
+              }
               renderItem={({ item }) => {
                 const active = item.value === value;
                 return (
@@ -344,6 +402,25 @@ const styles = StyleSheet.create({
   },
   dropdownValue: { color: colors.text, fontSize: 15, flex: 1 },
   dropdownPlaceholder: { color: colors.textMuted, fontSize: 15, flex: 1 },
+  dropdownDisabled: { opacity: 0.55, backgroundColor: '#F3F4F6' },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  optionList: { maxHeight: 320 },
+  emptyOptions: {
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontSize: 14,
+  },
   chevron: { color: colors.textMuted, fontSize: 10, marginLeft: 8 },
   modalBackdrop: {
     flex: 1,

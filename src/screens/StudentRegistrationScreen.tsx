@@ -8,7 +8,7 @@ import {
   PrimaryButton,
   Screen,
 } from '../components/ui';
-import { AFFILIATED_UNIVERSITIES, DISTRICTS, INSTITUTION_TYPES } from '../constants/lookups';
+import { INSTITUTION_TYPES } from '../constants/lookups';
 import { BRANCHES, GRADUATION_YEARS } from '../constants/courses';
 import {
   DUMMY_STUDENT,
@@ -42,9 +42,9 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     aadhaarNumber: '',
     category: 'GENERAL',
     casteCertificateProvided: false,
-    institutionType: 'DEGREE_PG',
-    affiliatedUniversity: 'Osmania University',
-    district: 'Hyderabad',
+    institutionType: '',
+    affiliatedUniversity: '',
+    district: '',
     enrollmentId: '',
     collegeRollNo: '21QU1A0501',
     yearOfGraduation: '2027',
@@ -70,17 +70,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     (async () => {
       const list = await studentApi.listApprovedColleges();
       setColleges(list);
-      if (list.length && !draft.enrollmentId) {
-        setDraft((prev) => ({
-          ...prev,
-          enrollmentId: list[0].id,
-          institutionType: list[0].institutionType,
-          affiliatedUniversity: list[0].affiliatedUniversity,
-          district: list[0].district,
-        }));
-      }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fee = useMemo(
@@ -88,19 +78,87 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     [draft.institutionType, draft.category],
   );
 
+  const institutionTypeOptions = useMemo(() => {
+    const available = new Set(colleges.map((c) => c.institutionType));
+    return INSTITUTION_TYPES.filter((t) => available.has(t.value)).map((t) => ({
+      value: t.value,
+      label: t.label,
+    }));
+  }, [colleges]);
+
+  const universityOptions = useMemo(() => {
+    if (!draft.institutionType) return [];
+    const names = [
+      ...new Set(
+        colleges
+          .filter((c) => c.institutionType === draft.institutionType)
+          .map((c) => c.affiliatedUniversity),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    return names.map((u) => ({ value: u, label: u }));
+  }, [colleges, draft.institutionType]);
+
+  const districtOptions = useMemo(() => {
+    if (!draft.institutionType || !draft.affiliatedUniversity) return [];
+    const names = [
+      ...new Set(
+        colleges
+          .filter(
+            (c) =>
+              c.institutionType === draft.institutionType &&
+              c.affiliatedUniversity === draft.affiliatedUniversity,
+          )
+          .map((c) => c.district),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    return names.map((d) => ({ value: d, label: d }));
+  }, [colleges, draft.institutionType, draft.affiliatedUniversity]);
+
+  const matchingColleges = useMemo(() => {
+    if (!draft.institutionType || !draft.affiliatedUniversity || !draft.district) {
+      return [];
+    }
+    return colleges.filter(
+      (c) =>
+        c.institutionType === draft.institutionType &&
+        c.affiliatedUniversity === draft.affiliatedUniversity &&
+        c.district === draft.district,
+    );
+  }, [colleges, draft.institutionType, draft.affiliatedUniversity, draft.district]);
+
   const update = <K extends keyof StudentDraft>(key: K, value: StudentDraft[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  const onCollegeChange = (enrollmentId: string) => {
-    const college = colleges.find((c) => c.id === enrollmentId);
+  const onInstitutionTypeChange = (value: string) => {
     setDraft((prev) => ({
       ...prev,
-      enrollmentId,
-      institutionType: college?.institutionType ?? prev.institutionType,
-      affiliatedUniversity: college?.affiliatedUniversity ?? prev.affiliatedUniversity,
-      district: college?.district ?? prev.district,
+      institutionType: value as StudentDraft['institutionType'],
+      affiliatedUniversity: '',
+      district: '',
+      enrollmentId: '',
     }));
+  };
+
+  const onUniversityChange = (value: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      affiliatedUniversity: value,
+      district: '',
+      enrollmentId: '',
+    }));
+  };
+
+  const onDistrictChange = (value: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      district: value,
+      enrollmentId: '',
+    }));
+  };
+
+  const onCollegeChange = (enrollmentId: string) => {
+    setDraft((prev) => ({ ...prev, enrollmentId }));
   };
 
   const validateStep = () => {
@@ -242,50 +300,79 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
         {step === 1 && (
           <>
             <Text style={styles.section}>College details</Text>
+            <Text style={styles.hint}>
+              Select institution type, university, and district first. Only matching
+              TASK-approved colleges will appear.
+            </Text>
             {colleges.length === 0 ? (
               <Text style={styles.warn}>
                 No TASK-approved colleges found. College must register and get approved first.
               </Text>
             ) : null}
-            <DropdownField
-              label="College"
-              required
-              placeholder="Select College"
-              value={draft.enrollmentId}
-              onChange={onCollegeChange}
-              options={colleges.map((c) => ({
-                value: c.id,
-                label: `${c.institutionName} (${c.affiliationNumber})`,
-              }))}
-              error={errors.enrollmentId}
-            />
+
             <DropdownField
               label="Type of institution"
               required
-              placeholder="Select"
+              placeholder="Select type"
               value={draft.institutionType}
-              onChange={(v) => update('institutionType', v as StudentDraft['institutionType'])}
-              options={INSTITUTION_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+              onChange={onInstitutionTypeChange}
+              options={institutionTypeOptions}
               error={errors.institutionType}
             />
             <DropdownField
               label="Affiliated University"
               required
-              placeholder="Select"
+              placeholder={
+                draft.institutionType
+                  ? 'Select university'
+                  : 'Select institution type first'
+              }
               value={draft.affiliatedUniversity}
-              onChange={(v) => update('affiliatedUniversity', v)}
-              options={AFFILIATED_UNIVERSITIES.map((u) => ({ value: u, label: u }))}
+              onChange={onUniversityChange}
+              options={universityOptions}
+              disabled={!draft.institutionType}
               error={errors.affiliatedUniversity}
             />
             <DropdownField
               label="District"
               required
-              placeholder="Select"
+              placeholder={
+                draft.affiliatedUniversity ? 'Select district' : 'Select university first'
+              }
               value={draft.district}
-              onChange={(v) => update('district', v)}
-              options={DISTRICTS.map((d) => ({ value: d, label: d }))}
+              onChange={onDistrictChange}
+              options={districtOptions}
+              disabled={!draft.affiliatedUniversity}
+              searchable={districtOptions.length > 12}
               error={errors.district}
             />
+            <DropdownField
+              label="College"
+              required
+              placeholder={
+                !draft.district
+                  ? 'Select district first'
+                  : matchingColleges.length === 0
+                    ? 'No colleges for this filter'
+                    : 'Search / select college'
+              }
+              value={draft.enrollmentId}
+              onChange={onCollegeChange}
+              options={matchingColleges.map((c) => ({
+                value: c.id,
+                label: `${c.institutionName} (${c.affiliationNumber})`,
+              }))}
+              disabled={!draft.district || matchingColleges.length === 0}
+              searchable
+              searchPlaceholder="Type college name…"
+              error={errors.enrollmentId}
+            />
+            {draft.district && matchingColleges.length > 0 ? (
+              <Text style={styles.hint}>
+                {matchingColleges.length} college(s) match your filters.
+              </Text>
+            ) : null}
+
             <FormField
               label="College Roll No"
               required
