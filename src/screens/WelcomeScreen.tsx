@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
+import { RollingStats } from '../components/RollingStats';
 import { DropdownField, FormField, PrimaryButton } from '../components/ui';
 import {
   DUMMY_COLLEGE_CONTACTS,
@@ -45,13 +46,6 @@ const SIGN_IN_ROLES = [
 ];
 
 /** Published TASK decade impact figures (NITI Aayog / public reports). */
-const TASK_STATS = [
-  { value: '9.84L+', label: 'Students trained' },
-  { value: '761', label: 'Registered colleges' },
-  { value: '18,650+', label: 'Faculty trained' },
-  { value: '35,000+', label: 'Placements facilitated' },
-];
-
 const TASK_ADMIN_DEMO = {
   email: 'admin@task.telangana.gov.in',
   password: 'TaskAdmin@123',
@@ -155,9 +149,9 @@ export function WelcomeScreen({ navigation }: Props) {
     }
   };
 
-  const emblemSize = compact ? 48 : 64;
-  const portraitSize = compact ? 56 : 76;
-  const taskLogoSize = compact ? 64 : 86;
+  const emblemSize = compact ? 44 : 64;
+  const portraitSize = compact ? 52 : 76;
+  const taskLogoSize = compact ? 72 : 96;
 
   return (
     <View style={styles.page}>
@@ -187,7 +181,7 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.brandHeader}>
+      <View style={[styles.brandHeader, compact && styles.brandHeaderCompact]}>
         <View style={styles.brandSide}>
           <Image
             source={require('../../assets/brand/ts-logo.png')}
@@ -203,10 +197,10 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.brandCenter}>
-          <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]} numberOfLines={2}>
+          <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]} numberOfLines={compact ? 3 : 2}>
             Telangana Academy for Skill and Knowledge
           </Text>
-          <Text style={styles.brandSubtitle} numberOfLines={1}>
+          <Text style={styles.brandSubtitle} numberOfLines={2}>
             Department of ITE&C, Government of Telangana
           </Text>
         </View>
@@ -217,12 +211,14 @@ export function WelcomeScreen({ navigation }: Props) {
             size={portraitSize}
             label="Hon’ble Minister for ITE&C"
           />
-          <Image
-            source={require('../../assets/brand/task-logo.png')}
-            style={{ width: taskLogoSize, height: taskLogoSize }}
-            resizeMode="contain"
-            accessibilityLabel="TASK logo"
-          />
+          <View style={styles.logoWrap}>
+            <Image
+              source={require('../../assets/brand/task-logo.png')}
+              style={{ width: taskLogoSize, height: taskLogoSize }}
+              resizeMode="contain"
+              accessibilityLabel="TASK logo"
+            />
+          </View>
         </View>
       </View>
 
@@ -231,38 +227,29 @@ export function WelcomeScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.mainGrid, compact && styles.mainGridCompact]}>
-          <View style={[styles.card, styles.aboutCard]}>
-            <Text style={styles.cardHeading}>About Us</Text>
-            <Text style={styles.aboutText}>
-              TASK is a not-for-profit organization created by the Government of Telangana to bring
-              synergy among Government, Industry and Academia. Established in 2004 as IEG/JKC and
-              renamed TASK in 2014, it skills youth and builds employability for today’s workplace.
-            </Text>
-          </View>
+        <View style={styles.card}>
+          <Text style={styles.cardHeading}>About Us</Text>
+          <Text style={styles.aboutText}>
+            TASK is a not-for-profit organization created by the Government of Telangana to bring
+            synergy among Government, Industry and Academia. Established in 2004 as IEG/JKC and
+            renamed TASK in 2014, it skills youth and builds employability for today’s workplace.
+          </Text>
+        </View>
 
-          <View style={[styles.card, styles.announceCard]}>
-            <Text style={styles.cardHeading}>Announcements</Text>
-            <NewsTicker />
-          </View>
+        <View style={[styles.card, styles.announceCard]}>
+          <Text style={styles.cardHeading}>Announcements</Text>
+          <NewsTicker />
         </View>
 
         <Text style={styles.statsHeading}>TASK at a glance</Text>
-        <View style={[styles.statsRow, compact && styles.statsRowCompact]}>
-          {TASK_STATS.map((stat) => (
-            <View key={stat.label} style={styles.statCard}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
+        <RollingStats compact={compact} />
         <Text style={styles.statsSource}>
           Impact figures from TASK’s first decade of operations (public reports).
         </Text>
 
         <View style={styles.detailsBox}>
           <Text style={styles.detailsTitle}>Important details</Text>
-          <View style={[styles.detailsGrid, compact && styles.detailsGridCompact]}>
+          <View style={styles.detailsList}>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Skill offerings</Text>
               <Text style={styles.detailText}>
@@ -486,6 +473,11 @@ const styles = StyleSheet.create({
     gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    overflow: 'visible',
+  },
+  brandHeaderCompact: {
+    paddingVertical: 10,
+    gap: 6,
   },
   brandSide: {
     flexDirection: 'row',
@@ -495,6 +487,10 @@ const styles = StyleSheet.create({
   },
   brandSideRight: {
     justifyContent: 'flex-end',
+  },
+  logoWrap: {
+    padding: 4,
+    overflow: 'visible',
   },
   brandCenter: {
     flex: 1,
@@ -539,14 +535,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
-  },
-  mainGrid: {
-    flexDirection: 'row',
     gap: 14,
-    marginBottom: 16,
-  },
-  mainGridCompact: {
-    flexDirection: 'column',
   },
   card: {
     backgroundColor: colors.white,
@@ -555,11 +544,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  aboutCard: {
-    flex: 1.15,
-  },
   announceCard: {
-    flex: 1,
+    width: '100%',
   },
   cardHeading: {
     color: colors.primary,
@@ -576,44 +562,12 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     fontWeight: '800',
     fontSize: 16,
-    marginBottom: 10,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 6,
-  },
-  statsRowCompact: {
-    flexWrap: 'wrap',
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: '22%',
-    minWidth: 140,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: colors.primary,
-    fontWeight: '800',
-    fontSize: 22,
-  },
-  statLabel: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
+    marginBottom: -4,
   },
   statsSource: {
     color: colors.textMuted,
     fontSize: 11,
-    marginBottom: 16,
+    marginTop: -8,
   },
   detailsBox: {
     backgroundColor: colors.white,
@@ -621,7 +575,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 14,
   },
   detailsTitle: {
     color: colors.primary,
@@ -629,18 +582,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 12,
   },
-  detailsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  detailsGridCompact: {
-    flexDirection: 'column',
+  detailsList: {
+    gap: 10,
   },
   detailItem: {
-    flexGrow: 1,
-    flexBasis: '46%',
-    minWidth: 160,
+    width: '100%',
     backgroundColor: colors.primarySoft,
     borderRadius: 10,
     padding: 12,
