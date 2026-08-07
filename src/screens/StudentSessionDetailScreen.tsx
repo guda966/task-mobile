@@ -11,7 +11,14 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { DropdownField, FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
+import {
+  DataCard,
+  EmptyState,
+  PanelHeader,
+  SectionLabel,
+  StatTiles,
+} from '../components/college/PanelChrome';
+import { DropdownField, FormField, PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { sessionContentApi } from '../services/sessionContentApi';
@@ -47,6 +54,27 @@ const RATING_OPTIONS = [
   { label: '1 — Very poor', value: '1' },
 ];
 
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'materials', label: 'Materials' },
+  { key: 'assignments', label: 'Assignments' },
+  { key: 'attendance', label: 'Attendance' },
+  { key: 'certificates', label: 'Certificates' },
+  { key: 'feedback', label: 'Feedback' },
+  { key: 'queries', label: 'Queries' },
+];
+
+function fileExt(name: string): string {
+  const parts = name.split('.');
+  return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'FILE';
+}
+
+function demoOpenFile(fileName: string) {
+  Alert.alert(
+    'Demo file',
+    `${fileName}\n\nIn production this would open or download the document. For this UAT build, file viewing is simulated.`,
+  );
+}
+
 export function StudentSessionDetailScreen({ route }: Props) {
   const { requestId } = route.params;
   const { user } = useAuth();
@@ -79,7 +107,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
     setAttendance(await sessionContentApi.listAttendanceForStudent(requestId, user.studentId));
     const allCerts = await sessionContentApi.listCertificates(requestId);
     setCertificates(allCerts.filter((c) => c.studentId === user.studentId));
-    if (item.trainerId) {
+    if (item?.trainerId) {
       const allFb = await trainerApi.listFeedback(item.trainerId);
       setMyFeedback(
         allFb.filter(
@@ -110,6 +138,23 @@ export function StudentSessionDetailScreen({ route }: Props) {
     for (const s of submissions) map[s.assignmentId] = s;
     return map;
   }, [submissions]);
+
+  const presentCount = attendance.filter(
+    (a) => a.status === 'present' || a.status === 'late',
+  ).length;
+  const pendingAssignments = assignments.filter((a) => {
+    const mine = submissionByAssignment[a.id];
+    return !mine || mine.status === 'needs_revision';
+  }).length;
+
+  const tabCounts: Partial<Record<Tab, number>> = {
+    materials: materials.length,
+    assignments: assignments.length,
+    attendance: attendance.length,
+    certificates: certificates.length,
+    feedback: myFeedback.length,
+    queries: queries.length,
+  };
 
   const submitWork = async (assignmentId: string) => {
     if (!student) return;
@@ -184,15 +229,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
   };
 
   return (
-    <Screen
-      title={session?.courseName || 'Session'}
-      subtitle={
-        session
-          ? `${session.startDate} → ${session.endDate} · Trainer: ${session.trainerName || 'TBA'}`
-          : 'Loading…'
-      }
-      showLogo={false}
-    >
+    <View style={styles.root}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -206,48 +243,101 @@ export function StudentSessionDetailScreen({ route }: Props) {
           />
         }
       >
+        <PanelHeader
+          title={session?.courseName || 'Session'}
+          subtitle={
+            session
+              ? `${session.startDate} to ${session.endDate} · ${session.branch || 'Batch'}`
+              : 'Loading session…'
+          }
+        />
+
+        <StatTiles
+          items={[
+            { label: 'Trainer', value: session?.trainerName || 'TBA' },
+            { label: 'Materials', value: materials.length },
+            { label: 'Pending work', value: pendingAssignments },
+            { label: 'Days marked', value: presentCount },
+          ]}
+        />
+
         {!session?.trainerId ? (
-          <Text style={styles.warn}>
-            Trainer is not assigned yet. Materials, feedback, and queries unlock after TASK Admin
-            assigns a trainer.
-          </Text>
+          <DataCard>
+            <Text style={styles.warnTitle}>Trainer not assigned yet</Text>
+            <Text style={styles.warnBody}>
+              Materials, feedback, and queries unlock after TASK Admin assigns a trainer.
+            </Text>
+          </DataCard>
         ) : null}
 
-        <View style={styles.tabs}>
-          {(
-            [
-              ['materials', 'Materials'],
-              ['assignments', 'Assignments'],
-              ['attendance', 'Attendance'],
-              ['certificates', 'Certificates'],
-              ['feedback', 'Feedback'],
-              ['queries', 'Queries'],
-            ] as const
-          ).map(([key, label]) => (
-            <Pressable
-              key={key}
-              onPress={() => setTab(key)}
-              style={[styles.tab, tab === key && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabRow}
+          style={styles.tabScroll}
+        >
+          {TABS.map((item) => {
+            const active = tab === item.key;
+            const count = tabCounts[item.key];
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => setTab(item.key)}
+                style={[styles.tab, active && styles.tabActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
+                {typeof count === 'number' ? (
+                  <View style={[styles.countPill, active && styles.countPillActive]}>
+                    <Text style={[styles.countText, active && styles.countTextActive]}>{count}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
         {tab === 'materials' ? (
           <>
-            <Text style={styles.h2}>Learning materials</Text>
+            <SectionLabel>Learning materials</SectionLabel>
             {materials.length === 0 ? (
-              <Text style={styles.muted}>No materials uploaded by the trainer yet.</Text>
+              <EmptyState
+                title="No materials yet"
+                body="Your trainer will upload slides and notes here."
+              />
             ) : (
               materials.map((item) => (
-                <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  {item.description ? <Text style={styles.meta}>{item.description}</Text> : null}
-                  <Text style={styles.meta}>
-                    {item.file.fileName} · {item.file.sizeLabel}
-                  </Text>
-                </View>
+                <DataCard key={item.id} accent>
+                  <View style={styles.cardTop}>
+                    <View style={styles.fileChip}>
+                      <Text style={styles.fileChipText}>{fileExt(item.file.fileName)}</Text>
+                    </View>
+                    <View style={styles.cardMain}>
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      {item.description ? (
+                        <Text style={styles.meta}>{item.description}</Text>
+                      ) : null}
+                      <Text style={styles.meta}>
+                        {item.file.fileName} · {item.file.sizeLabel}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      style={styles.ghostBtn}
+                      onPress={() => demoOpenFile(item.file.fileName)}
+                    >
+                      <Text style={styles.ghostBtnText}>Open</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.primarySoftBtn}
+                      onPress={() => demoOpenFile(item.file.fileName)}
+                    >
+                      <Text style={styles.primarySoftBtnText}>Download</Text>
+                    </Pressable>
+                  </View>
+                </DataCard>
               ))
             )}
           </>
@@ -255,24 +345,31 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'assignments' ? (
           <>
-            <Text style={styles.h2}>Assignments</Text>
+            <SectionLabel>Assignments</SectionLabel>
             {assignments.length === 0 ? (
-              <Text style={styles.muted}>No assignments posted yet.</Text>
+              <EmptyState title="No assignments posted" body="Check back after the trainer posts work." />
             ) : (
               assignments.map((item) => {
                 const mine = submissionByAssignment[item.id];
                 return (
-                  <View key={item.id} style={styles.item}>
+                  <DataCard key={item.id} accent>
                     <View style={styles.row}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
-                      {mine ? <StatusBadge status={mine.status} /> : null}
+                      {mine ? <StatusBadge status={mine.status} /> : (
+                        <StatusBadge status="pending" />
+                      )}
                     </View>
                     <Text style={styles.body}>{item.instructions}</Text>
                     {item.dueDate ? <Text style={styles.meta}>Due: {item.dueDate}</Text> : null}
                     {item.file ? (
-                      <Text style={styles.meta}>
-                        Attachment: {item.file.fileName} · {item.file.sizeLabel}
-                      </Text>
+                      <Pressable
+                        onPress={() => demoOpenFile(item.file!.fileName)}
+                        style={styles.inlineLink}
+                      >
+                        <Text style={styles.linkText}>
+                          Attachment: {item.file.fileName} · {item.file.sizeLabel}
+                        </Text>
+                      </Pressable>
                     ) : null}
                     {mine ? (
                       <>
@@ -283,7 +380,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                           <Text style={styles.ok}>Trainer: {mine.trainerRemark}</Text>
                         ) : null}
                         {mine.status === 'needs_revision' ? (
-                          <Text style={styles.warn}>Please resubmit after revising.</Text>
+                          <Text style={styles.warnBody}>Please resubmit after revising.</Text>
                         ) : null}
                       </>
                     ) : null}
@@ -309,7 +406,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                         />
                       </>
                     ) : null}
-                  </View>
+                  </DataCard>
                 );
               })
             )}
@@ -318,12 +415,15 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'attendance' ? (
           <>
-            <Text style={styles.h2}>Your attendance</Text>
+            <SectionLabel>Your attendance</SectionLabel>
             {attendance.length === 0 ? (
-              <Text style={styles.muted}>No attendance marked yet for this session.</Text>
+              <EmptyState
+                title="No attendance marked"
+                body="Days appear here after the trainer marks the register."
+              />
             ) : (
               attendance.map((item) => (
-                <View key={item.id} style={styles.item}>
+                <DataCard key={item.id}>
                   <View style={styles.row}>
                     <Text style={styles.itemTitle}>{item.sessionDate}</Text>
                     <StatusBadge status={item.status} />
@@ -331,7 +431,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   <Text style={styles.meta}>
                     Updated {new Date(item.updatedAt).toLocaleString()}
                   </Text>
-                </View>
+                </DataCard>
               ))
             )}
           </>
@@ -339,22 +439,35 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'certificates' ? (
           <>
-            <Text style={styles.h2}>Your certificates</Text>
+            <SectionLabel>Your certificates</SectionLabel>
             {certificates.length === 0 ? (
-              <Text style={styles.muted}>
-                No certificate yet. Criteria: minimum 75% attendance (Present/Late) and all
-                assignments accepted by the trainer.
-              </Text>
+              <EmptyState
+                title="No certificate yet"
+                body="Needs at least 75% attendance (Present/Late) and all assignments accepted."
+              />
             ) : (
               certificates.map((item) => (
-                <View key={item.id} style={styles.item}>
+                <DataCard key={item.id} accent>
                   <Text style={styles.itemTitle}>{item.courseName}</Text>
                   <Text style={styles.ok}>{item.certificateCode}</Text>
                   <Text style={styles.meta}>
                     Issued by {item.issuedByName} · {new Date(item.issuedAt).toLocaleDateString()}
                   </Text>
                   <Text style={styles.meta}>{item.collegeName}</Text>
-                </View>
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      style={styles.primarySoftBtn}
+                      onPress={() =>
+                        Alert.alert(
+                          'Certificate',
+                          `${item.certificateCode}\n\nDownload is simulated in this UAT demo.`,
+                        )
+                      }
+                    >
+                      <Text style={styles.primarySoftBtnText}>Download certificate</Text>
+                    </Pressable>
+                  </View>
+                </DataCard>
               ))
             )}
           </>
@@ -362,42 +475,47 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'feedback' ? (
           <>
-            <Text style={styles.h2}>Your feedback</Text>
+            <SectionLabel>Your feedback</SectionLabel>
             {myFeedback.length === 0 ? (
-              <Text style={styles.muted}>You have not submitted feedback for this session yet.</Text>
+              <EmptyState
+                title="No feedback submitted"
+                body="Share a short rating and comment after attending the session."
+              />
             ) : (
               myFeedback.map((item) => (
-                <View key={item.id} style={styles.item}>
+                <DataCard key={item.id}>
                   <Text style={styles.itemTitle}>
                     Submitted{item.rating ? ` · ${item.rating}/5` : ''}
                   </Text>
                   <Text style={styles.body}>{item.comment}</Text>
-                </View>
+                </DataCard>
               ))
             )}
             {session?.trainerId ? (
               <>
-                <Text style={styles.h2}>Share feedback with trainer</Text>
-                <DropdownField
-                  label="Rating (optional)"
-                  value={rating}
-                  onChange={setRating}
-                  options={RATING_OPTIONS}
-                  placeholder="Select rating"
-                />
-                <FormField
-                  label="Comments"
-                  value={comment}
-                  onChangeText={setComment}
-                  multiline
-                  style={{ minHeight: 80, textAlignVertical: 'top' }}
-                  required
-                />
-                <PrimaryButton
-                  title={saving ? 'Sending…' : 'Submit feedback'}
-                  onPress={submitFeedback}
-                  disabled={saving}
-                />
+                <SectionLabel>Share feedback with trainer</SectionLabel>
+                <DataCard>
+                  <DropdownField
+                    label="Rating (optional)"
+                    value={rating}
+                    onChange={setRating}
+                    options={RATING_OPTIONS}
+                    placeholder="Select rating"
+                  />
+                  <FormField
+                    label="Comments"
+                    value={comment}
+                    onChangeText={setComment}
+                    multiline
+                    style={{ minHeight: 80, textAlignVertical: 'top' }}
+                    required
+                  />
+                  <PrimaryButton
+                    title={saving ? 'Sending…' : 'Submit feedback'}
+                    onPress={submitFeedback}
+                    disabled={saving}
+                  />
+                </DataCard>
               </>
             ) : null}
           </>
@@ -405,12 +523,15 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'queries' ? (
           <>
-            <Text style={styles.h2}>Your queries</Text>
+            <SectionLabel>Your queries</SectionLabel>
             {queries.length === 0 ? (
-              <Text style={styles.muted}>No queries raised for this session yet.</Text>
+              <EmptyState
+                title="No queries yet"
+                body="Ask the trainer if you need help with this session."
+              />
             ) : (
               queries.map((item) => (
-                <View key={item.id} style={styles.item}>
+                <DataCard key={item.id}>
                   <View style={styles.row}>
                     <Text style={styles.itemTitle}>Your question</Text>
                     <StatusBadge status={item.status} />
@@ -421,81 +542,119 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   ) : (
                     <Text style={styles.meta}>Awaiting trainer response…</Text>
                   )}
-                </View>
+                </DataCard>
               ))
             )}
             {session?.trainerId ? (
               <>
-                <Text style={styles.h2}>Ask the trainer</Text>
-                <TextInput
-                  style={styles.queryInput}
-                  placeholder="Type your question…"
-                  placeholderTextColor={colors.textMuted}
-                  value={question}
-                  onChangeText={setQuestion}
-                  multiline
-                />
-                <PrimaryButton
-                  title={saving ? 'Sending…' : 'Send query'}
-                  onPress={askQuery}
-                  disabled={saving}
-                />
+                <SectionLabel>Ask the trainer</SectionLabel>
+                <DataCard>
+                  <TextInput
+                    style={styles.queryInput}
+                    placeholder="Type your question…"
+                    placeholderTextColor={colors.textMuted}
+                    value={question}
+                    onChangeText={setQuestion}
+                    multiline
+                  />
+                  <PrimaryButton
+                    title={saving ? 'Sending…' : 'Send query'}
+                    onPress={askQuery}
+                    disabled={saving}
+                  />
+                </DataCard>
               </>
             ) : null}
           </>
         ) : null}
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 40 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  root: { flex: 1, backgroundColor: colors.background },
+  content: { padding: 16, paddingBottom: 48 },
+  tabScroll: { marginBottom: 8, marginHorizontal: -4 },
+  tabRow: { paddingHorizontal: 4, gap: 8, paddingBottom: 4 },
   tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
   tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  tabText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   tabTextActive: { color: colors.white },
-  h2: { marginTop: 14, marginBottom: 8, fontWeight: '800', color: colors.text, fontSize: 15 },
-  muted: { color: colors.textMuted, lineHeight: 20, marginBottom: 8 },
-  warn: {
-    color: colors.warning,
-    fontWeight: '600',
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 10,
+  countPill: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  item: {
-    backgroundColor: colors.surface,
+  countPillActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  countText: { color: colors.primaryDark, fontSize: 11, fontWeight: '700' },
+  countTextActive: { color: colors.white },
+  cardTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  cardMain: { flex: 1 },
+  fileChip: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  fileChipText: { color: colors.primaryDark, fontWeight: '800', fontSize: 11 },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  ghostBtn: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: colors.surface,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
-  itemTitle: { flex: 1, fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  ghostBtnText: { color: colors.text, fontWeight: '700', fontSize: 13 },
+  primarySoftBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: colors.primarySoft,
+  },
+  primarySoftBtnText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
+  inlineLink: { marginTop: 6, alignSelf: 'flex-start' },
+  linkText: { color: colors.primaryDark, fontWeight: '600', fontSize: 12 },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+    alignItems: 'flex-start',
+  },
+  itemTitle: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
+  meta: { color: colors.textMuted, fontSize: 12, marginTop: 2, lineHeight: 17 },
   body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
   ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },
+  warnTitle: { fontWeight: '700', color: colors.warning, marginBottom: 4 },
+  warnBody: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   queryInput: {
     minHeight: 80,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     padding: 10,
-    marginBottom: 8,
+    marginBottom: 10,
     color: colors.text,
     textAlignVertical: 'top',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
 });
