@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStudentRegistrationFee } from '../constants/student';
+import { buildSampleApprovedColleges } from './demoSeedApi';
 import { collegePortalApi } from './collegePortalApi';
 import type { CollegeEnrollment, SessionUser } from '../types/enrollment';
 import type { StudentDraft, StudentRecord } from '../types/student';
@@ -41,7 +42,21 @@ export const studentApi = {
     await delay();
     await collegePortalApi.ensureDemoApprovedCollege();
     const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
-    return enrollments.filter((e) => e.status === 'approved');
+    // Merge sample demo colleges if this browser still has an older seed.
+    const samples = buildSampleApprovedColleges();
+    const byId = new Map(enrollments.map((e) => [e.id, e]));
+    let changed = false;
+    for (const sample of samples) {
+      if (!byId.has(sample.id)) {
+        byId.set(sample.id, sample);
+        changed = true;
+      }
+    }
+    const merged = [...byId.values()];
+    if (changed) {
+      await writeJson(ENROLLMENTS_KEY, merged);
+    }
+    return merged.filter((e) => e.status === 'approved');
   },
 
   async listStudents(): Promise<StudentRecord[]> {

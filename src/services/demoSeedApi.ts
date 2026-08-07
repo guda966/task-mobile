@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-07-demo-v6';
+export const DEMO_SEED_VERSION = '2026-08-07-demo-v7';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -124,7 +124,7 @@ function buildPendingCollege(): CollegeEnrollment {
     collegeType: 'CO_ED',
     affiliationNumber: 'DEMO-AFF-9901',
     affiliatedUniversity: 'JNTU Hyderabad',
-    district: 'Warangal',
+    district: 'Warangal (urban)',
     pinCode: '506001',
     address: 'Demo Engineering Campus, Warangal, Telangana',
     societyName: 'Srinivasa Educational Society (Demo)',
@@ -140,6 +140,175 @@ function buildPendingCollege(): CollegeEnrollment {
     regionalCenterName: center.name,
     notifications: [],
   };
+}
+
+/** Extra approved colleges for student registration cascade / search demos. */
+export function buildSampleApprovedColleges(): CollegeEnrollment[] {
+  const now = nowIso();
+  const samples: Array<{
+    id: string;
+    name: string;
+    type: CollegeEnrollment['institutionType'];
+    university: string;
+    district: string;
+    aff: string;
+    email: string;
+    centerIndex: number;
+  }> = [
+    {
+      id: 'enr_demo_jntuh_eng_hyd',
+      name: 'Aurora Engineering College (Demo)',
+      type: 'ENGINEERING',
+      university: 'JNTU Hyderabad',
+      district: 'Hyderabad',
+      aff: 'DEMO-AFF-3101',
+      email: 'admin@aurora-eng-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_jntuh_eng_rr',
+      name: 'CVR College of Engineering (Demo)',
+      type: 'ENGINEERING',
+      university: 'JNTU Hyderabad',
+      district: 'Ranga Reddy',
+      aff: 'DEMO-AFF-3102',
+      email: 'admin@cvr-eng-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_ou_deg_hyd',
+      name: 'Nizam College (Demo)',
+      type: 'DEGREE',
+      university: 'Osmania University',
+      district: 'Hyderabad',
+      aff: 'DEMO-AFF-3201',
+      email: 'admin@nizam-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_ou_pg_medchal',
+      name: 'St. Ann\'s Degree & PG College (Demo)',
+      type: 'DEGREE_PG',
+      university: 'Osmania University',
+      district: 'Medchal',
+      aff: 'DEMO-AFF-3202',
+      email: 'admin@stann-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_ku_eng_wgl',
+      name: 'Kakatiya Institute of Technology (Demo)',
+      type: 'ENGINEERING',
+      university: 'Kakatiya University',
+      district: 'Warangal (urban)',
+      aff: 'DEMO-AFF-3301',
+      email: 'admin@kit-wgl-demo.ac.in',
+      centerIndex: 1,
+    },
+    {
+      id: 'enr_demo_ku_deg_knr',
+      name: 'Government Degree College Karimnagar (Demo)',
+      type: 'DEGREE',
+      university: 'Kakatiya University',
+      district: 'Karimnagar',
+      aff: 'DEMO-AFF-3302',
+      email: 'admin@gdc-knr-demo.ac.in',
+      centerIndex: 2,
+    },
+    {
+      id: 'enr_demo_tu_deg_nzb',
+      name: 'Telangana University College (Demo)',
+      type: 'DEGREE_PG',
+      university: 'Telangana University',
+      district: 'Nizamabad',
+      aff: 'DEMO-AFF-3401',
+      email: 'admin@tu-nzb-demo.ac.in',
+      centerIndex: 3,
+    },
+    {
+      id: 'enr_demo_pharma_hyd',
+      name: 'G. Pulla Reddy College of Pharmacy (Demo)',
+      type: 'PHARMA',
+      university: 'Osmania University',
+      district: 'Hyderabad',
+      aff: 'DEMO-AFF-3501',
+      email: 'admin@gpr-pharma-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_poly_rr',
+      name: 'Government Polytechnic Ranga Reddy (Demo)',
+      type: 'POLYTECHNIC',
+      university: 'Other / Autonomous',
+      district: 'Ranga Reddy',
+      aff: 'DEMO-AFF-3601',
+      email: 'admin@gpt-rr-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_mba_hyd',
+      name: 'ICFAI Business School Hyderabad (Demo)',
+      type: 'MBA',
+      university: 'Other / Autonomous',
+      district: 'Hyderabad',
+      aff: 'DEMO-AFF-3701',
+      email: 'admin@ibs-hyd-demo.ac.in',
+      centerIndex: 0,
+    },
+    {
+      id: 'enr_demo_mgu_nlr',
+      name: 'Mahatma Gandhi University College (Demo)',
+      type: 'DEGREE',
+      university: 'Mahatma Gandhi University',
+      district: 'Nalgonda',
+      aff: 'DEMO-AFF-3801',
+      email: 'admin@mgu-nlr-demo.ac.in',
+      centerIndex: 5,
+    },
+    {
+      id: 'enr_demo_palamuru_mbnr',
+      name: 'Palamuru University Degree College (Demo)',
+      type: 'DEGREE_PG',
+      university: 'Palamuru University',
+      district: 'Mahbubnagar',
+      aff: 'DEMO-AFF-3901',
+      email: 'admin@pu-mbnr-demo.ac.in',
+      centerIndex: 4,
+    },
+  ];
+
+  return samples.map((s) => {
+    const center = REGIONAL_CENTERS[s.centerIndex] ?? REGIONAL_CENTERS[0];
+    return {
+      id: s.id,
+      createdAt: now,
+      updatedAt: now,
+      registrationKind: 'NEW' as const,
+      institutionName: s.name,
+      institutionType: s.type,
+      collegeStatus: 'PRIVATE' as const,
+      collegeType: 'CO_ED' as const,
+      affiliationNumber: s.aff,
+      affiliatedUniversity: s.university,
+      district: s.district,
+      pinCode: '500001',
+      address: `${s.name}, ${s.district}, Telangana (sample data for testing)`,
+      societyName: `${s.name} Society (Demo)`,
+      contactPersonName: 'Demo Principal',
+      contactDesignation: 'Principal',
+      officialEmail: s.email,
+      officialMobile: '9999910000',
+      registrationFee: 7080,
+      feeAcknowledged: true,
+      passwordHash: 'College@123',
+      status: 'approved' as const,
+      reviewedAt: now,
+      reviewedBy: 'admin@task.telangana.gov.in',
+      regionalCenterId: center.id,
+      regionalCenterName: center.name,
+      notifications: [],
+    };
+  });
 }
 
 function buildCollegeStudents(): CollegeStudent[] {
@@ -500,6 +669,7 @@ export async function ensureDemoData(options?: {
   await clearTaskStorage();
 
   const college = buildApprovedCollege();
+  const sampleColleges = buildSampleApprovedColleges();
   const pendingCollege = buildPendingCollege();
   const trainer = buildApprovedTrainer();
   const pendingTrainer = buildPendingTrainer();
@@ -514,7 +684,7 @@ export async function ensureDemoData(options?: {
   };
   const session = buildSessionContent(trainer, student);
 
-  await write('task.collegeRegistrations.v2', [college, pendingCollege]);
+  await write('task.collegeRegistrations.v2', [college, ...sampleColleges, pendingCollege]);
   await write('task.courses.v3', SEED_COURSES.map((c) => ({ ...c, enabled: c.enabled !== false })));
   await write('task.students.v1', buildCollegeStudents());
   await write('task.trainers.v2', [trainer, pendingTrainer]);

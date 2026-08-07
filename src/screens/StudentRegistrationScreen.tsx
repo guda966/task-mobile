@@ -70,6 +70,22 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     (async () => {
       const list = await studentApi.listApprovedColleges();
       setColleges(list);
+      // Prefill cascade with the primary demo college for quicker UAT.
+      const demo =
+        list.find((c) => c.affiliationNumber === 'DEMO-AFF-2142') ?? list[0];
+      if (demo) {
+        setDraft((prev) =>
+          prev.enrollmentId
+            ? prev
+            : {
+                ...prev,
+                institutionType: demo.institutionType,
+                affiliatedUniversity: demo.affiliatedUniversity,
+                district: demo.district,
+                enrollmentId: demo.id,
+              },
+        );
+      }
     })();
   }, []);
 
