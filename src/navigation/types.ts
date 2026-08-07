@@ -1,5 +1,6 @@
 export type RootStackParamList = {
   Welcome: undefined;
+  Register: undefined;
   SignIn: undefined;
   ForgotPassword: undefined;
   ProfileEdit: undefined;
@@ -30,6 +31,11 @@ export type RootStackParamList = {
     mobile: string;
   };
   TrainerHome: undefined;
+  CorporateOtp: undefined;
+  CorporateRegistration: {
+    email: string;
+    mobile: string;
+  };
   TaskAdminHome: undefined;
   TaskAdminCourses: undefined;
   TaskAdminCourseForm: {

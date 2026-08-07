@@ -9,7 +9,10 @@ import { EnrollmentFormScreen } from '../screens/EnrollmentFormScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { OtpVerifyScreen } from '../screens/OtpVerifyScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
+import { RegisterScreen } from '../screens/RegisterScreen';
 import { RequestCourseScreen } from '../screens/RequestCourseScreen';
+import { CorporateOtpScreen } from '../screens/CorporateOtpScreen';
+import { CorporateRegistrationScreen } from '../screens/CorporateRegistrationScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { StudentHomeScreen } from '../screens/StudentHomeScreen';
 import { StudentOtpScreen } from '../screens/StudentOtpScreen';
@@ -67,6 +70,11 @@ export function RootNavigator() {
           name="Welcome"
           component={WelcomeScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={{ title: 'Register / Sign up' }}
         />
         <Stack.Screen name="SignIn" component={SignInScreen} options={{ title: 'Sign In' }} />
         <Stack.Screen
@@ -132,17 +140,27 @@ export function RootNavigator() {
         <Stack.Screen
           name="TrainerOtp"
           component={TrainerOtpScreen}
-          options={{ title: 'Trainer Verify' }}
+          options={{ title: 'Mentor Verify' }}
         />
         <Stack.Screen
           name="TrainerRegistration"
           component={TrainerRegistrationScreen}
-          options={{ title: 'Trainer Profile' }}
+          options={{ title: 'Mentor Profile' }}
         />
         <Stack.Screen
           name="TrainerHome"
           component={TrainerHomeScreen}
-          options={{ title: 'Trainer', headerBackVisible: false }}
+          options={{ title: 'Mentor', headerBackVisible: false }}
+        />
+        <Stack.Screen
+          name="CorporateOtp"
+          component={CorporateOtpScreen}
+          options={{ title: 'Corporate Verify' }}
+        />
+        <Stack.Screen
+          name="CorporateRegistration"
+          component={CorporateRegistrationScreen}
+          options={{ title: 'Corporate Profile' }}
         />
         <Stack.Screen
           name="TrainerSessionDetail"

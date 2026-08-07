@@ -124,7 +124,7 @@ export function TrainerRegistrationScreen({ navigation, route }: Props) {
 
   return (
     <Screen
-      title="Create Trainer Profile"
+      title="Create Mentor Profile"
       subtitle="Upload resume (required). Certificates and achievements are optional."
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

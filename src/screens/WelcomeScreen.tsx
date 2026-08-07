@@ -28,21 +28,14 @@ import type { UserRole } from '../types/enrollment';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
-type RegistrationType = 'college' | 'student' | 'trainer';
-type PortalModal = 'register' | 'signin' | null;
-
-const REGISTRATION_OPTIONS = [
-  { value: 'college', label: 'College Registration' },
-  { value: 'student', label: 'Student Registration' },
-  { value: 'trainer', label: 'Trainer Registration' },
-];
+type PortalModal = 'signin' | null;
 
 const SIGN_IN_ROLES = [
   { value: 'college_admin', label: 'College Admin' },
   { value: 'task_admin', label: 'TASK Admin' },
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'student', label: 'Student' },
-  { value: 'trainer', label: 'Trainer' },
+  { value: 'trainer', label: 'Mentor' },
 ];
 
 /** Published TASK decade impact figures (NITI Aayog / public reports). */
@@ -62,7 +55,6 @@ export function WelcomeScreen({ navigation }: Props) {
   const compact = width < 760;
   const [portalModal, setPortalModal] = useState<PortalModal>(null);
 
-  const [regType, setRegType] = useState<RegistrationType | ''>('');
   const [role, setRole] = useState<UserRole | ''>('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,7 +66,6 @@ export function WelcomeScreen({ navigation }: Props) {
 
   const closePortal = () => {
     setPortalModal(null);
-    setRegType('');
     setRole('');
     setEmail('');
     setPassword('');
@@ -102,17 +93,6 @@ export function WelcomeScreen({ navigation }: Props) {
       setEmail('');
       setPassword('');
     }
-  };
-
-  const continueRegistration = () => {
-    if (!regType) {
-      Alert.alert('Select registration type', 'Choose College, Student, or Trainer registration.');
-      return;
-    }
-    const route =
-      regType === 'college' ? 'OtpVerify' : regType === 'student' ? 'StudentOtp' : 'TrainerOtp';
-    closePortal();
-    navigation.navigate(route);
   };
 
   const submitSignIn = async () => {
@@ -164,7 +144,7 @@ export function WelcomeScreen({ navigation }: Props) {
         <View style={styles.topBarRight}>
           <Pressable
             style={styles.topLink}
-            onPress={() => setPortalModal('register')}
+            onPress={() => navigation.navigate('Register')}
             accessibilityRole="button"
             accessibilityLabel="Register / Sign up"
           >
@@ -259,8 +239,8 @@ export function WelcomeScreen({ navigation }: Props) {
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Who can join</Text>
               <Text style={styles.detailText}>
-                Colleges register with TASK; students enrol from approved colleges; trainers apply for
-                Admin approval.
+                Colleges, students, mentors, and corporates can register on this portal for TASK
+                programmes and partnerships.
               </Text>
             </View>
             <View style={styles.detailItem}>
@@ -289,7 +269,7 @@ export function WelcomeScreen({ navigation }: Props) {
             <View style={styles.accessBtn}>
               <PrimaryButton
                 title="Register / Sign up"
-                onPress={() => setPortalModal('register')}
+                onPress={() => navigation.navigate('Register')}
               />
             </View>
             <View style={styles.accessBtn}>
@@ -306,33 +286,6 @@ export function WelcomeScreen({ navigation }: Props) {
           Telangana Academy for Skill and Knowledge · Masabtank, Hyderabad
         </Text>
       </ScrollView>
-
-      <Modal
-        visible={portalModal === 'register'}
-        transparent
-        animationType="fade"
-        onRequestClose={closePortal}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={closePortal}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Register / Sign up</Text>
-            <Text style={styles.modalBody}>
-              Choose how you want to create a TASK portal account.
-            </Text>
-            <DropdownField
-              label="Register as"
-              required
-              placeholder="Select College, Student, or Trainer"
-              options={REGISTRATION_OPTIONS}
-              value={regType}
-              onChange={(v) => setRegType(v as RegistrationType | '')}
-            />
-            <PrimaryButton title="Continue registration" onPress={continueRegistration} />
-            <View style={styles.modalGap} />
-            <PrimaryButton title="Cancel" variant="secondary" onPress={closePortal} />
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       <Modal
         visible={portalModal === 'signin'}

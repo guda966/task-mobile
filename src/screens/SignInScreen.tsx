@@ -20,13 +20,14 @@ const SIGN_IN_ROLES = [
   { value: 'task_admin', label: 'TASK Admin' },
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'student', label: 'Student' },
-  { value: 'trainer', label: 'Trainer' },
+  { value: 'trainer', label: 'Mentor' },
 ] as const;
 
 const REGISTRATION_OPTIONS = [
-  { value: 'college', label: 'College Registration' },
-  { value: 'student', label: 'Student Registration' },
-  { value: 'trainer', label: 'Trainer Registration' },
+  { value: 'college', label: 'College' },
+  { value: 'student', label: 'Student' },
+  { value: 'mentor', label: 'Mentor' },
+  { value: 'corporate', label: 'Corporate' },
 ];
 
 const TASK_ADMIN_DEMO = {
@@ -75,7 +76,7 @@ export function SignInScreen({ navigation }: Props) {
     if (!role) {
       Alert.alert(
         'Select role',
-        'Please choose College Admin, TASK Admin, Super Admin, Student, or Trainer.',
+        'Please choose College Admin, TASK Admin, Super Admin, Student, or Mentor.',
       );
       return;
     }
@@ -161,13 +162,14 @@ export function SignInScreen({ navigation }: Props) {
             if (!regType) {
               Alert.alert(
                 'Select registration type',
-                'Choose College, Student, or Trainer registration.',
+                'Choose College, Student, Mentor, or Corporate.',
               );
               return;
             }
             if (regType === 'college') navigation.navigate('OtpVerify');
             else if (regType === 'student') navigation.navigate('StudentOtp');
-            else navigation.navigate('TrainerOtp');
+            else if (regType === 'mentor') navigation.navigate('TrainerOtp');
+            else navigation.navigate('CorporateOtp');
           }}
         />
         <Text style={styles.hint}>
@@ -180,7 +182,7 @@ export function SignInScreen({ navigation }: Props) {
                 : role === 'college_admin'
                   ? 'Demo college credentials are prefilled.'
                   : role === 'trainer'
-                    ? 'Demo trainer Ananya Reddy is prefilled (complete approved profile).'
+                    ? 'Demo mentor credentials are prefilled (approved profile).'
                     : 'Select a role to continue.'}
         </Text>
       </ScrollView>
