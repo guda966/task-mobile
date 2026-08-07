@@ -11,26 +11,55 @@ import {
 import { TaskLogo } from './ui';
 import { colors } from '../theme/colors';
 
-export type StudentMenuKey = 'home' | 'sessions' | 'trainings' | 'profile';
+export type StudentMenuKey = 'home' | 'alerts' | 'sessions' | 'trainings' | 'profile';
 
 const MENU: { key: StudentMenuKey; label: string }[] = [
   { key: 'home', label: 'Home' },
+  { key: 'alerts', label: 'Alerts' },
   { key: 'sessions', label: 'Find sessions' },
   { key: 'trainings', label: 'My trainings' },
   { key: 'profile', label: 'Profile' },
 ];
+
+function BellButton({
+  unreadCount,
+  onPress,
+}: {
+  unreadCount: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.bellBtn}
+      accessibilityRole="button"
+      accessibilityLabel={
+        unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'
+      }
+    >
+      <Text style={styles.bellGlyph}>🔔</Text>
+      {unreadCount > 0 ? (
+        <View style={styles.bellBadge}>
+          <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
 
 export function StudentShell({
   studentName,
   active,
   onChange,
   onSignOut,
+  unreadCount = 0,
   children,
 }: {
   studentName: string;
   active: StudentMenuKey;
   onChange: (key: StudentMenuKey) => void;
   onSignOut: () => void;
+  unreadCount?: number;
   children: React.ReactNode;
 }) {
   const { width } = useWindowDimensions();
@@ -50,6 +79,7 @@ export function StudentShell({
   const menuItems = (inDrawer: boolean) =>
     MENU.map((item) => {
       const isActive = item.key === active;
+      const showBadge = item.key === 'alerts' && unreadCount > 0;
       return (
         <Pressable
           key={item.key}
@@ -59,6 +89,13 @@ export function StudentShell({
           accessibilityState={{ selected: isActive }}
         >
           <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{item.label}</Text>
+          {showBadge ? (
+            <View style={styles.menuBadge}>
+              <Text style={styles.menuBadgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       );
     });
@@ -80,6 +117,7 @@ export function StudentShell({
         </View>
         <View style={styles.main}>
           <View style={styles.topBar}>
+            <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
             <Text style={styles.studentName} numberOfLines={1}>
               {studentName}
             </Text>
@@ -104,6 +142,7 @@ export function StudentShell({
           <View style={styles.burgerLine} />
           <View style={styles.burgerLine} />
           <View style={styles.burgerLine} />
+          {unreadCount > 0 ? <View style={styles.menuDot} /> : null}
         </Pressable>
 
         <View style={styles.mobileBrand}>
@@ -118,15 +157,16 @@ export function StudentShell({
           </View>
         </View>
 
-        <Pressable onPress={onSignOut} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.signOutCompact}>Sign out</Text>
-        </Pressable>
+        <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
       </View>
 
       <View style={styles.nameBanner}>
         <Text style={styles.nameBannerText} numberOfLines={1}>
           {studentName}
         </Text>
+        <Pressable onPress={onSignOut} hitSlop={8} accessibilityRole="button">
+          <Text style={styles.signOutCompact}>Sign out</Text>
+        </Pressable>
       </View>
 
       <View style={styles.content}>{children}</View>
@@ -199,10 +239,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   menuItemActive: { backgroundColor: colors.primary },
-  menuText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  menuText: { color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 },
   menuTextActive: { color: colors.white },
+  menuBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuBadgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   signOut: { marginTop: 8, padding: 10 },
   signOutText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
   signOutCompact: { color: colors.danger, fontWeight: '700', fontSize: 12 },
@@ -212,9 +266,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 12,
   },
-  studentName: { color: colors.text, fontWeight: '700', fontSize: 14, textAlign: 'right' },
+  studentName: { color: colors.text, fontWeight: '700', fontSize: 14 },
   content: { flex: 1 },
   mobileHeader: {
     backgroundColor: colors.surface,
@@ -236,6 +294,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    position: 'relative',
+  },
+  menuDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   burgerLine: {
     width: 18,
@@ -259,8 +327,37 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  nameBannerText: { color: colors.textMuted, fontWeight: '600', fontSize: 12 },
+  nameBannerText: { flex: 1, color: colors.textMuted, fontWeight: '600', fontSize: 12 },
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bellGlyph: { fontSize: 18, lineHeight: 22 },
+  bellBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: { color: colors.white, fontSize: 9, fontWeight: '800' },
   drawerRoot: { flex: 1, flexDirection: 'row' },
   drawerBackdrop: { flex: 1, backgroundColor: 'rgba(15, 35, 35, 0.45)' },
   drawer: {

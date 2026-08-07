@@ -24,10 +24,15 @@ import { PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { studentApi } from '../services/studentApi';
+import {
+  studentAlertSourceLabel,
+  studentNotificationApi,
+} from '../services/studentNotificationApi';
 import { trainingApi } from '../services/trainingApi';
 import { colors } from '../theme/colors';
 import type { CourseRequest } from '../types/collegePortal';
 import type { SchoolExamDetails, StudentRecord } from '../types/student';
+import type { StudentNotification } from '../types/studentNotification';
 import type { TrainingRegistration } from '../types/training';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
@@ -39,6 +44,8 @@ export function StudentHomeScreen({ navigation }: Props) {
   const [registrations, setRegistrations] = useState<TrainingRegistration[]>([]);
   const [sessions, setSessions] = useState<CourseRequest[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [alerts, setAlerts] = useState<StudentNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [sessionQuery, setSessionQuery] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +63,10 @@ export function StudentHomeScreen({ navigation }: Props) {
       nextCounts[s.id] = await trainingApi.getRegistrationCount(s.id);
     }
     setCounts(nextCounts);
+    await studentNotificationApi.refreshDeadlineAlerts(profile.id);
+    const notes = await studentNotificationApi.listForStudent(profile.id);
+    setAlerts(notes);
+    setUnreadCount(notes.filter((n) => !n.read).length);
   }, [user?.studentId]);
 
   useFocusEffect(
@@ -69,8 +80,15 @@ export function StudentHomeScreen({ navigation }: Props) {
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
 
+  const markAlertsRead = async () => {
+    if (!user?.studentId) return;
+    await studentNotificationApi.markAllRead(user.studentId);
+    await load();
+  };
+
   const active = registrations.filter((r) => r.status === 'registered');
   const past = registrations.filter((r) => r.status !== 'registered');
+  const deadlineAlerts = alerts.filter((a) => a.source === 'deadline' && !a.read);
 
   const filteredSessions = useMemo(() => {
     const q = sessionQuery.trim().toLowerCase();
@@ -131,6 +149,7 @@ export function StudentHomeScreen({ navigation }: Props) {
       active={menu}
       onChange={setMenu}
       onSignOut={onSignOut}
+      unreadCount={unreadCount}
     >
       {menu === 'home' ? (
         <ScrollView
@@ -155,10 +174,21 @@ export function StudentHomeScreen({ navigation }: Props) {
             items={[
               { label: 'Active trainings', value: active.length },
               { label: 'Open sessions', value: sessions.length },
+              { label: 'Unread alerts', value: unreadCount },
               { label: 'Branch', value: student?.branch || '—' },
-              { label: 'Grad year', value: student?.yearOfGraduation || '—' },
             ]}
           />
+
+          {deadlineAlerts.length > 0 ? (
+            <Pressable style={styles.deadlineBanner} onPress={() => setMenu('alerts')}>
+              <Text style={styles.deadlineTitle}>
+                {deadlineAlerts.length} assignment deadline alert
+                {deadlineAlerts.length === 1 ? '' : 's'}
+              </Text>
+              <Text style={styles.deadlineBody}>{deadlineAlerts[0].body}</Text>
+              <Text style={styles.deadlineLink}>View all alerts →</Text>
+            </Pressable>
+          ) : null}
 
           {student ? (
             <DataCard>
@@ -179,6 +209,14 @@ export function StudentHomeScreen({ navigation }: Props) {
 
           <SectionLabel>Quick links</SectionLabel>
           <View style={styles.actions}>
+            <Pressable style={styles.action} onPress={() => setMenu('alerts')}>
+              <Text style={styles.actionTitle}>Alerts</Text>
+              <Text style={styles.actionBody}>
+                {unreadCount > 0
+                  ? `${unreadCount} unread from TASK, college, or deadlines`
+                  : 'TASK, college, and deadline updates'}
+              </Text>
+            </Pressable>
             <Pressable style={styles.action} onPress={() => setMenu('sessions')}>
               <Text style={styles.actionTitle}>Find sessions</Text>
               <Text style={styles.actionBody}>Register for approved TASK batches</Text>
@@ -193,6 +231,80 @@ export function StudentHomeScreen({ navigation }: Props) {
             </Pressable>
           </View>
         </ScrollView>
+      ) : null}
+
+      {menu === 'alerts' ? (
+        <View style={styles.flex}>
+          <View style={styles.toolbar}>
+            <PanelHeader
+              title="Alerts"
+              subtitle="Messages from TASK, your college, and assignment deadline reminders."
+              action={
+                unreadCount > 0 ? (
+                  <PrimaryButton
+                    title="Mark all read"
+                    variant="secondary"
+                    onPress={markAlertsRead}
+                  />
+                ) : undefined
+              }
+            />
+            <Text style={styles.resultText}>
+              {alerts.length} alert(s) · {unreadCount} unread
+            </Text>
+          </View>
+          <FlatList
+            style={styles.flex}
+            data={alerts}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listPad}
+            ListEmptyComponent={
+              <EmptyState
+                title="No alerts yet"
+                body="TASK updates, college notices, and assignment deadlines will appear here."
+              />
+            }
+            renderItem={({ item }) => (
+              <DataCard accent={!item.read}>
+                <View style={styles.row}>
+                  <View style={styles.sourcePill}>
+                    <Text style={styles.sourceText}>{studentAlertSourceLabel(item.source)}</Text>
+                  </View>
+                  {!item.read ? (
+                    <View style={styles.newPill}>
+                      <Text style={styles.newText}>New</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.name}>{item.title}</Text>
+                <Text style={styles.alertBody}>{item.body}</Text>
+                <Text style={styles.meta}>
+                  {new Date(item.createdAt).toLocaleString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+                {item.relatedRequestId ? (
+                  <>
+                    <View style={styles.gap} />
+                    <PrimaryButton
+                      title="Open related session"
+                      variant="secondary"
+                      onPress={() =>
+                        navigation.navigate('StudentSessionDetail', {
+                          requestId: item.relatedRequestId!,
+                        })
+                      }
+                    />
+                  </>
+                ) : null}
+              </DataCard>
+            )}
+          />
+        </View>
       ) : null}
 
       {menu === 'sessions' ? (
@@ -433,4 +545,30 @@ const styles = StyleSheet.create({
   gap: { height: 10 },
   cancelBtn: { marginTop: 10, alignSelf: 'flex-start' },
   cancelText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
+  deadlineBanner: {
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: '#F7C948',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  deadlineTitle: { fontWeight: '800', color: colors.warning, marginBottom: 4 },
+  deadlineBody: { color: colors.text, fontSize: 13, lineHeight: 18 },
+  deadlineLink: { marginTop: 8, color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
+  sourcePill: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  sourceText: { color: colors.primaryDark, fontSize: 11, fontWeight: '800' },
+  newPill: {
+    backgroundColor: colors.dangerSoft,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  newText: { color: colors.danger, fontSize: 11, fontWeight: '800' },
+  alertBody: { color: colors.text, fontSize: 13, lineHeight: 19, marginBottom: 6 },
 });

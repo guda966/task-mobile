@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-07-demo-v7';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v8';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -32,6 +32,7 @@ const IDS = {
   pendingBatch: 'req_demo_pending_ece',
   material: 'mat_demo_1',
   assignment: 'asg_demo_1',
+  assignment2: 'asg_demo_2',
   submission: 'sub_demo_1',
 };
 
@@ -574,10 +575,25 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
       requestId: IDS.batch,
       trainerId: trainer.id,
       title: 'Day-1 workshop slides',
-      description: 'Introduction deck for transferable skills workshop.',
+      description:
+        'Read before tomorrow’s class. Covers communication, teamwork, and problem-solving basics used in the workshop.',
       file: {
         fileName: 'Day1_Transferable_Skills.pdf',
         sizeLabel: '1.2 MB',
+        uploadedAt: now,
+      },
+      createdAt: now,
+    },
+    {
+      id: 'mat_demo_2',
+      requestId: IDS.batch,
+      trainerId: trainer.id,
+      title: 'Workplace examples handout',
+      description:
+        'Short case studies discussed in class. Keep this open while doing the reflection assignment.',
+      file: {
+        fileName: 'Workplace_Examples_Handout.pdf',
+        sizeLabel: '640 KB',
         uploadedAt: now,
       },
       createdAt: now,
@@ -590,13 +606,24 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
       requestId: IDS.batch,
       trainerId: trainer.id,
       title: 'Reflection worksheet',
-      instructions: 'Submit a one-page reflection on workplace communication.',
-      dueDate: isoDay(5),
+      instructions:
+        'Write a one-page reflection on workplace communication. Use the template, save as PDF, and submit before the due date.',
+      dueDate: isoDay(2),
       file: {
         fileName: 'Reflection_Template.docx',
         sizeLabel: '84 KB',
         uploadedAt: now,
       },
+      createdAt: now,
+    },
+    {
+      id: IDS.assignment2,
+      requestId: IDS.batch,
+      trainerId: trainer.id,
+      title: 'Team discussion summary',
+      instructions:
+        'Summarise your team discussion in 8–10 lines. Upload a PDF named with your roll number.',
+      dueDate: isoDay(5),
       createdAt: now,
     },
   ];
@@ -637,12 +664,40 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
         uploadedAt: now,
       },
       notes: 'Submitted for demo review.',
-      status: 'submitted',
+      status: 'needs_revision',
+      trainerRemark: 'Add one real workplace example and resubmit.',
       submittedAt: now,
+      reviewedAt: now,
     },
   ];
 
   return { materials, assignments, attendance, submissions };
+}
+
+function buildStudentAlerts(student: StudentRecord) {
+  const now = nowIso();
+  return [
+    {
+      id: 'sntf_demo_task_1',
+      studentId: student.id,
+      source: 'task' as const,
+      title: 'Welcome to TASK Student portal',
+      body: 'Your registration is active. Open My trainings to view materials, assignments, and attendance for your batch.',
+      createdAt: now,
+      read: false,
+      relatedRequestId: IDS.batch,
+    },
+    {
+      id: 'sntf_demo_college_1',
+      studentId: student.id,
+      source: 'college' as const,
+      title: 'College notice: attend Day-1 workshop',
+      body: `${student.collegeName} reminds CSE students to attend the transferable skills workshop on campus and submit assignments on time.`,
+      createdAt: now,
+      read: false,
+      relatedRequestId: IDS.batch,
+    },
+  ];
 }
 
 export type DemoSeedResult = {
@@ -695,6 +750,7 @@ export async function ensureDemoData(options?: {
   await write('task.sessionAssignments.v1', session.assignments);
   await write('task.sessionAttendance.v1', session.attendance);
   await write('task.assignmentSubmissions.v1', session.submissions);
+  await write('task.studentNotifications.v1', buildStudentAlerts(student));
   await write('task.sessionCertificates.v1', []);
   await write('task.trainerFeedback.v1', []);
   await write('task.trainerMessages.v1', []);

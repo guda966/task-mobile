@@ -75,6 +75,46 @@ function demoOpenFile(fileName: string) {
   );
 }
 
+function formatDueLabel(dueDate?: string): { text: string; urgent: boolean } | null {
+  if (!dueDate) return null;
+  const due = new Date(`${dueDate}T23:59:59`);
+  const now = new Date();
+  const days = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return { text: `Overdue · was due ${dueDate}`, urgent: true };
+  if (days === 0) return { text: `Due today · ${dueDate}`, urgent: true };
+  if (days === 1) return { text: `Due tomorrow · ${dueDate}`, urgent: true };
+  if (days <= 3) return { text: `Due in ${days} days · ${dueDate}`, urgent: true };
+  return { text: `Due ${dueDate}`, urgent: false };
+}
+
+function submissionStatusCopy(status?: string): { label: string; hint: string } {
+  if (!status) {
+    return {
+      label: 'Not submitted',
+      hint: 'Upload your file below, then tap Submit assignment.',
+    };
+  }
+  if (status === 'submitted') {
+    return {
+      label: 'Submitted — awaiting trainer review',
+      hint: 'You can wait for acceptance or a revision request.',
+    };
+  }
+  if (status === 'needs_revision') {
+    return {
+      label: 'Needs revision',
+      hint: 'Update your file using the trainer remark, then resubmit.',
+    };
+  }
+  if (status === 'accepted') {
+    return {
+      label: 'Accepted',
+      hint: 'This assignment is complete. No further action needed.',
+    };
+  }
+  return { label: status, hint: '' };
+}
+
 export function StudentSessionDetailScreen({ route }: Props) {
   const { requestId } = route.params;
   const { user } = useAuth();
@@ -297,6 +337,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
         {tab === 'materials' ? (
           <>
             <SectionLabel>Learning materials</SectionLabel>
+            <Text style={styles.helpText}>
+              Use these files to prepare for class. Open to preview or Download to save a copy.
+            </Text>
             {materials.length === 0 ? (
               <EmptyState
                 title="No materials yet"
@@ -311,20 +354,30 @@ export function StudentSessionDetailScreen({ route }: Props) {
                     </View>
                     <View style={styles.cardMain}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
-                      {item.description ? (
-                        <Text style={styles.meta}>{item.description}</Text>
-                      ) : null}
                       <Text style={styles.meta}>
-                        {item.file.fileName} · {item.file.sizeLabel}
+                        Posted {new Date(item.createdAt).toLocaleDateString('en-IN')}
+                        {session?.trainerName ? ` · by ${session.trainerName}` : ''}
                       </Text>
                     </View>
+                  </View>
+                  {item.description ? (
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoLabel}>What this is</Text>
+                      <Text style={styles.infoBody}>{item.description}</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.infoBox}>
+                    <Text style={styles.infoLabel}>File</Text>
+                    <Text style={styles.infoBody}>
+                      {item.file.fileName} · {item.file.sizeLabel}
+                    </Text>
                   </View>
                   <View style={styles.actionRow}>
                     <Pressable
                       style={styles.ghostBtn}
                       onPress={() => demoOpenFile(item.file.fileName)}
                     >
-                      <Text style={styles.ghostBtnText}>Open</Text>
+                      <Text style={styles.ghostBtnText}>Open / preview</Text>
                     </Pressable>
                     <Pressable
                       style={styles.primarySoftBtn}
@@ -342,52 +395,94 @@ export function StudentSessionDetailScreen({ route }: Props) {
         {tab === 'assignments' ? (
           <>
             <SectionLabel>Assignments</SectionLabel>
+            <Text style={styles.helpText}>
+              Read the instructions, download any template, upload your work, then submit before the
+              due date.
+            </Text>
             {assignments.length === 0 ? (
-              <EmptyState title="No assignments posted" body="Check back after the trainer posts work." />
+              <EmptyState
+                title="No assignments posted"
+                body="Check back after the trainer posts work."
+              />
             ) : (
               assignments.map((item) => {
                 const mine = submissionByAssignment[item.id];
+                const due = formatDueLabel(item.dueDate);
+                const statusCopy = submissionStatusCopy(mine?.status);
+                const canSubmit = !mine || mine.status === 'needs_revision';
                 return (
                   <DataCard key={item.id} accent>
                     <View style={styles.row}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
-                      {mine ? <StatusBadge status={mine.status} /> : (
-                        <StatusBadge status="pending" />
-                      )}
+                      <StatusBadge status={mine?.status || 'pending'} />
                     </View>
-                    <Text style={styles.body}>{item.instructions}</Text>
-                    {item.dueDate ? <Text style={styles.meta}>Due: {item.dueDate}</Text> : null}
-                    {item.file ? (
-                      <Pressable
-                        onPress={() => demoOpenFile(item.file!.fileName)}
-                        style={styles.inlineLink}
-                      >
-                        <Text style={styles.linkText}>
-                          Attachment: {item.file.fileName} · {item.file.sizeLabel}
+
+                    {due ? (
+                      <View style={[styles.dueBox, due.urgent && styles.dueBoxUrgent]}>
+                        <Text style={[styles.dueText, due.urgent && styles.dueTextUrgent]}>
+                          {due.text}
                         </Text>
-                      </Pressable>
+                      </View>
                     ) : null}
+
+                    <View style={[styles.statusBox, mine?.status === 'accepted' && styles.statusOk]}>
+                      <Text style={styles.infoLabel}>Your submission status</Text>
+                      <Text style={styles.statusLabel}>{statusCopy.label}</Text>
+                      <Text style={styles.infoBody}>{statusCopy.hint}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoLabel}>What to do</Text>
+                      <Text style={styles.infoBody}>{item.instructions}</Text>
+                    </View>
+
+                    {item.file ? (
+                      <View style={styles.infoBox}>
+                        <Text style={styles.infoLabel}>Template / attachment from trainer</Text>
+                        <Text style={styles.infoBody}>
+                          {item.file.fileName} · {item.file.sizeLabel}
+                        </Text>
+                        <Pressable
+                          onPress={() => demoOpenFile(item.file!.fileName)}
+                          style={styles.inlineLink}
+                        >
+                          <Text style={styles.linkText}>Download template</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+
                     {mine ? (
-                      <>
+                      <View style={styles.infoBox}>
+                        <Text style={styles.infoLabel}>Your uploaded file</Text>
+                        <Text style={styles.infoBody}>
+                          {mine.file.fileName} · {mine.file.sizeLabel}
+                        </Text>
                         <Text style={styles.meta}>
-                          Your file: {mine.file.fileName} · {mine.file.sizeLabel}
+                          Submitted {new Date(mine.submittedAt).toLocaleString('en-IN')}
                         </Text>
                         {mine.trainerRemark ? (
-                          <Text style={styles.ok}>Trainer: {mine.trainerRemark}</Text>
+                          <Text style={styles.ok}>Trainer remark: {mine.trainerRemark}</Text>
                         ) : null}
-                        {mine.status === 'needs_revision' ? (
-                          <Text style={styles.warnBody}>Please resubmit after revising.</Text>
-                        ) : null}
-                      </>
+                      </View>
                     ) : null}
-                    {!mine || mine.status === 'needs_revision' ? (
-                      <>
+
+                    {canSubmit ? (
+                      <View style={styles.submitBox}>
+                        <Text style={styles.infoLabel}>
+                          {mine ? 'Step: resubmit your work' : 'Step: submit your work'}
+                        </Text>
+                        <Text style={styles.stepLine}>1. Prepare your file (PDF / DOC)</Text>
+                        <Text style={styles.stepLine}>2. Add optional notes for the trainer</Text>
+                        <Text style={styles.stepLine}>
+                          3. Tap {mine ? 'Resubmit' : 'Submit'} — a demo file picker will open
+                        </Text>
                         <FormField
-                          label="Notes (optional)"
+                          label="Notes for trainer (optional)"
                           value={submitNotes[item.id] || ''}
                           onChangeText={(v) =>
                             setSubmitNotes((prev) => ({ ...prev, [item.id]: v }))
                           }
+                          placeholder="Example: uploaded revised reflection"
                         />
                         <PrimaryButton
                           title={
@@ -400,7 +495,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                           onPress={() => submitWork(item.id)}
                           disabled={saving}
                         />
-                      </>
+                      </View>
                     ) : null}
                   </DataCard>
                 );
@@ -635,6 +730,55 @@ const styles = StyleSheet.create({
   },
   itemTitle: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
   meta: { color: colors.textMuted, fontSize: 12, marginTop: 2, lineHeight: 17 },
+  helpText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+    marginTop: -4,
+  },
+  infoBox: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+  },
+  infoLabel: {
+    color: colors.primaryDark,
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.3,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  infoBody: { color: colors.text, fontSize: 13, lineHeight: 19 },
+  dueBox: {
+    marginTop: 8,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  dueBoxUrgent: { backgroundColor: colors.warningSoft },
+  dueText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
+  dueTextUrgent: { color: colors.warning },
+  statusBox: {
+    marginTop: 10,
+    backgroundColor: colors.pendingSoft,
+    borderRadius: 8,
+    padding: 10,
+  },
+  statusOk: { backgroundColor: colors.successSoft },
+  statusLabel: { color: colors.text, fontWeight: '800', fontSize: 14, marginBottom: 2 },
+  submitBox: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: colors.surface,
+  },
+  stepLine: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 2 },
   body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
   ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },
   warnTitle: { fontWeight: '700', color: colors.warning, marginBottom: 4 },
