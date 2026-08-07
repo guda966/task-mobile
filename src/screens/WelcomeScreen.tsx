@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
 import { DropdownField, PrimaryButton, Screen } from '../components/ui';
@@ -24,12 +16,8 @@ const REGISTRATION_OPTIONS = [
   { value: 'trainer', label: 'Trainer Registration' },
 ];
 
-/** Official TASK header artwork (source asset is 1024×84). */
-const BANNER_ASPECT = 1024 / 84;
-
 export function WelcomeScreen({ navigation }: Props) {
   const [regType, setRegType] = useState<RegistrationType | ''>('');
-  const { width } = useWindowDimensions();
 
   const startRegistration = () => {
     if (!regType) {
@@ -41,32 +29,12 @@ export function WelcomeScreen({ navigation }: Props) {
     else navigation.navigate('TrainerOtp');
   };
 
-  // Keep the official banner readable on narrow screens by scaling height up
-  // and allowing horizontal scroll when needed.
-  const bannerHeight = Math.max(84, Math.min(110, width * 0.12));
-  const bannerWidth = Math.max(width, bannerHeight * BANNER_ASPECT);
-
   return (
-    <Screen showLogo={false}>
+    <Screen
+      title="TASK Portal"
+      subtitle="Telangana Academy for Skill and Knowledge (TASK)"
+    >
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.bannerBlock}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={width < bannerWidth}
-            bounces={false}
-            style={styles.bannerScroll}
-          >
-            <Image
-              source={require('../../assets/brand/task-official-banner.png')}
-              style={{ width: bannerWidth, height: bannerHeight }}
-              resizeMode="contain"
-              accessibilityLabel="Telangana Academy for Skill and Knowledge — Department of ITE&C, Government of Telangana"
-            />
-          </ScrollView>
-        </View>
-
-        <Text style={styles.portalTitle}>TASK Portal</Text>
-
         <NewsTicker />
 
         <Text style={styles.sectionTitle}>About TASK</Text>
@@ -121,24 +89,6 @@ export function WelcomeScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 36 },
-  bannerBlock: {
-    marginHorizontal: -16,
-    marginTop: -16,
-    marginBottom: 14,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  bannerScroll: {
-    backgroundColor: colors.white,
-  },
-  portalTitle: {
-    fontWeight: '800',
-    color: colors.primaryDark,
-    fontSize: 18,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
   sectionTitle: {
     fontWeight: '800',
     color: colors.text,

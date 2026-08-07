@@ -41,7 +41,7 @@ export function Screen({
         <View style={styles.header}>
           {showLogo ? (
             <View style={styles.logoRow}>
-              <TaskLogo size={56} />
+              <TaskLogo size={72} />
             </View>
           ) : null}
           {title ? <Text style={styles.headerTitle}>{title}</Text> : null}
