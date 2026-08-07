@@ -17,6 +17,7 @@ import {
   PanelHeader,
   SearchInput,
   SectionLabel,
+  SegmentedTabs,
   StatTiles,
 } from '../components/college/PanelChrome';
 import { StudentShell, type StudentMenuKey } from '../components/StudentShell';
@@ -36,10 +37,12 @@ import type { StudentNotification } from '../types/studentNotification';
 import type { TrainingRegistration } from '../types/training';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
+type TrainingTab = 'enrolled' | 'available';
 
 export function StudentHomeScreen({ navigation }: Props) {
   const { user, signOut } = useAuth();
   const [menu, setMenu] = useState<StudentMenuKey>('home');
+  const [trainingTab, setTrainingTab] = useState<TrainingTab>('enrolled');
   const [student, setStudent] = useState<StudentRecord | null>(null);
   const [registrations, setRegistrations] = useState<TrainingRegistration[]>([]);
   const [sessions, setSessions] = useState<CourseRequest[]>([]);
@@ -119,6 +122,7 @@ export function StudentHomeScreen({ navigation }: Props) {
       await trainingApi.registerForSession(student, session);
       Alert.alert('Registered', `You are registered for ${session.courseName}.`);
       await load();
+      setTrainingTab('enrolled');
       setMenu('trainings');
     } catch (e) {
       Alert.alert('Unable to register', e instanceof Error ? e.message : 'Failed');
@@ -176,7 +180,7 @@ export function StudentHomeScreen({ navigation }: Props) {
 
           <StatTiles
             items={[
-              { label: 'My trainings', value: active.length },
+              { label: 'Trainings', value: active.length },
               { label: 'Alerts', value: unreadCount, hint: unreadCount ? 'Unread' : 'All read' },
             ]}
           />
@@ -215,7 +219,13 @@ export function StudentHomeScreen({ navigation }: Props) {
                 assignments.
               </Text>
               <View style={styles.gap} />
-              <PrimaryButton title="Find sessions" onPress={() => setMenu('sessions')} />
+              <PrimaryButton
+                title="Browse available sessions"
+                onPress={() => {
+                  setTrainingTab('available');
+                  setMenu('trainings');
+                }}
+              />
             </DataCard>
           ) : (
             active.map((item) => (
@@ -314,132 +324,149 @@ export function StudentHomeScreen({ navigation }: Props) {
         </View>
       ) : null}
 
-      {menu === 'sessions' ? (
+      {menu === 'trainings' ? (
         <View style={styles.flex}>
           <View style={styles.toolbar}>
             <PanelHeader
-              title="Find sessions"
+              title="Trainings"
               subtitle={
                 student
-                  ? `Showing batches for ${student.branch} · ${student.yearOfGraduation}`
-                  : 'Approved training sessions'
+                  ? `${student.branch} · graduation ${student.yearOfGraduation}`
+                  : 'Find and manage your TASK batches'
               }
             />
-            <SearchInput
-              value={sessionQuery}
-              onChangeText={setSessionQuery}
-              placeholder="Search by course or category"
+            <SegmentedTabs
+              value={trainingTab}
+              onChange={setTrainingTab}
+              options={[
+                { value: 'enrolled', label: `Enrolled (${active.length})` },
+                { value: 'available', label: `Available (${filteredSessions.length})` },
+              ]}
             />
-            <Text style={styles.resultText}>{filteredSessions.length} session(s)</Text>
           </View>
-          <FlatList
-            style={styles.flex}
-            data={filteredSessions}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listPad}
-            ListEmptyComponent={
-              <EmptyState
-                title="No matching sessions"
-                body="Ask your college to request a course for your branch and graduation year."
-              />
-            }
-            renderItem={({ item }) => {
-              const registered = isRegistered(item.id);
-              const seats = Math.max(0, item.batchSize - (counts[item.id] || 0));
-              return (
-                <DataCard accent>
-                  <View style={styles.row}>
-                    <Text style={styles.name}>{item.courseName}</Text>
-                    <StatusBadge status={registered ? 'registered' : item.status} />
-                  </View>
-                  <Text style={styles.meta}>
-                    {item.startDate} to {item.endDate} · {item.branch} · YOG {item.yearOfGraduation}
-                  </Text>
-                  <Text style={styles.meta}>
-                    Seats left {seats} / {item.batchSize}
-                    {item.trainerName ? ` · Trainer ${item.trainerName}` : ''}
-                  </Text>
-                  <View style={styles.gap} />
-                  {registered ? (
+
+          {trainingTab === 'enrolled' ? (
+            <ScrollView contentContainerStyle={styles.listPad}>
+              {active.length === 0 ? (
+                <EmptyState
+                  title="Not enrolled yet"
+                  body="Switch to Available to register for an approved batch."
+                />
+              ) : (
+                active.map((item) => (
+                  <DataCard key={item.id} accent>
+                    <View style={styles.row}>
+                      <Text style={styles.name}>{item.courseName}</Text>
+                      <StatusBadge status={item.status} />
+                    </View>
+                    <Text style={styles.meta}>
+                      {item.startDate} to {item.endDate}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {item.branch} · Grad year {item.yearOfGraduation}
+                    </Text>
+                    <View style={styles.gap} />
                     <PrimaryButton
                       title="Open session"
                       onPress={() =>
-                        navigation.navigate('StudentSessionDetail', { requestId: item.id })
+                        navigation.navigate('StudentSessionDetail', {
+                          requestId: item.courseRequestId,
+                        })
                       }
                     />
-                  ) : (
-                    <PrimaryButton
-                      title={loadingId === item.id ? 'Registering…' : 'Register'}
-                      onPress={() => register(item)}
-                      disabled={loadingId === item.id || seats <= 0}
-                    />
-                  )}
-                </DataCard>
-              );
-            }}
-          />
-        </View>
-      ) : null}
+                    <Pressable onPress={() => cancel(item)} style={styles.cancelBtn}>
+                      <Text style={styles.cancelText}>Cancel registration</Text>
+                    </Pressable>
+                  </DataCard>
+                ))
+              )}
 
-      {menu === 'trainings' ? (
-        <ScrollView contentContainerStyle={styles.pad}>
-          <PanelHeader
-            title="My trainings"
-            subtitle="Active and past registrations for TASK programmes."
-          />
+              {past.length > 0 ? (
+                <>
+                  <SectionLabel>Past / cancelled</SectionLabel>
+                  {past.map((item) => (
+                    <DataCard key={item.id}>
+                      <View style={styles.row}>
+                        <Text style={styles.name}>{item.courseName}</Text>
+                        <StatusBadge status={item.status} />
+                      </View>
+                      <Text style={styles.meta}>
+                        {item.startDate} to {item.endDate}
+                      </Text>
+                    </DataCard>
+                  ))}
+                </>
+              ) : null}
 
-          <SectionLabel>Active</SectionLabel>
-          {active.length === 0 ? (
-            <EmptyState
-              title="No active registrations"
-              body="Use Find sessions to join an approved batch."
-            />
-          ) : (
-            active.map((item) => (
-              <DataCard key={item.id} accent>
-                <View style={styles.row}>
-                  <Text style={styles.name}>{item.courseName}</Text>
-                  <StatusBadge status={item.status} />
-                </View>
-                <Text style={styles.meta}>
-                  {item.startDate} to {item.endDate}
-                </Text>
-                <Text style={styles.meta}>
-                  {item.branch} · Grad year {item.yearOfGraduation}
-                </Text>
-                <View style={styles.gap} />
+              {active.length === 0 ? (
                 <PrimaryButton
-                  title="Open session"
-                  onPress={() =>
-                    navigation.navigate('StudentSessionDetail', {
-                      requestId: item.courseRequestId,
-                    })
-                  }
+                  title="Browse available sessions"
+                  onPress={() => setTrainingTab('available')}
                 />
-                <Pressable onPress={() => cancel(item)} style={styles.cancelBtn}>
-                  <Text style={styles.cancelText}>Cancel registration</Text>
-                </Pressable>
-              </DataCard>
-            ))
+              ) : null}
+            </ScrollView>
+          ) : (
+            <View style={styles.flex}>
+              <View style={styles.availableSearch}>
+                <SearchInput
+                  value={sessionQuery}
+                  onChangeText={setSessionQuery}
+                  placeholder="Search by course or category"
+                />
+                <Text style={styles.resultText}>{filteredSessions.length} session(s)</Text>
+              </View>
+              <FlatList
+                style={styles.flex}
+                data={filteredSessions}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listPad}
+                ListEmptyComponent={
+                  <EmptyState
+                    title="No matching sessions"
+                    body="Ask your college to request a course for your branch and graduation year."
+                  />
+                }
+                renderItem={({ item }) => {
+                  const registered = isRegistered(item.id);
+                  const seats = Math.max(0, item.batchSize - (counts[item.id] || 0));
+                  return (
+                    <DataCard accent>
+                      <View style={styles.row}>
+                        <Text style={styles.name}>{item.courseName}</Text>
+                        <StatusBadge status={registered ? 'registered' : item.status} />
+                      </View>
+                      <Text style={styles.meta}>
+                        {item.startDate} to {item.endDate} · {item.branch} · YOG{' '}
+                        {item.yearOfGraduation}
+                      </Text>
+                      <Text style={styles.meta}>
+                        Seats left {seats} / {item.batchSize}
+                        {item.trainerName ? ` · Trainer ${item.trainerName}` : ''}
+                      </Text>
+                      <View style={styles.gap} />
+                      {registered ? (
+                        <PrimaryButton
+                          title="Open session"
+                          onPress={() =>
+                            navigation.navigate('StudentSessionDetail', {
+                              requestId: item.id,
+                            })
+                          }
+                        />
+                      ) : (
+                        <PrimaryButton
+                          title={loadingId === item.id ? 'Registering…' : 'Register'}
+                          onPress={() => register(item)}
+                          disabled={loadingId === item.id || seats <= 0}
+                        />
+                      )}
+                    </DataCard>
+                  );
+                }}
+              />
+            </View>
           )}
-
-          {past.length > 0 ? (
-            <>
-              <SectionLabel>Past / cancelled</SectionLabel>
-              {past.map((item) => (
-                <DataCard key={item.id}>
-                  <View style={styles.row}>
-                    <Text style={styles.name}>{item.courseName}</Text>
-                    <StatusBadge status={item.status} />
-                  </View>
-                  <Text style={styles.meta}>
-                    {item.startDate} to {item.endDate}
-                  </Text>
-                </DataCard>
-              ))}
-            </>
-          ) : null}
-        </ScrollView>
+        </View>
       ) : null}
 
       {menu === 'profile' ? (
@@ -526,6 +553,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  availableSearch: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
   },
   listPad: { padding: 16, paddingBottom: 40 },
   row: {

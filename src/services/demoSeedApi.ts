@@ -717,7 +717,7 @@ function buildStudentAlerts(student: StudentRecord) {
       studentId: student.id,
       source: 'task' as const,
       title: 'Welcome to TASK Student portal',
-      body: 'Your registration is active. Open My trainings to view materials, assignments, and attendance for your batch.',
+      body: 'Your registration is active. Open Trainings to view materials, assignments, and attendance for your batch.',
       createdAt: now,
       read: false,
       relatedRequestId: IDS.batch,

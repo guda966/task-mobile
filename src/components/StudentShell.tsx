@@ -11,13 +11,12 @@ import {
 import { TaskLogo } from './ui';
 import { colors } from '../theme/colors';
 
-export type StudentMenuKey = 'home' | 'alerts' | 'sessions' | 'trainings' | 'profile';
+export type StudentMenuKey = 'home' | 'alerts' | 'trainings' | 'profile';
 
 const MENU: { key: StudentMenuKey; label: string }[] = [
   { key: 'home', label: 'Home' },
   { key: 'alerts', label: 'Alerts' },
-  { key: 'sessions', label: 'Find sessions' },
-  { key: 'trainings', label: 'My trainings' },
+  { key: 'trainings', label: 'Trainings' },
   { key: 'profile', label: 'Profile' },
 ];
 
