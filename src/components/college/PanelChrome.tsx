@@ -170,20 +170,50 @@ export function DataCard({
 export function StatTiles({
   items,
 }: {
-  items: { label: string; value: string | number; hint?: string }[];
+  items: {
+    label: string;
+    value: string | number;
+    hint?: string;
+    onPress?: () => void;
+  }[];
 }) {
   const { width } = useWindowDimensions();
   const cols = width >= 900 ? 4 : width >= 600 ? 2 : 2;
+  const tileWidth = cols === 4 ? '23.5%' : '48%';
 
   return (
     <View style={styles.stats}>
-      {items.map((item) => (
-        <View key={item.label} style={[styles.statTile, { width: cols === 4 ? '23.5%' : '48%' }]}>
-          <Text style={styles.statValue}>{item.value}</Text>
-          <Text style={styles.statLabel}>{item.label}</Text>
-          {item.hint ? <Text style={styles.statHint}>{item.hint}</Text> : null}
-        </View>
-      ))}
+      {items.map((item) => {
+        const content = (
+          <>
+            <Text style={styles.statValue}>{item.value}</Text>
+            <Text style={styles.statLabel}>{item.label}</Text>
+            {item.hint ? <Text style={styles.statHint}>{item.hint}</Text> : null}
+          </>
+        );
+        if (item.onPress) {
+          return (
+            <Pressable
+              key={item.label}
+              onPress={item.onPress}
+              style={({ pressed }) => [
+                styles.statTile,
+                styles.statTilePressable,
+                { width: tileWidth, opacity: pressed ? 0.88 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.value} ${item.label}`}
+            >
+              {content}
+            </Pressable>
+          );
+        }
+        return (
+          <View key={item.label} style={[styles.statTile, { width: tileWidth }]}>
+            {content}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -333,6 +363,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 12,
     padding: 14,
+  },
+  statTilePressable: {
+    borderColor: '#BFDCDC',
+    backgroundColor: colors.primarySoft,
   },
   statValue: {
     fontSize: 22,

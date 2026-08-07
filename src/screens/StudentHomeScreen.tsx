@@ -180,8 +180,21 @@ export function StudentHomeScreen({ navigation }: Props) {
 
           <StatTiles
             items={[
-              { label: 'Trainings', value: active.length },
-              { label: 'Alerts', value: unreadCount, hint: unreadCount ? 'Unread' : 'All read' },
+              {
+                label: 'Enrolled',
+                value: active.length,
+                hint: 'Tap to open Trainings',
+                onPress: () => {
+                  setTrainingTab('enrolled');
+                  setMenu('trainings');
+                },
+              },
+              {
+                label: 'Unread alerts',
+                value: unreadCount,
+                hint: unreadCount > 0 ? 'Tap to view' : 'All caught up',
+                onPress: () => setMenu('alerts'),
+              },
             ]}
           />
 
