@@ -15,8 +15,11 @@ import {
   DataCard,
   EmptyState,
   PanelHeader,
+  SectionLabel,
+  SegmentedTabs,
+  StatTiles,
 } from '../components/college/PanelChrome';
-import { DropdownField, FormField, PrimaryButton, StatusBadge } from '../components/ui';
+import { DropdownField, FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { sessionContentApi } from '../services/sessionContentApi';
@@ -37,6 +40,7 @@ import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentSessionDetail'>;
 type Tab =
+  | 'overview'
   | 'materials'
   | 'assignments'
   | 'results'
@@ -45,22 +49,22 @@ type Tab =
   | 'feedback'
   | 'queries';
 
+type Eligibility = {
+  eligible: boolean;
+  attendancePercent: number;
+  attendedDays: number;
+  totalDays: number;
+  assignmentsTotal: number;
+  assignmentsAccepted: number;
+  reasons: string[];
+};
+
 const RATING_OPTIONS = [
   { label: '5 — Excellent', value: '5' },
   { label: '4 — Good', value: '4' },
   { label: '3 — Average', value: '3' },
   { label: '2 — Poor', value: '2' },
   { label: '1 — Very poor', value: '1' },
-];
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'materials', label: 'Materials' },
-  { key: 'assignments', label: 'Assignments' },
-  { key: 'results', label: 'Results' },
-  { key: 'attendance', label: 'Attendance' },
-  { key: 'certificates', label: 'Certificates' },
-  { key: 'feedback', label: 'Feedback' },
-  { key: 'queries', label: 'Queries' },
 ];
 
 function fileExt(name: string): string {
@@ -89,16 +93,10 @@ function formatDueLabel(dueDate?: string): { text: string; urgent: boolean } | n
 
 function submissionStatusCopy(status?: string): { label: string; hint: string } {
   if (!status) {
-    return {
-      label: 'Not submitted',
-      hint: 'Choose a file from your device, then submit.',
-    };
+    return { label: 'Not submitted', hint: 'Choose a file from your device, then submit.' };
   }
   if (status === 'submitted') {
-    return {
-      label: 'Under review',
-      hint: 'Trainer will accept, score, or ask for revision.',
-    };
+    return { label: 'Under review', hint: 'Trainer will accept, score, or ask for revision.' };
   }
   if (status === 'needs_revision') {
     return {
@@ -107,10 +105,7 @@ function submissionStatusCopy(status?: string): { label: string; hint: string } 
     };
   }
   if (status === 'accepted') {
-    return {
-      label: 'Accepted',
-      hint: 'Your assessment score is shown below.',
-    };
+    return { label: 'Accepted', hint: 'Score (if entered) appears under Results.' };
   }
   return { label: status, hint: '' };
 }
@@ -118,7 +113,7 @@ function submissionStatusCopy(status?: string): { label: string; hint: string } 
 export function StudentSessionDetailScreen({ route }: Props) {
   const { requestId } = route.params;
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>('materials');
+  const [tab, setTab] = useState<Tab>('overview');
   const [student, setStudent] = useState<StudentRecord | null>(null);
   const [session, setSession] = useState<CourseRequest | null>(null);
   const [materials, setMaterials] = useState<SessionMaterial[]>([]);
@@ -128,12 +123,14 @@ export function StudentSessionDetailScreen({ route }: Props) {
   const [certificates, setCertificates] = useState<SessionCertificate[]>([]);
   const [myFeedback, setMyFeedback] = useState<TrainerFeedback[]>([]);
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
+  const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [rating, setRating] = useState('');
+  const [rating, setRating] = useState('5');
   const [comment, setComment] = useState('');
   const [question, setQuestion] = useState('');
   const [submitNotes, setSubmitNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showAskQuery, setShowAskQuery] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.studentId) return;
@@ -147,6 +144,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
     setAttendance(await sessionContentApi.listAttendanceForStudent(requestId, user.studentId));
     const allCerts = await sessionContentApi.listCertificates(requestId);
     setCertificates(allCerts.filter((c) => c.studentId === user.studentId));
+    setEligibility(
+      await sessionContentApi.getCertificateEligibility(requestId, user.studentId),
+    );
     if (item?.trainerId) {
       const allFb = await trainerApi.listFeedback(item.trainerId);
       setMyFeedback(
@@ -179,20 +179,66 @@ export function StudentSessionDetailScreen({ route }: Props) {
     return map;
   }, [submissions]);
 
-  const pendingAssignments = assignments.filter((a) => {
-    const mine = submissionByAssignment[a.id];
-    return !mine || mine.status === 'needs_revision';
-  }).length;
+  const actionAssignments = useMemo(
+    () =>
+      assignments.filter((a) => {
+        const mine = submissionByAssignment[a.id];
+        return !mine || mine.status === 'needs_revision';
+      }),
+    [assignments, submissionByAssignment],
+  );
 
-  const tabCounts: Partial<Record<Tab, number>> = {
-    materials: materials.length,
-    assignments: assignments.length,
-    results: submissions.filter((s) => s.score !== undefined).length,
-    attendance: attendance.length,
-    certificates: certificates.length,
-    feedback: myFeedback.length,
-    queries: queries.length,
-  };
+  const scoredResults = useMemo(
+    () =>
+      submissions.filter((s) => s.status === 'accepted' || s.score !== undefined),
+    [submissions],
+  );
+
+  const openQueries = useMemo(() => queries.filter((q) => q.status === 'open'), [queries]);
+  const answeredQueries = useMemo(
+    () => queries.filter((q) => q.status === 'answered'),
+    [queries],
+  );
+
+  const attendanceStats = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let absent = 0;
+    for (const row of attendance) {
+      if (row.status === 'present') present += 1;
+      else if (row.status === 'late') late += 1;
+      else if (row.status === 'absent') absent += 1;
+    }
+    const marked = attendance.length;
+    const good = present + late;
+    const pct = marked === 0 ? 0 : Math.round((good / marked) * 100);
+    return { present, late, absent, marked, pct };
+  }, [attendance]);
+
+  const tabOptions: { value: Tab; label: string }[] = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'materials', label: `Materials (${materials.length})` },
+    {
+      value: 'assignments',
+      label: actionAssignments.length
+        ? `Assignments (${actionAssignments.length})`
+        : 'Assignments',
+    },
+    {
+      value: 'results',
+      label: scoredResults.length ? `Results (${scoredResults.length})` : 'Results',
+    },
+    { value: 'attendance', label: 'Attendance' },
+    { value: 'certificates', label: certificates.length ? 'Certificate' : 'Certificate' },
+    {
+      value: 'feedback',
+      label: myFeedback.length ? 'Feedback ✓' : 'Feedback',
+    },
+    {
+      value: 'queries',
+      label: openQueries.length ? `Queries (${openQueries.length})` : 'Queries',
+    },
+  ];
 
   const submitWork = async (assignmentId: string) => {
     if (!student) return;
@@ -223,6 +269,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
   const submitFeedback = async () => {
     if (!student || !session?.trainerId) return;
+    if (!comment.trim()) {
+      Alert.alert('Comment required', 'Write a short comment about this training.');
+      return;
+    }
     try {
       setSaving(true);
       await trainerApi.addFeedback({
@@ -236,9 +286,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
         comment,
       });
       setComment('');
-      setRating('');
-      Alert.alert('Thanks', 'Your feedback was sent to the trainer.');
+      Alert.alert('Thanks', 'Your training feedback was saved.');
       await load();
+      setTab('certificates');
     } catch (e) {
       Alert.alert('Unable to send', e instanceof Error ? e.message : 'Try again');
     } finally {
@@ -248,6 +298,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
   const askQuery = async () => {
     if (!student || !session?.trainerId) return;
+    if (!question.trim()) {
+      Alert.alert('Question required', 'Type your question for the trainer.');
+      return;
+    }
     try {
       setSaving(true);
       await trainerApi.submitStudentQuery({
@@ -260,6 +314,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
         question,
       });
       setQuestion('');
+      setShowAskQuery(false);
       Alert.alert('Sent', 'Your query was sent to the trainer.');
       await load();
     } catch (e) {
@@ -270,7 +325,15 @@ export function StudentSessionDetailScreen({ route }: Props) {
   };
 
   return (
-    <View style={styles.root}>
+    <Screen
+      title={session?.courseName || 'Session'}
+      subtitle={
+        session
+          ? `${session.collegeName} · ${session.startDate} → ${session.endDate}`
+          : 'Loading session…'
+      }
+      showLogo={false}
+    >
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -283,62 +346,97 @@ export function StudentSessionDetailScreen({ route }: Props) {
             }}
           />
         }
+        keyboardShouldPersistTaps="handled"
       >
-        <PanelHeader
-          title={session?.courseName || 'Session'}
-          subtitle={
-            session
-              ? `${session.startDate} to ${session.endDate}${
-                  session.trainerName ? ` · Trainer ${session.trainerName}` : ''
-                }`
-              : 'Loading session…'
-          }
-        />
-
-        {pendingAssignments > 0 ? (
-          <Pressable style={styles.pendingChip} onPress={() => setTab('assignments')}>
-            <Text style={styles.pendingChipText}>
-              {pendingAssignments} assignment{pendingAssignments === 1 ? '' : 's'} need your action
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {!session?.trainerId ? (
+        {session ? (
           <DataCard>
-            <Text style={styles.warnTitle}>Trainer not assigned yet</Text>
-            <Text style={styles.warnBody}>
-              Materials and assignments appear after TASK assigns a trainer.
+            <Text style={styles.eyebrow}>Your training session</Text>
+            <Text style={styles.meta}>
+              {session.branch} · YOG {session.yearOfGraduation}
+              {session.trainerName ? ` · Trainer ${session.trainerName}` : ''}
             </Text>
+            {!session.trainerId ? (
+              <Text style={styles.warn}>
+                Trainer not assigned yet — materials and assignments appear after TASK assigns one.
+              </Text>
+            ) : null}
           </DataCard>
         ) : null}
 
-        <View style={styles.tabGrid}>
-          {TABS.map((item) => {
-            const active = tab === item.key;
-            const count = tabCounts[item.key] ?? 0;
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => setTab(item.key)}
-                style={[styles.tab, active && styles.tabActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text
-                  style={[styles.tabText, active && styles.tabTextActive]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-                <Text style={[styles.countText, active && styles.countTextActive]}>{count}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <SegmentedTabs value={tab} options={tabOptions} onChange={setTab} />
+
+        {tab === 'overview' ? (
+          <>
+            <PanelHeader
+              title="Session overview"
+              subtitle="What to do next in this training"
+            />
+            <StatTiles
+              items={[
+                {
+                  label: 'Action items',
+                  value: String(actionAssignments.length),
+                  hint: 'Assignments to submit',
+                  onPress: () => setTab('assignments'),
+                },
+                {
+                  label: 'Attendance',
+                  value: `${attendanceStats.pct}%`,
+                  hint: `${attendanceStats.marked} day(s) marked`,
+                  onPress: () => setTab('attendance'),
+                },
+                {
+                  label: 'Scores',
+                  value: String(scoredResults.length),
+                  onPress: () => setTab('results'),
+                },
+                {
+                  label: 'Certificate',
+                  value: certificates.length ? 'Issued' : eligibility?.eligible ? 'Ready' : 'Pending',
+                  onPress: () => setTab('certificates'),
+                },
+              ]}
+            />
+
+            <SectionLabel>Suggested path</SectionLabel>
+            <DataCard>
+              <Text style={styles.body}>
+                1. Open Materials → 2. Submit Assignments → 3. Check Attendance → 4. View Results →
+                5. Share Feedback → 6. Collect Certificate when ready.
+              </Text>
+            </DataCard>
+
+            {actionAssignments.length > 0 ? (
+              <PrimaryButton
+                title={`Submit ${actionAssignments.length} assignment(s)`}
+                onPress={() => setTab('assignments')}
+              />
+            ) : null}
+            <View style={styles.gap} />
+            {myFeedback.length === 0 && session?.trainerId ? (
+              <PrimaryButton
+                title="Share training feedback"
+                variant="secondary"
+                onPress={() => setTab('feedback')}
+              />
+            ) : null}
+            <View style={styles.gap} />
+            {openQueries.length > 0 ? (
+              <PrimaryButton
+                title={`View ${openQueries.length} open quer${openQueries.length === 1 ? 'y' : 'ies'}`}
+                variant="secondary"
+                onPress={() => setTab('queries')}
+              />
+            ) : null}
+          </>
+        ) : null}
 
         {tab === 'materials' ? (
           <>
-            <Text style={styles.sectionLead}>Slides and notes from your trainer</Text>
+            <PanelHeader
+              title="Learning materials"
+              subtitle="Slides and notes uploaded by your trainer"
+            />
             {materials.length === 0 ? (
               <EmptyState
                 title="No materials yet"
@@ -346,13 +444,13 @@ export function StudentSessionDetailScreen({ route }: Props) {
               />
             ) : (
               materials.map((item) => (
-                <DataCard key={item.id} accent>
+                <DataCard key={item.id}>
                   <View style={styles.cardTop}>
                     <View style={styles.fileChip}>
                       <Text style={styles.fileChipText}>{fileExt(item.file.fileName)}</Text>
                     </View>
                     <View style={styles.cardMain}>
-                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
                       {item.description ? (
                         <Text style={styles.meta}>{item.description}</Text>
                       ) : null}
@@ -361,14 +459,12 @@ export function StudentSessionDetailScreen({ route }: Props) {
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.actionRow}>
-                    <Pressable
-                      style={styles.primarySoftBtn}
-                      onPress={() => demoOpenFile(item.file.fileName)}
-                    >
-                      <Text style={styles.primarySoftBtnText}>View / download</Text>
-                    </Pressable>
-                  </View>
+                  <View style={styles.gap} />
+                  <PrimaryButton
+                    title="View / download"
+                    variant="secondary"
+                    onPress={() => demoOpenFile(item.file.fileName)}
+                  />
                 </DataCard>
               ))
             )}
@@ -377,9 +473,13 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'assignments' ? (
           <>
-            <Text style={styles.sectionLead}>
-              Submit work from your device. Trainer review and scores appear under Results.
-            </Text>
+            <PanelHeader
+              title="Assignments"
+              subtitle="Submit from your device. Scores appear under Results after the trainer reviews."
+            />
+            {actionAssignments.length > 0 ? (
+              <SectionLabel>{`Needs your action (${actionAssignments.length})`}</SectionLabel>
+            ) : null}
             {assignments.length === 0 ? (
               <EmptyState
                 title="No assignments posted"
@@ -392,20 +492,21 @@ export function StudentSessionDetailScreen({ route }: Props) {
                 const statusCopy = submissionStatusCopy(mine?.status);
                 const canSubmit = !mine || mine.status === 'needs_revision';
                 return (
-                  <DataCard key={item.id} accent>
+                  <DataCard key={item.id}>
                     <View style={styles.row}>
-                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
                       <StatusBadge status={mine?.status || 'pending'} />
                     </View>
                     {due ? (
                       <View style={[styles.dueChip, due.urgent && styles.dueChipUrgent]}>
-                        <Text style={[styles.dueChipText, due.urgent && styles.dueChipTextUrgent]}>
+                        <Text
+                          style={[styles.dueChipText, due.urgent && styles.dueChipTextUrgent]}
+                        >
                           {due.text}
                         </Text>
                       </View>
                     ) : null}
                     <Text style={styles.body}>{item.instructions}</Text>
-
                     {item.file ? (
                       <Pressable
                         onPress={() => demoOpenFile(item.file!.fileName)}
@@ -416,7 +517,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
                         </Text>
                       </Pressable>
                     ) : null}
-
                     <View style={styles.statusPanel}>
                       <Text style={styles.statusPanelLabel}>{statusCopy.label}</Text>
                       <Text style={styles.statusHint}>{statusCopy.hint}</Text>
@@ -434,15 +534,12 @@ export function StudentSessionDetailScreen({ route }: Props) {
                         </Text>
                       ) : null}
                     </View>
-
                     {canSubmit ? (
                       <View style={styles.submitPanel}>
-                        <Text style={styles.submitTitle}>How to submit</Text>
-                        <Text style={styles.stepLine}>1. Download the template (if provided)</Text>
-                        <Text style={styles.stepLine}>2. Prepare your PDF or DOC file</Text>
-                        <Text style={styles.stepLine}>
-                          3. Tap the button below to choose file and submit
-                        </Text>
+                        <Text style={styles.submitTitle}>Submit your work</Text>
+                        <Text style={styles.stepLine}>1. Download template if provided</Text>
+                        <Text style={styles.stepLine}>2. Prepare your PDF or DOC</Text>
+                        <Text style={styles.stepLine}>3. Choose file & submit below</Text>
                         <FormField
                           label="Notes for trainer (optional)"
                           value={submitNotes[item.id] || ''}
@@ -473,11 +570,11 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'results' ? (
           <>
-            <Text style={styles.sectionLead}>
-              Assessment scores after the trainer accepts your work (out of 20).
-            </Text>
-            {submissions.filter((s) => s.status === 'accepted' || s.score !== undefined)
-              .length === 0 ? (
+            <PanelHeader
+              title="Results & scores"
+              subtitle="Shown after the trainer accepts your submission (out of 20)"
+            />
+            {scoredResults.length === 0 ? (
               <EmptyState
                 title="No scores yet"
                 body="When your trainer accepts an assignment, the score and remark show here."
@@ -493,9 +590,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
                     ? Math.round((mine.score / mine.maxScore) * 100)
                     : null;
                 return (
-                  <DataCard key={item.id} accent>
+                  <DataCard key={item.id}>
                     <View style={styles.row}>
-                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
                       <StatusBadge status={mine.status} />
                     </View>
                     {mine.score !== undefined && mine.maxScore !== undefined ? (
@@ -529,80 +626,130 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'attendance' ? (
           <>
+            <PanelHeader
+              title="Your attendance"
+              subtitle="Days the trainer has marked for this batch"
+            />
             {attendance.length === 0 ? (
               <EmptyState
-                title="No attendance marked"
+                title="No attendance marked yet"
                 body="Days appear here after the trainer marks the register."
               />
             ) : (
-              attendance.map((item) => (
-                <DataCard key={item.id}>
-                  <View style={styles.row}>
-                    <Text style={styles.itemTitle}>{item.sessionDate}</Text>
-                    <StatusBadge status={item.status} />
-                  </View>
-                </DataCard>
-              ))
+              <>
+                <StatTiles
+                  items={[
+                    { label: 'Present / Late', value: `${attendanceStats.pct}%` },
+                    { label: 'Present', value: String(attendanceStats.present) },
+                    { label: 'Late', value: String(attendanceStats.late) },
+                    { label: 'Absent', value: String(attendanceStats.absent) },
+                  ]}
+                />
+                <SectionLabel>Day-wise register</SectionLabel>
+                {attendance.map((item) => (
+                  <DataCard key={item.id}>
+                    <View style={styles.row}>
+                      <Text style={styles.cardTitle}>{item.sessionDate}</Text>
+                      <StatusBadge status={item.status} />
+                    </View>
+                  </DataCard>
+                ))}
+              </>
             )}
           </>
         ) : null}
 
         {tab === 'certificates' ? (
           <>
-            {certificates.length === 0 ? (
-              <EmptyState
-                title="No certificate yet"
-                body="Needs at least 75% attendance and all assignments accepted."
-              />
-            ) : (
+            <PanelHeader
+              title="Certificate"
+              subtitle="Issued by your trainer when eligibility rules are met"
+            />
+            {certificates.length > 0 ? (
               certificates.map((item) => (
-                <DataCard key={item.id} accent>
-                  <Text style={styles.itemTitle}>{item.courseName}</Text>
-                  <Text style={styles.ok}>{item.certificateCode}</Text>
+                <DataCard key={item.id}>
+                  <Text style={styles.cardTitle}>{item.courseName}</Text>
+                  <Text style={styles.okHero}>{item.certificateCode}</Text>
                   <Text style={styles.meta}>
                     Issued {new Date(item.issuedAt).toLocaleDateString()} · {item.issuedByName}
                   </Text>
-                  <View style={styles.actionRow}>
-                    <Pressable
-                      style={styles.primarySoftBtn}
-                      onPress={() =>
-                        Alert.alert(
-                          'Certificate',
-                          `${item.certificateCode}\n\nDownload is simulated in this UAT demo.`,
-                        )
-                      }
-                    >
-                      <Text style={styles.primarySoftBtnText}>Download</Text>
-                    </Pressable>
-                  </View>
+                  <View style={styles.gap} />
+                  <PrimaryButton
+                    title="Download (demo)"
+                    variant="secondary"
+                    onPress={() =>
+                      Alert.alert(
+                        'Certificate',
+                        `${item.certificateCode}\n\nDownload is simulated in this UAT demo.`,
+                      )
+                    }
+                  />
                 </DataCard>
               ))
+            ) : (
+              <DataCard>
+                <Text style={styles.cardTitle}>
+                  {eligibility?.eligible ? 'Ready for certificate' : 'Not ready yet'}
+                </Text>
+                <Text style={styles.meta}>
+                  Rules: ≥75% attendance (Present/Late) and all assignments accepted by the trainer.
+                </Text>
+                {eligibility ? (
+                  <>
+                    <Text style={styles.meta}>
+                      Attendance {eligibility.attendancePercent}% ({eligibility.attendedDays}/
+                      {eligibility.totalDays} days) · Assignments{' '}
+                      {eligibility.assignmentsAccepted}/{eligibility.assignmentsTotal} accepted
+                    </Text>
+                    {eligibility.reasons.map((r) => (
+                      <Text key={r} style={styles.remark}>
+                        · {r}
+                      </Text>
+                    ))}
+                  </>
+                ) : null}
+                <View style={styles.gap} />
+                <PrimaryButton
+                  title="Check assignments"
+                  variant="secondary"
+                  onPress={() => setTab('assignments')}
+                />
+              </DataCard>
             )}
           </>
         ) : null}
 
         {tab === 'feedback' ? (
           <>
-            {myFeedback.length === 0 ? (
-              <EmptyState
-                title="No feedback yet"
-                body="Share a short rating after attending the session."
-              />
-            ) : (
-              myFeedback.map((item) => (
-                <DataCard key={item.id}>
-                  <Text style={styles.itemTitle}>
-                    Submitted{item.rating ? ` · ${item.rating}/5` : ''}
-                  </Text>
-                  <Text style={styles.body}>{item.comment}</Text>
-                </DataCard>
-              ))
-            )}
-            {session?.trainerId ? (
+            <PanelHeader
+              title="Training feedback"
+              subtitle="Tell TASK how this batch went for you"
+            />
+            {myFeedback.length > 0 ? (
+              <>
+                <SectionLabel>Your submitted feedback</SectionLabel>
+                {myFeedback.map((item) => (
+                  <DataCard key={item.id}>
+                    <Text style={styles.cardTitle}>
+                      Submitted{item.rating ? ` · ${item.rating}/5` : ''}
+                    </Text>
+                    <Text style={styles.body}>{item.comment}</Text>
+                    <Text style={styles.meta}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </Text>
+                  </DataCard>
+                ))}
+              </>
+            ) : null}
+
+            {session?.trainerId && myFeedback.length === 0 ? (
               <DataCard>
-                <Text style={styles.itemTitle}>Share feedback</Text>
+                <Text style={styles.cardTitle}>Share feedback</Text>
+                <Text style={styles.meta}>
+                  Rating and a short comment help improve future TASK batches.
+                </Text>
                 <DropdownField
-                  label="Rating (optional)"
+                  label="Rating"
                   value={rating}
                   onChange={setRating}
                   options={RATING_OPTIONS}
@@ -615,6 +762,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   multiline
                   style={{ minHeight: 80, textAlignVertical: 'top' }}
                   required
+                  placeholder="What went well? What can improve?"
                 />
                 <PrimaryButton
                   title={saving ? 'Sending…' : 'Submit feedback'}
@@ -623,35 +771,38 @@ export function StudentSessionDetailScreen({ route }: Props) {
                 />
               </DataCard>
             ) : null}
+
+            {session?.trainerId && myFeedback.length > 0 ? (
+              <EmptyState
+                title="Feedback already submitted"
+                body="You can still ask questions under Queries if you need help."
+              />
+            ) : null}
+
+            {!session?.trainerId ? (
+              <EmptyState title="Trainer not assigned" body="Feedback opens after a trainer is assigned." />
+            ) : null}
           </>
         ) : null}
 
         {tab === 'queries' ? (
           <>
-            {queries.length === 0 ? (
-              <EmptyState
-                title="No queries yet"
-                body="Ask the trainer if you need help with this session."
-              />
-            ) : (
-              queries.map((item) => (
-                <DataCard key={item.id}>
-                  <View style={styles.row}>
-                    <Text style={styles.itemTitle}>Your question</Text>
-                    <StatusBadge status={item.status} />
-                  </View>
-                  <Text style={styles.body}>{item.question}</Text>
-                  {item.answer ? (
-                    <Text style={styles.ok}>Trainer: {item.answer}</Text>
-                  ) : (
-                    <Text style={styles.meta}>Awaiting trainer response…</Text>
-                  )}
-                </DataCard>
-              ))
-            )}
-            {session?.trainerId ? (
+            <PanelHeader
+              title="Ask your trainer"
+              subtitle="Questions about this batch only"
+              action={
+                session?.trainerId ? (
+                  <PrimaryButton
+                    title={showAskQuery ? 'Cancel' : 'New query'}
+                    variant="secondary"
+                    onPress={() => setShowAskQuery((v) => !v)}
+                  />
+                ) : undefined
+              }
+            />
+
+            {showAskQuery && session?.trainerId ? (
               <DataCard>
-                <Text style={styles.itemTitle}>Ask the trainer</Text>
                 <TextInput
                   style={styles.queryInput}
                   placeholder="Type your question…"
@@ -667,41 +818,73 @@ export function StudentSessionDetailScreen({ route }: Props) {
                 />
               </DataCard>
             ) : null}
+
+            <SectionLabel>{`Open (${openQueries.length})`}</SectionLabel>
+            {openQueries.length === 0 ? (
+              <EmptyState title="No open queries" body="Use New query if you need help." />
+            ) : (
+              openQueries.map((item) => (
+                <DataCard key={item.id}>
+                  <View style={styles.row}>
+                    <Text style={styles.cardTitle}>Your question</Text>
+                    <StatusBadge status={item.status} />
+                  </View>
+                  <Text style={styles.body}>{item.question}</Text>
+                  <Text style={styles.meta}>Awaiting trainer response…</Text>
+                </DataCard>
+              ))
+            )}
+
+            {answeredQueries.length > 0 ? (
+              <>
+                <SectionLabel>{`Answered (${answeredQueries.length})`}</SectionLabel>
+                {answeredQueries.map((item) => (
+                  <DataCard key={item.id}>
+                    <View style={styles.row}>
+                      <Text style={styles.cardTitle}>Your question</Text>
+                      <StatusBadge status={item.status} />
+                    </View>
+                    <Text style={styles.body}>{item.question}</Text>
+                    <Text style={styles.ok}>Trainer: {item.answer}</Text>
+                  </DataCard>
+                ))}
+              </>
+            ) : null}
           </>
         ) : null}
       </ScrollView>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 48 },
-  tabGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 8,
-    marginBottom: 12,
+  content: { paddingBottom: 48 },
+  eyebrow: {
+    fontWeight: '800',
+    color: colors.primaryDark,
+    fontSize: 11,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
-  tab: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 11,
+  cardTitle: { flex: 1, fontWeight: '800', color: colors.text, fontSize: 15 },
+  meta: { color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 17 },
+  body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
+  warn: { marginTop: 8, color: colors.warning, fontWeight: '600', fontSize: 12, lineHeight: 17 },
+  ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },
+  okHero: {
+    marginTop: 8,
+    color: colors.success,
+    fontWeight: '800',
+    fontSize: 18,
   },
-  tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' },
-  tabTextActive: { color: colors.white },
-  countText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
-  countTextActive: { color: colors.white },
+  gap: { height: 10 },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
   cardTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   cardMain: { flex: 1 },
   fileChip: {
@@ -713,46 +896,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fileChipText: { color: colors.primaryDark, fontWeight: '800', fontSize: 11 },
-  actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  primarySoftBtn: {
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: colors.primarySoft,
-  },
-  primarySoftBtnText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
-  inlineLink: { marginTop: 8, alignSelf: 'flex-start' },
-  linkText: { color: colors.primaryDark, fontWeight: '600', fontSize: 12 },
-  pendingChip: {
-    backgroundColor: colors.warningSoft,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-  },
-  pendingChipText: { color: colors.warning, fontWeight: '700', fontSize: 13 },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 4,
-    alignItems: 'flex-start',
-  },
-  itemTitle: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 17 },
-  sectionLead: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
   dueChip: {
     alignSelf: 'flex-start',
     backgroundColor: colors.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    marginBottom: 8,
+    marginTop: 8,
+    marginBottom: 4,
   },
   dueChipUrgent: { backgroundColor: colors.warningSoft },
   dueChipText: { color: colors.primaryDark, fontWeight: '700', fontSize: 11 },
@@ -776,12 +927,7 @@ const styles = StyleSheet.create({
   statusPanelLabel: { fontWeight: '800', color: colors.text, fontSize: 13, marginBottom: 2 },
   statusHint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   remark: { marginTop: 8, color: colors.warning, fontWeight: '600', fontSize: 12, lineHeight: 17 },
-  scoreLine: {
-    marginTop: 8,
-    color: colors.success,
-    fontWeight: '800',
-    fontSize: 14,
-  },
+  scoreLine: { marginTop: 8, color: colors.success, fontWeight: '800', fontSize: 14 },
   submitPanel: {
     marginTop: 12,
     borderWidth: 1,
@@ -804,22 +950,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 6,
   },
-  scoreHeroValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.primaryDark,
-  },
+  scoreHeroValue: { fontSize: 32, fontWeight: '800', color: colors.primaryDark },
   scoreHeroMax: { fontSize: 18, fontWeight: '600', color: colors.textMuted },
-  scoreHeroPct: {
-    marginBottom: 6,
-    color: colors.success,
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
-  ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },
-  warnTitle: { fontWeight: '700', color: colors.warning, marginBottom: 4 },
-  warnBody: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  scoreHeroPct: { marginBottom: 6, color: colors.success, fontWeight: '800', fontSize: 14 },
   queryInput: {
     minHeight: 80,
     borderWidth: 1,
@@ -827,7 +960,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
-    marginTop: 8,
     color: colors.text,
     textAlignVertical: 'top',
     backgroundColor: colors.background,
