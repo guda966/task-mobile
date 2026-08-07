@@ -1,9 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   DataCard,
   PanelHeader,
-  PanelPage,
   SectionLabel,
   StatTiles,
 } from '../../components/college/PanelChrome';
@@ -13,10 +12,10 @@ import type { CollegeEnrollment } from '../../types/enrollment';
 
 export function RenewalPanel({ enrollment }: { enrollment: CollegeEnrollment }) {
   return (
-    <PanelPage>
+    <ScrollView contentContainerStyle={styles.pad}>
       <PanelHeader
-        title="College Renewal / Payment"
-        subtitle="Review your college registration status and fee acknowledgement."
+        title="Renewal"
+        subtitle="Your college registration status and fee acknowledgement."
       />
 
       <StatTiles
@@ -63,15 +62,16 @@ export function RenewalPanel({ enrollment }: { enrollment: CollegeEnrollment }) 
       <DataCard>
         <Text style={styles.noteTitle}>Next renewal</Text>
         <Text style={styles.note}>
-          Online renewal and payment gateway will be connected in a later phase. For now this
-          screen confirms your college tenant is active with TASK.
+          Online payment for renewal will be added later. This screen confirms your college is
+          active with TASK.
         </Text>
       </DataCard>
-    </PanelPage>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  pad: { padding: 16, paddingBottom: 40 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',

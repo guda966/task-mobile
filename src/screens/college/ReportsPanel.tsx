@@ -95,13 +95,19 @@ export function ReportsPanel({
     [progress],
   );
 
+  const filteredProgress = useMemo(
+    () =>
+      sessionFilter ? progress.filter((p) => p.requestId === sessionFilter) : progress,
+    [progress, sessionFilter],
+  );
+
   const exportCurrent = async () => {
     try {
       let title = 'TASK Report';
       let body = '';
       if (kind === 'progress') {
         title = 'Batch Progress Report';
-        body = reportsApi.batchProgressToCsv(progress);
+        body = reportsApi.batchProgressToCsv(filteredProgress);
       } else if (kind === 'attendance') {
         title = 'Attendance Report';
         body = reportsApi.attendanceToCsv(attendance);
@@ -132,7 +138,7 @@ export function ReportsPanel({
 
   const preview =
     kind === 'progress'
-      ? progress.slice(0, 12)
+      ? filteredProgress.slice(0, 12)
       : kind === 'attendance'
         ? attendance.slice(0, 20)
         : kind === 'submissions'
@@ -145,7 +151,7 @@ export function ReportsPanel({
 
   const previewCount =
     kind === 'progress'
-      ? progress.length
+      ? filteredProgress.length
       : kind === 'attendance'
         ? attendance.length
         : kind === 'submissions'

@@ -62,9 +62,10 @@ export function NotificationsPanel({
         }
       />
 
-      <ResultBar label="Messages" count={items.length} />
+      <ResultBar label="Alerts" count={items.length} />
 
       <FlatList
+        style={styles.listFlex}
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -102,6 +103,7 @@ export function NotificationsPanel({
 }
 
 const styles = StyleSheet.create({
+  listFlex: { flex: 1 },
   list: { paddingBottom: 40 },
   row: {
     flexDirection: 'row',

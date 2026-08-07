@@ -123,6 +123,7 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
         />
       ) : (
         <FlatList
+          style={styles.listFlex}
           data={grouped}
           keyExtractor={([key]) => key}
           contentContainerStyle={styles.list}
@@ -168,6 +169,7 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
 }
 
 const styles = StyleSheet.create({
+  listFlex: { flex: 1 },
   list: { paddingBottom: 40 },
   monthBlock: { marginBottom: 16 },
   monthLabel: {

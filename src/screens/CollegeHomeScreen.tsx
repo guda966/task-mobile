@@ -43,51 +43,61 @@ export function CollegeHomeScreen({ navigation }: Props) {
   const [enrollment, setEnrollment] = useState<CollegeEnrollment | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [upcomingCount, setUpcomingCount] = useState(0);
   const [upcomingSessions, setUpcomingSessions] = useState<CourseRequest[]>([]);
   const [studentCount, setStudentCount] = useState(0);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
+    setLoadError(false);
 
     let record: CollegeEnrollment | null = null;
 
-    if (user.email === DUMMY_COLLEGE_CONTACTS.officialEmail) {
-      record = await collegePortalApi.ensureDemoApprovedCollege();
-      if (user.enrollmentId !== record.id) {
-        setUser({
-          ...user,
-          enrollmentId: record.id,
-          name: record.contactPersonName,
-          email: record.officialEmail,
-        });
+    try {
+      if (user.email === DUMMY_COLLEGE_CONTACTS.officialEmail) {
+        record = await collegePortalApi.ensureDemoApprovedCollege();
+        if (user.enrollmentId !== record.id) {
+          setUser({
+            ...user,
+            enrollmentId: record.id,
+            name: record.contactPersonName,
+            email: record.officialEmail,
+          });
+        }
+      } else if (user.enrollmentId) {
+        record = await mockApi.getEnrollment(user.enrollmentId);
+        if (record?.status === 'approved') {
+          await collegePortalApi.ensureSeedData(record.id);
+        }
       }
-    } else if (user.enrollmentId) {
-      record = await mockApi.getEnrollment(user.enrollmentId);
-      if (record?.status === 'approved') {
-        await collegePortalApi.ensureSeedData(record.id);
-      }
-    }
 
-    setEnrollment(record);
-    if (record) {
-      setNotifications(
-        await mockApi.getNotificationsFor({ ...user, enrollmentId: record.id }),
-      );
-      const allRequests = await collegePortalApi.listCourseRequests({
-        enrollmentId: record.id,
-      });
-      setPendingCount(allRequests.filter((r) => r.status === 'pending').length);
-      const calendar = await collegePortalApi.listCalendarEvents(record.id);
-      const today = new Date().toISOString().slice(0, 10);
-      setUpcomingSessions(calendar.filter((s) => s.endDate >= today).slice(0, 3));
-      const students = await collegePortalApi.listStudents(record.id);
-      setStudentCount(students.length);
-    } else {
-      setNotifications([]);
-      setPendingCount(0);
-      setUpcomingSessions([]);
-      setStudentCount(0);
+      setEnrollment(record);
+      if (record) {
+        setNotifications(
+          await mockApi.getNotificationsFor({ ...user, enrollmentId: record.id }),
+        );
+        const allRequests = await collegePortalApi.listCourseRequests({
+          enrollmentId: record.id,
+        });
+        setPendingCount(allRequests.filter((r) => r.status === 'pending').length);
+        const calendar = await collegePortalApi.listCalendarEvents(record.id);
+        const today = new Date().toISOString().slice(0, 10);
+        const upcoming = calendar.filter((s) => s.endDate >= today);
+        setUpcomingCount(upcoming.length);
+        setUpcomingSessions(upcoming.slice(0, 3));
+        const students = await collegePortalApi.listStudents(record.id);
+        setStudentCount(students.length);
+      } else {
+        setNotifications([]);
+        setPendingCount(0);
+        setUpcomingCount(0);
+        setUpcomingSessions([]);
+        setStudentCount(0);
+      }
+    } catch {
+      setLoadError(true);
     }
   }, [user, setUser]);
 
@@ -122,7 +132,15 @@ export function CollegeHomeScreen({ navigation }: Props) {
   if (!enrollment) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.muted}>Loading college portal…</Text>
+        <Text style={styles.muted}>
+          {loadError
+            ? 'Could not load the college portal. Please try again.'
+            : 'Loading college portal…'}
+        </Text>
+        {loadError ? (
+          <PrimaryButton title="Retry" onPress={load} />
+        ) : null}
+        <PrimaryButton title="Sign out" variant="secondary" onPress={onSignOut} />
       </View>
     );
   }
@@ -164,7 +182,7 @@ export function CollegeHomeScreen({ navigation }: Props) {
             items={[
               { label: 'Students', value: studentCount },
               { label: 'Open requests', value: pendingCount },
-              { label: 'Upcoming', value: upcomingSessions.length },
+              { label: 'Upcoming', value: upcomingCount },
               { label: 'New alerts', value: unreadCount },
             ]}
           />
@@ -253,7 +271,13 @@ export function CollegeHomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
   blocked: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
   blockedTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   pad: { padding: 16, paddingBottom: 40 },

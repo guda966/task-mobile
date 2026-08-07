@@ -143,6 +143,7 @@ export function BatchProgressPanel({
                 <Metric label="Students" value={String(row.registeredStudents)} />
                 <Metric label="Attendance" value={`${row.avgAttendancePercent}%`} />
                 <Metric label="Pending work" value={String(row.submissionsPending)} />
+                <Metric label="Eligible" value={String(row.eligibleForCert)} />
                 <Metric label="Certificates" value={String(row.certificatesIssued)} />
               </View>
               {onOpenSession ? <Text style={styles.link}>Open session details →</Text> : null}

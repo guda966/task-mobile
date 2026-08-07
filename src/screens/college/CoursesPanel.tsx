@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -23,17 +23,23 @@ export function CoursesPanel({
 }) {
   const [category, setCategory] = useState('All Categories');
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [items, setItems] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await collegePortalApi.listCourses(category, query));
+      setItems(await collegePortalApi.listCourses(category, debouncedQuery));
     } finally {
       setLoading(false);
     }
-  }, [category, query]);
+  }, [category, debouncedQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,6 +73,7 @@ export function CoursesPanel({
       <ResultBar label="Courses found" count={items.length} />
 
       <FlatList
+        style={styles.listFlex}
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -100,6 +107,7 @@ export function CoursesPanel({
 }
 
 const styles = StyleSheet.create({
+  listFlex: { flex: 1 },
   list: { paddingBottom: 40 },
   cardTop: {
     flexDirection: 'row',

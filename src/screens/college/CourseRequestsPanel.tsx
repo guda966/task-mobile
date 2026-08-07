@@ -80,7 +80,7 @@ export function CourseRequestsPanel({
             { value: 'All', label: 'All statuses' },
             { value: 'pending', label: 'Pending' },
             { value: 'approved', label: 'Approved' },
-            { value: 'rejected', label: 'Needs update' },
+            { value: 'rejected', label: 'Rejected' },
           ]}
         />
         <DropdownField
@@ -106,6 +106,7 @@ export function CourseRequestsPanel({
       <ResultBar label="Requests" count={items.length} />
 
       <FlatList
+        style={styles.listFlex}
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -146,6 +147,7 @@ function formatDate(value: string) {
 }
 
 const styles = StyleSheet.create({
+  listFlex: { flex: 1 },
   list: { paddingBottom: 40 },
   row: {
     flexDirection: 'row',
