@@ -63,20 +63,6 @@ export function WelcomeScreen({ navigation }: Props) {
               accessibilityLabel="Telangana Academy for Skill and Knowledge — Department of ITE&C, Government of Telangana"
             />
           </ScrollView>
-
-          <View style={styles.nameRow}>
-            <View style={styles.nameCol}>
-              <Text style={styles.name}>Sri Anumula Revanth Reddy</Text>
-              <Text style={styles.role}>Hon’ble Chief Minister</Text>
-              <Text style={styles.org}>Government of Telangana</Text>
-            </View>
-            <View style={styles.nameDivider} />
-            <View style={styles.nameCol}>
-              <Text style={styles.name}>Sri D. Sridhar Babu</Text>
-              <Text style={styles.role}>Hon’ble Minister for ITE&C</Text>
-              <Text style={styles.org}>Industries & Commerce</Text>
-            </View>
-          </View>
         </View>
 
         <Text style={styles.portalTitle}>TASK Portal</Text>
@@ -145,46 +131,6 @@ const styles = StyleSheet.create({
   },
   bannerScroll: {
     backgroundColor: colors.white,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.primarySoft,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  nameCol: {
-    flex: 1,
-    paddingHorizontal: 6,
-  },
-  nameDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginVertical: 2,
-  },
-  name: {
-    textAlign: 'center',
-    fontWeight: '800',
-    color: colors.text,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  role: {
-    textAlign: 'center',
-    color: colors.primaryDark,
-    fontWeight: '700',
-    fontSize: 11,
-    marginTop: 3,
-    lineHeight: 15,
-  },
-  org: {
-    textAlign: 'center',
-    color: colors.textMuted,
-    fontSize: 10,
-    marginTop: 2,
-    lineHeight: 14,
   },
   portalTitle: {
     fontWeight: '800',
