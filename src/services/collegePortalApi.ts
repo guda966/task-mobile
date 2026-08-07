@@ -5,6 +5,7 @@ import { REGIONAL_CENTERS } from '../constants/lookups';
 import type {
   CollegeStudent,
   Course,
+  CourseEnrolledStudent,
   CourseRequest,
   CourseRequestDraft,
 } from '../types/collegePortal';
@@ -60,11 +61,12 @@ async function notifyCollege(
 
 function seedStudents(enrollmentId: string): CollegeStudent[] {
   const rows = [
-    ['Poojitha Ranabothu', 't26enec00750', '21QU1A0469', 'poojitha@demo.ac.in', 'OC', 'ECE'],
-    ['Raghavi Veerapaga', 't26enec00751', '21QU1A0470', 'raghavi@demo.ac.in', 'SC', 'ECE'],
-    ['Ananya Reddy', 't26encs00801', '21QU1A0501', 'ananya@demo.ac.in', 'BC', 'CSE'],
-    ['Sai Kumar', 't26enit00812', '21QU1A1208', 'sai@demo.ac.in', 'OC', 'IT'],
-    ['Keerthi Sharma', 't26enae00820', '21QU1A0544', 'keerthi@demo.ac.in', 'OC', 'AI & ML'],
+    ['Poojitha Ranabothu', 't26enec00750', '21QU1A0469', 'poojitha@demo.ac.in', 'OC', 'ECE', '6', '2026'],
+    ['Raghavi Veerapaga', 't26enec00751', '21QU1A0470', 'raghavi@demo.ac.in', 'SC', 'ECE', '6', '2026'],
+    ['Ananya Reddy', 't26encs00801', '21QU1A0501', 'ananya@demo.ac.in', 'BC', 'CSE', '5', '2027'],
+    ['Sai Kumar', 't26enit00812', '21QU1A1208', 'sai@demo.ac.in', 'OC', 'IT', '4', '2028'],
+    ['Keerthi Sharma', 't26enae00820', '21QU1A0544', 'keerthi@demo.ac.in', 'OC', 'AI & ML', '5', '2027'],
+    ['Rohan Varma', 't26encs00802', '21QU1A0502', 'rohan@demo.ac.in', 'OC', 'CSE', '5', '2027'],
   ] as const;
 
   return rows.map((r, i) => ({
@@ -75,6 +77,8 @@ function seedStudents(enrollmentId: string): CollegeStudent[] {
     email: r[3],
     caste: r[4],
     branch: r[5],
+    semester: r[6],
+    yearOfGraduation: r[7],
     status: 'Active' as const,
     enrollmentId,
   }));
@@ -304,20 +308,152 @@ export const collegePortalApi = {
     return courses[index];
   },
 
-  async listStudents(enrollmentId: string, query = ''): Promise<CollegeStudent[]> {
+  async listStudents(
+    enrollmentId: string,
+    queryOrFilters:
+      | string
+      | {
+          query?: string;
+          branch?: string;
+          semester?: string;
+          yearOfGraduation?: string;
+        } = '',
+  ): Promise<CollegeStudent[]> {
     await delay();
     await this.ensureSeedData(enrollmentId);
     const students = await readJson<CollegeStudent[]>(STUDENTS_KEY, []);
-    const own = students.filter((s) => s.enrollmentId === enrollmentId);
-    const q = query.trim().toLowerCase();
-    if (!q) return own;
-    return own.filter(
-      (s) =>
-        s.fullName.toLowerCase().includes(q) ||
-        s.username.toLowerCase().includes(q) ||
-        s.hallTicketNo.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q),
+    const filters =
+      typeof queryOrFilters === 'string'
+        ? { query: queryOrFilters }
+        : queryOrFilters || {};
+    const q = (filters.query || '').trim().toLowerCase();
+    const branch = (filters.branch || '').trim();
+    const semester = (filters.semester || '').trim();
+    const year = (filters.yearOfGraduation || '').trim();
+
+    return students
+      .filter((s) => s.enrollmentId === enrollmentId)
+      .filter((s) => !branch || s.branch === branch)
+      .filter((s) => !semester || s.semester === semester)
+      .filter((s) => !year || s.yearOfGraduation === year)
+      .filter((s) => {
+        if (!q) return true;
+        return (
+          s.fullName.toLowerCase().includes(q) ||
+          s.username.toLowerCase().includes(q) ||
+          s.hallTicketNo.toLowerCase().includes(q) ||
+          s.email.toLowerCase().includes(q) ||
+          s.branch.toLowerCase().includes(q)
+        );
+      })
+      .map((s) => ({
+        ...s,
+        semester: s.semester || '',
+        yearOfGraduation: s.yearOfGraduation || '',
+      }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  },
+
+  /** Students registered on courses requested by this college (final batch roster). */
+  async listCourseEnrolledStudents(
+    enrollmentId: string,
+    filters?: {
+      query?: string;
+      branch?: string;
+      semester?: string;
+      yearOfGraduation?: string;
+      courseRequestId?: string;
+    },
+  ): Promise<CourseEnrolledStudent[]> {
+    await delay();
+    await this.ensureSeedData(enrollmentId);
+    const TRAINING_KEY = 'task.trainingRegistrations.v1';
+    const requests = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
+    const registrations = await readJson<
+      {
+        id: string;
+        studentId: string;
+        studentName: string;
+        studentEmail: string;
+        courseRequestId: string;
+        courseName: string;
+        category: string;
+        enrollmentId: string;
+        branch: string;
+        yearOfGraduation: string;
+        startDate: string;
+        endDate: string;
+        status: string;
+        registeredAt: string;
+      }[]
+    >(TRAINING_KEY, []);
+    const collegeStudents = await readJson<CollegeStudent[]>(STUDENTS_KEY, []);
+
+    const collegeRequests = requests.filter((r) => r.enrollmentId === enrollmentId);
+    const requestMap = new Map(collegeRequests.map((r) => [r.id, r]));
+    const allowedIds = new Set(collegeRequests.map((r) => r.id));
+    const studentById = new Map(collegeStudents.map((s) => [s.id, s]));
+    const studentByEmail = new Map(
+      collegeStudents.map((s) => [s.email.trim().toLowerCase(), s]),
     );
+
+    const q = (filters?.query || '').trim().toLowerCase();
+    const branch = (filters?.branch || '').trim();
+    const semester = (filters?.semester || '').trim();
+    const year = (filters?.yearOfGraduation || '').trim();
+    const courseRequestId = (filters?.courseRequestId || '').trim();
+
+    return registrations
+      .filter(
+        (r) =>
+          allowedIds.has(r.courseRequestId) &&
+          (r.status === 'registered' || r.status === 'completed'),
+      )
+      .filter((r) => !courseRequestId || r.courseRequestId === courseRequestId)
+      .filter((r) => !branch || r.branch === branch)
+      .filter((r) => !year || r.yearOfGraduation === year)
+      .map((r) => {
+        const batch = requestMap.get(r.courseRequestId)!;
+        const profile =
+          studentById.get(r.studentId) ||
+          studentByEmail.get(r.studentEmail.trim().toLowerCase());
+        return {
+          registrationId: r.id,
+          studentId: r.studentId,
+          fullName: r.studentName,
+          email: r.studentEmail,
+          hallTicketNo: profile?.hallTicketNo || '',
+          username: profile?.username || '',
+          branch: r.branch,
+          semester: profile?.semester || '',
+          yearOfGraduation: r.yearOfGraduation,
+          courseRequestId: r.courseRequestId,
+          courseName: r.courseName || batch.courseName,
+          category: r.category || batch.category,
+          batchStatus: batch.status,
+          registrationStatus: r.status,
+          registeredAt: r.registeredAt,
+          startDate: r.startDate || batch.startDate,
+          endDate: r.endDate || batch.endDate,
+          batchSize: batch.batchSize,
+        } satisfies CourseEnrolledStudent;
+      })
+      .filter((r) => !semester || r.semester === semester)
+      .filter((r) => {
+        if (!q) return true;
+        return (
+          r.fullName.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          r.hallTicketNo.toLowerCase().includes(q) ||
+          r.courseName.toLowerCase().includes(q) ||
+          r.branch.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const byCourse = a.courseName.localeCompare(b.courseName);
+        if (byCourse !== 0) return byCourse;
+        return a.fullName.localeCompare(b.fullName);
+      });
   },
 
   async listCourseRequests(params?: {

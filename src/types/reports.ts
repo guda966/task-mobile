@@ -49,6 +49,32 @@ export interface CertificateReportRow {
   issuedAt: string;
 }
 
+export interface StudentRosterReportRow {
+  fullName: string;
+  username: string;
+  hallTicketNo: string;
+  email: string;
+  branch: string;
+  semester: string;
+  yearOfGraduation: string;
+  caste: string;
+  status: string;
+}
+
+export interface CourseEnrolledReportRow {
+  fullName: string;
+  email: string;
+  hallTicketNo: string;
+  branch: string;
+  semester: string;
+  yearOfGraduation: string;
+  courseName: string;
+  registrationStatus: string;
+  registeredAt: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface PlatformSummary {
   collegesApproved: number;
   collegesPending: number;

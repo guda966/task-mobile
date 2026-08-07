@@ -2,16 +2,25 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { DropdownField, PrimaryButton } from '../../components/ui';
+import { BRANCHES, SEMESTERS } from '../../constants/courses';
 import { exportTextReport, reportsApi } from '../../services/reportsApi';
 import { colors } from '../../theme/colors';
 import type {
   AttendanceReportRow,
   BatchProgressRow,
   CertificateReportRow,
+  CourseEnrolledReportRow,
+  StudentRosterReportRow,
   SubmissionReportRow,
 } from '../../types/reports';
 
-type ReportKind = 'progress' | 'attendance' | 'submissions' | 'certificates';
+type ReportKind =
+  | 'progress'
+  | 'attendance'
+  | 'submissions'
+  | 'certificates'
+  | 'student_roster'
+  | 'course_enrolled';
 
 export function ReportsPanel({
   enrollmentId,
@@ -22,13 +31,17 @@ export function ReportsPanel({
   showCollegeFilter?: boolean;
   colleges?: { id: string; name: string }[];
 }) {
-  const [kind, setKind] = useState<ReportKind>('progress');
+  const [kind, setKind] = useState<ReportKind>('student_roster');
   const [collegeFilter, setCollegeFilter] = useState(enrollmentId || '');
   const [sessionFilter, setSessionFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [semesterFilter, setSemesterFilter] = useState('');
   const [progress, setProgress] = useState<BatchProgressRow[]>([]);
   const [attendance, setAttendance] = useState<AttendanceReportRow[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionReportRow[]>([]);
   const [certificates, setCertificates] = useState<CertificateReportRow[]>([]);
+  const [roster, setRoster] = useState<StudentRosterReportRow[]>([]);
+  const [enrolled, setEnrolled] = useState<CourseEnrolledReportRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   const scopeEnrollment = enrollmentId || collegeFilter || undefined;
@@ -42,10 +55,21 @@ export function ReportsPanel({
       setAttendance(await reportsApi.getAttendanceReport(requestId, scopeEnrollment));
       setSubmissions(await reportsApi.getSubmissionsReport(requestId, scopeEnrollment));
       setCertificates(await reportsApi.getCertificatesReport(requestId, scopeEnrollment));
+      setRoster(
+        await reportsApi.getStudentRosterReport(scopeEnrollment, {
+          branch: branchFilter || undefined,
+          semester: semesterFilter || undefined,
+        }),
+      );
+      setEnrolled(
+        (await reportsApi.getCourseEnrolledReport(scopeEnrollment, requestId)).filter(
+          (r) => !branchFilter || r.branch === branchFilter,
+        ),
+      );
     } finally {
       setLoading(false);
     }
-  }, [scopeEnrollment, sessionFilter]);
+  }, [scopeEnrollment, sessionFilter, branchFilter, semesterFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,9 +101,15 @@ export function ReportsPanel({
       } else if (kind === 'submissions') {
         title = 'Submissions Report';
         body = reportsApi.submissionsToCsv(submissions);
-      } else {
+      } else if (kind === 'certificates') {
         title = 'Certificates Report';
         body = reportsApi.certificatesToCsv(certificates);
+      } else if (kind === 'student_roster') {
+        title = 'College Student List';
+        body = reportsApi.studentRosterToCsv(roster);
+      } else {
+        title = 'Course Enrolled Students Report';
+        body = reportsApi.courseEnrolledToCsv(enrolled);
       }
       await exportTextReport(title, body);
       Alert.alert(
@@ -100,14 +130,18 @@ export function ReportsPanel({
         ? attendance.slice(0, 20)
         : kind === 'submissions'
           ? submissions.slice(0, 20)
-          : certificates.slice(0, 20);
+          : kind === 'certificates'
+            ? certificates.slice(0, 20)
+            : kind === 'student_roster'
+              ? roster.slice(0, 20)
+              : enrolled.slice(0, 20);
 
   return (
     <ScrollView contentContainerStyle={styles.pad}>
       <Text style={styles.h1}>Reports</Text>
       <Text style={styles.lead}>
-        Attendance sheets, assignment submission status, certificates, and batch progress. Export as
-        CSV.
+        Student lists, course-enrolled rosters, attendance, submissions, certificates, and batch
+        progress. Export as CSV.
       </Text>
 
       <DropdownField
@@ -115,6 +149,8 @@ export function ReportsPanel({
         value={kind}
         onChange={(v) => setKind(v as ReportKind)}
         options={[
+          { value: 'student_roster', label: 'College student list' },
+          { value: 'course_enrolled', label: 'Course enrolled students' },
           { value: 'progress', label: 'Batch progress' },
           { value: 'attendance', label: 'Attendance sheet' },
           { value: 'submissions', label: 'Assignment submissions' },
@@ -134,12 +170,39 @@ export function ReportsPanel({
         />
       ) : null}
 
-      <DropdownField
-        label="Session"
-        value={sessionFilter}
-        onChange={setSessionFilter}
-        options={sessionOptions}
-      />
+      {kind === 'student_roster' || kind === 'course_enrolled' ? (
+        <>
+          <DropdownField
+            label="Branch"
+            value={branchFilter}
+            onChange={setBranchFilter}
+            options={[
+              { value: '', label: 'All branches' },
+              ...BRANCHES.map((b) => ({ value: b, label: b })),
+            ]}
+          />
+          {kind === 'student_roster' ? (
+            <DropdownField
+              label="Semester"
+              value={semesterFilter}
+              onChange={setSemesterFilter}
+              options={[
+                { value: '', label: 'All semesters' },
+                ...SEMESTERS.map((s) => ({ value: s, label: `Semester ${s}` })),
+              ]}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {kind !== 'student_roster' ? (
+        <DropdownField
+          label="Session"
+          value={sessionFilter}
+          onChange={setSessionFilter}
+          options={sessionOptions}
+        />
+      ) : null}
 
       <PrimaryButton title={loading ? 'Loading…' : 'Refresh'} variant="secondary" onPress={load} />
       <View style={styles.gap} />
@@ -182,12 +245,38 @@ export function ReportsPanel({
             </Text>
           </View>
         ))
-      ) : (
+      ) : kind === 'certificates' ? (
         (preview as CertificateReportRow[]).map((r) => (
           <View key={r.certificateCode} style={styles.card}>
             <Text style={styles.title}>{r.studentName}</Text>
             <Text style={styles.meta}>
               {r.certificateCode} · {r.courseName}
+            </Text>
+          </View>
+        ))
+      ) : kind === 'student_roster' ? (
+        (preview as StudentRosterReportRow[]).map((r, i) => (
+          <View key={`${r.hallTicketNo}_${i}`} style={styles.card}>
+            <Text style={styles.title}>{r.fullName}</Text>
+            <Text style={styles.meta}>
+              {r.branch}
+              {r.semester ? ` · Sem ${r.semester}` : ''} · YOG {r.yearOfGraduation} · {r.status}
+            </Text>
+            <Text style={styles.meta}>
+              {r.email} · {r.hallTicketNo}
+            </Text>
+          </View>
+        ))
+      ) : (
+        (preview as CourseEnrolledReportRow[]).map((r, i) => (
+          <View key={`${r.email}_${r.courseName}_${i}`} style={styles.card}>
+            <Text style={styles.title}>{r.fullName}</Text>
+            <Text style={styles.meta}>
+              {r.courseName} · {r.branch}
+              {r.semester ? ` · Sem ${r.semester}` : ''}
+            </Text>
+            <Text style={styles.meta}>
+              {r.registrationStatus} · Registered {r.registeredAt.slice(0, 10)}
             </Text>
           </View>
         ))

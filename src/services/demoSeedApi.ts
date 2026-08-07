@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-07-demo-v3';
+export const DEMO_SEED_VERSION = '2026-08-07-demo-v4';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -27,6 +27,7 @@ const IDS = {
   trainer: 'trn_demo_ananya',
   pendingTrainer: 'trn_demo_pending',
   student: 'stu_demo_ananya',
+  studentRohan: 'stu_demo_rohan',
   batch: 'req_demo_cse_2027',
   pendingBatch: 'req_demo_pending_ece',
   material: 'mat_demo_1',
@@ -134,21 +135,24 @@ function buildPendingCollege(): CollegeEnrollment {
 
 function buildCollegeStudents(): CollegeStudent[] {
   const rows = [
-    ['Poojitha Ranabothu', 't26enec00750', '21QU1A0469', 'poojitha@demo.ac.in', 'OC', 'ECE'],
-    ['Raghavi Veerapaga', 't26enec00751', '21QU1A0470', 'raghavi@demo.ac.in', 'SC', 'ECE'],
-    ['Ananya Reddy', 't26encs00801', '21QU1A0501', 'ananya@demo.ac.in', 'GENERAL', 'CSE'],
-    ['Sai Kumar', 't26enit00812', '21QU1A1208', 'sai@demo.ac.in', 'OC', 'IT'],
-    ['Keerthi Sharma', 't26enae00820', '21QU1A0544', 'keerthi@demo.ac.in', 'OC', 'AI & ML'],
+    ['Poojitha Ranabothu', 't26enec00750', '21QU1A0469', 'poojitha@demo.ac.in', 'OC', 'ECE', '6', '2026'],
+    ['Raghavi Veerapaga', 't26enec00751', '21QU1A0470', 'raghavi@demo.ac.in', 'SC', 'ECE', '6', '2026'],
+    ['Ananya Reddy', 't26encs00801', '21QU1A0501', 'ananya@demo.ac.in', 'GENERAL', 'CSE', '5', '2027'],
+    ['Sai Kumar', 't26enit00812', '21QU1A1208', 'sai@demo.ac.in', 'OC', 'IT', '4', '2028'],
+    ['Keerthi Sharma', 't26enae00820', '21QU1A0544', 'keerthi@demo.ac.in', 'OC', 'AI & ML', '5', '2027'],
+    ['Rohan Varma', 't26encs00802', '21QU1A0502', 'rohan@demo.ac.in', 'OC', 'CSE', '5', '2027'],
   ] as const;
 
   return rows.map((r, i) => ({
-    id: `stu_college_${i + 1}`,
+    id: i === 2 ? IDS.student : i === 5 ? IDS.studentRohan : `stu_college_${i + 1}`,
     fullName: r[0],
     username: r[1],
     hallTicketNo: r[2],
     email: r[3],
     caste: r[4],
     branch: r[5],
+    semester: r[6],
+    yearOfGraduation: r[7],
     status: 'Active' as const,
     enrollmentId: IDS.college,
   }));
@@ -329,6 +333,33 @@ function buildTrainingRegistration(
   };
 }
 
+function buildRohanStudent(college: CollegeEnrollment): StudentRecord {
+  const now = nowIso();
+  return {
+    id: IDS.studentRohan,
+    createdAt: now,
+    firstName: 'Rohan',
+    lastName: 'Varma',
+    mobile: '9876500102',
+    email: 'rohan@demo.ac.in',
+    aadhaarNumber: '',
+    category: 'OC',
+    casteCertificateProvided: false,
+    institutionType: college.institutionType,
+    affiliatedUniversity: college.affiliatedUniversity,
+    district: college.district,
+    enrollmentId: college.id,
+    collegeName: college.institutionName,
+    collegeRollNo: '21QU1A0502',
+    yearOfGraduation: '2027',
+    branch: 'CSE',
+    registrationFee: 500,
+    passwordHash: 'Student@123',
+    username: 't26encs00802',
+    status: 'Active',
+  };
+}
+
 function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
   const now = nowIso();
   const materials: SessionMaterial[] = [
@@ -436,18 +467,23 @@ export async function ensureDemoData(options?: {
   const trainer = buildApprovedTrainer();
   const pendingTrainer = buildPendingTrainer();
   const student = buildDemoStudent(college);
+  const rohan = buildRohanStudent(college);
   const batches = buildBatches(college, trainer);
   const activeBatch = batches[0];
   const training = buildTrainingRegistration(student, activeBatch);
+  const trainingRohan: TrainingRegistration = {
+    ...buildTrainingRegistration(rohan, activeBatch),
+    id: 'trg_demo_2',
+  };
   const session = buildSessionContent(trainer, student);
 
   await write('task.collegeRegistrations.v2', [college, pendingCollege]);
   await write('task.courses.v3', SEED_COURSES.map((c) => ({ ...c, enabled: c.enabled !== false })));
   await write('task.students.v1', buildCollegeStudents());
   await write('task.trainers.v2', [trainer, pendingTrainer]);
-  await write('task.studentRegistrations.v1', [student]);
+  await write('task.studentRegistrations.v1', [student, rohan]);
   await write('task.courseRequests.v1', batches);
-  await write('task.trainingRegistrations.v1', [training]);
+  await write('task.trainingRegistrations.v1', [training, trainingRohan]);
   await write('task.sessionMaterials.v1', session.materials);
   await write('task.sessionAssignments.v1', session.assignments);
   await write('task.sessionAttendance.v1', session.attendance);

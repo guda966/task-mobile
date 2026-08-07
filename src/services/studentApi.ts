@@ -108,6 +108,8 @@ export const studentApi = {
         email: string;
         caste: string;
         branch: string;
+        semester: string;
+        yearOfGraduation: string;
         status: 'Active' | 'Inactive';
         enrollmentId: string;
       }[]
@@ -120,6 +122,8 @@ export const studentApi = {
       email: record.email,
       caste: record.category,
       branch: record.branch,
+      semester: '',
+      yearOfGraduation: record.yearOfGraduation,
       status: 'Active',
       enrollmentId: record.enrollmentId,
     });

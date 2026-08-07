@@ -3,10 +3,12 @@ import type {
   AttendanceReportRow,
   BatchProgressRow,
   CertificateReportRow,
+  CourseEnrolledReportRow,
   PlatformSummary,
+  StudentRosterReportRow,
   SubmissionReportRow,
 } from '../types/reports';
-import type { CourseRequest } from '../types/collegePortal';
+import type { CollegeStudent, CourseRequest } from '../types/collegePortal';
 import type { CollegeEnrollment } from '../types/enrollment';
 import type { StudentRecord } from '../types/student';
 import type { TrainerRecord } from '../types/trainer';
@@ -22,6 +24,7 @@ import { sessionContentApi } from './sessionContentApi';
 const REQUESTS_KEY = 'task.courseRequests.v1';
 const ENROLLMENTS_KEY = 'task.collegeRegistrations.v2';
 const STUDENTS_REG_KEY = 'task.studentRegistrations.v1';
+const COLLEGE_STUDENTS_KEY = 'task.students.v1';
 const TRAINERS_KEY = 'task.trainers.v2';
 const TRAINING_KEY = 'task.trainingRegistrations.v1';
 const ATTENDANCE_KEY = 'task.sessionAttendance.v1';
@@ -254,6 +257,73 @@ export const reportsApi = {
       .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
   },
 
+  async getStudentRosterReport(
+    enrollmentId?: string,
+    filters?: { branch?: string; semester?: string; yearOfGraduation?: string },
+  ): Promise<StudentRosterReportRow[]> {
+    await delay();
+    const students = await readJson<CollegeStudent[]>(COLLEGE_STUDENTS_KEY, []);
+    return students
+      .filter((s) => !enrollmentId || s.enrollmentId === enrollmentId)
+      .filter((s) => !filters?.branch || s.branch === filters.branch)
+      .filter((s) => !filters?.semester || s.semester === filters.semester)
+      .filter((s) => !filters?.yearOfGraduation || s.yearOfGraduation === filters.yearOfGraduation)
+      .map((s) => ({
+        fullName: s.fullName,
+        username: s.username,
+        hallTicketNo: s.hallTicketNo,
+        email: s.email,
+        branch: s.branch,
+        semester: s.semester || '',
+        yearOfGraduation: s.yearOfGraduation || '',
+        caste: s.caste,
+        status: s.status,
+      }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  },
+
+  async getCourseEnrolledReport(
+    enrollmentId?: string,
+    requestId?: string,
+  ): Promise<CourseEnrolledReportRow[]> {
+    await delay();
+    const requests = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
+    const registrations = await readJson<TrainingRegistration[]>(TRAINING_KEY, []);
+    const students = await readJson<CollegeStudent[]>(COLLEGE_STUDENTS_KEY, []);
+    const byEmail = new Map(students.map((s) => [s.email.trim().toLowerCase(), s]));
+    const byId = new Map(students.map((s) => [s.id, s]));
+    const allowed = new Set(
+      requests
+        .filter((r) => !enrollmentId || r.enrollmentId === enrollmentId)
+        .filter((r) => !requestId || r.id === requestId)
+        .map((r) => r.id),
+    );
+
+    return registrations
+      .filter(
+        (r) =>
+          allowed.has(r.courseRequestId) &&
+          (r.status === 'registered' || r.status === 'completed'),
+      )
+      .map((r) => {
+        const profile = byId.get(r.studentId) || byEmail.get(r.studentEmail.trim().toLowerCase());
+        return {
+          fullName: r.studentName,
+          email: r.studentEmail,
+          hallTicketNo: profile?.hallTicketNo || '',
+          branch: r.branch,
+          semester: profile?.semester || '',
+          yearOfGraduation: r.yearOfGraduation,
+          courseName: r.courseName,
+          registrationStatus: r.status,
+          registeredAt: r.registeredAt,
+          startDate: r.startDate,
+          endDate: r.endDate,
+        };
+      })
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  },
+
   attendanceToCsv(rows: AttendanceReportRow[]): string {
     return toCsv(
       ['Course', 'Student', 'Email', 'Date', 'Status'],
@@ -286,6 +356,64 @@ export const reportsApi = {
         r.certificateCode,
         r.issuedByName,
         r.issuedAt,
+      ]),
+    );
+  },
+
+  studentRosterToCsv(rows: StudentRosterReportRow[]): string {
+    return toCsv(
+      [
+        'Name',
+        'Username',
+        'Hall Ticket',
+        'Email',
+        'Branch',
+        'Semester',
+        'Year of Graduation',
+        'Category',
+        'Status',
+      ],
+      rows.map((r) => [
+        r.fullName,
+        r.username,
+        r.hallTicketNo,
+        r.email,
+        r.branch,
+        r.semester,
+        r.yearOfGraduation,
+        r.caste,
+        r.status,
+      ]),
+    );
+  },
+
+  courseEnrolledToCsv(rows: CourseEnrolledReportRow[]): string {
+    return toCsv(
+      [
+        'Name',
+        'Email',
+        'Hall Ticket',
+        'Branch',
+        'Semester',
+        'Year of Graduation',
+        'Course',
+        'Registration Status',
+        'Registered At',
+        'Start',
+        'End',
+      ],
+      rows.map((r) => [
+        r.fullName,
+        r.email,
+        r.hallTicketNo,
+        r.branch,
+        r.semester,
+        r.yearOfGraduation,
+        r.courseName,
+        r.registrationStatus,
+        r.registeredAt,
+        r.startDate,
+        r.endDate,
       ]),
     );
   },

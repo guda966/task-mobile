@@ -56,8 +56,33 @@ export interface CollegeStudent {
   email: string;
   caste: string;
   branch: string;
+  /** Academic semester (1–8), used for college filtering. */
+  semester: string;
+  yearOfGraduation: string;
   status: 'Active' | 'Inactive';
   enrollmentId: string;
+}
+
+/** Final list of students registered against a college-requested course batch. */
+export interface CourseEnrolledStudent {
+  registrationId: string;
+  studentId: string;
+  fullName: string;
+  email: string;
+  hallTicketNo: string;
+  username: string;
+  branch: string;
+  semester: string;
+  yearOfGraduation: string;
+  courseRequestId: string;
+  courseName: string;
+  category: string;
+  batchStatus: CourseRequestStatus;
+  registrationStatus: string;
+  registeredAt: string;
+  startDate: string;
+  endDate: string;
+  batchSize: number;
 }
 
 export interface CourseRequestDraft {
