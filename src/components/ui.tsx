@@ -1,17 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import {
-  FlatList,
   Image,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   type TextInputProps,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { colors } from '../theme/colors';
 
 export function TaskLogo({ size = 72 }: { size?: number }) {
@@ -113,46 +111,13 @@ export function DropdownField({
     );
   }, [options, query]);
 
-  const useModalPicker = searchable || Platform.OS !== 'web';
+  const openPicker = () => {
+    if (disabled) return;
+    setQuery('');
+    setOpen(true);
+  };
 
-  if (!useModalPicker) {
-    return (
-      <View style={styles.field}>
-        <Text style={styles.label}>
-          {label}
-          {required ? <Text style={styles.required}> *</Text> : null}
-        </Text>
-        <View
-          style={[
-            styles.selectWrap,
-            error ? styles.inputError : null,
-            disabled ? styles.dropdownDisabled : null,
-          ]}
-          pointerEvents={disabled ? 'none' : 'auto'}
-        >
-          <Picker
-            enabled={!disabled}
-            selectedValue={value}
-            onValueChange={(itemValue) => onChange(String(itemValue ?? ''))}
-            style={styles.webPicker}
-          >
-            {!options.some((o) => o.value === '') ? (
-              <Picker.Item label={placeholder} value="" color={colors.textMuted} />
-            ) : null}
-            {options.map((opt) => (
-              <Picker.Item
-                key={opt.value === '' ? '__empty__' : opt.value}
-                label={opt.label}
-                value={opt.value}
-              />
-            ))}
-          </Picker>
-        </View>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-      </View>
-    );
-  }
-
+  // Always use modal list (native <select>/Picker often fails to show options reliably on web).
   return (
     <View style={styles.field}>
       <Text style={styles.label}>
@@ -161,10 +126,7 @@ export function DropdownField({
       </Text>
       <Pressable
         disabled={disabled}
-        onPress={() => {
-          setQuery('');
-          setOpen(true);
-        }}
+        onPress={openPicker}
         style={[
           styles.dropdownTrigger,
           error ? styles.inputError : null,
@@ -172,11 +134,7 @@ export function DropdownField({
         ]}
       >
         <Text
-          style={
-            selectedLabel
-              ? styles.dropdownValue
-              : styles.dropdownPlaceholder
-          }
+          style={selectedLabel ? styles.dropdownValue : styles.dropdownPlaceholder}
           numberOfLines={2}
         >
           {selectedLabel || placeholder}
@@ -191,8 +149,9 @@ export function DropdownField({
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
+          <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>{label}</Text>
             {searchable ? (
               <TextInput
@@ -204,36 +163,38 @@ export function DropdownField({
                 autoFocus
               />
             ) : null}
-            <FlatList
-              data={filteredOptions}
-              keyExtractor={(item, index) =>
-                item.value === '' ? `__empty_${index}` : item.value
-              }
-              keyboardShouldPersistTaps="handled"
+            <ScrollView
               style={styles.optionList}
-              ListEmptyComponent={
+              contentContainerStyle={styles.optionListContent}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+            >
+              {filteredOptions.length === 0 ? (
                 <Text style={styles.emptyOptions}>No matches found</Text>
-              }
-              renderItem={({ item }) => {
-                const active = item.value === value;
-                return (
-                  <Pressable
-                    style={[styles.optionRow, active && styles.optionRowActive]}
-                    onPress={() => {
-                      onChange(item.value);
-                      setOpen(false);
-                    }}
-                  >
-                    <Text style={[styles.optionText, active && styles.optionTextActive]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              }}
-            />
+              ) : (
+                filteredOptions.map((item, index) => {
+                  const active = item.value === value;
+                  const key = item.value === '' ? `__empty_${index}` : item.value;
+                  return (
+                    <Pressable
+                      key={key}
+                      style={[styles.optionRow, active && styles.optionRowActive]}
+                      onPress={() => {
+                        onChange(item.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <Text style={[styles.optionText, active && styles.optionTextActive]}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </ScrollView>
             <PrimaryButton title="Close" variant="secondary" onPress={() => setOpen(false)} />
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -414,13 +375,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
   },
-  optionList: { maxHeight: 320 },
-  emptyOptions: {
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingVertical: 20,
-    fontSize: 14,
-  },
   chevron: { color: colors.textMuted, fontSize: 10, marginLeft: 8 },
   modalBackdrop: {
     flex: 1,
@@ -428,17 +382,31 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    maxHeight: '70%',
+    maxHeight: '75%',
     backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 16,
+    zIndex: 1,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 10,
+  },
+  optionList: {
+    maxHeight: 320,
+    marginBottom: 12,
+  },
+  optionListContent: {
+    paddingBottom: 4,
+  },
+  emptyOptions: {
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontSize: 14,
   },
   optionRow: {
     paddingVertical: 12,

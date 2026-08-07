@@ -8,7 +8,7 @@ import {
   PrimaryButton,
   Screen,
 } from '../components/ui';
-import { INSTITUTION_TYPES } from '../constants/lookups';
+import { AFFILIATED_UNIVERSITIES, DISTRICTS, INSTITUTION_TYPES } from '../constants/lookups';
 import { BRANCHES, GRADUATION_YEARS } from '../constants/courses';
 import {
   DUMMY_STUDENT,
@@ -78,29 +78,30 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     [draft.institutionType, draft.category],
   );
 
-  const institutionTypeOptions = useMemo(() => {
-    const available = new Set(colleges.map((c) => c.institutionType));
-    return INSTITUTION_TYPES.filter((t) => available.has(t.value)).map((t) => ({
-      value: t.value,
-      label: t.label,
-    }));
-  }, [colleges]);
+  const institutionTypeOptions = useMemo(
+    () => INSTITUTION_TYPES.map((t) => ({ value: t.value, label: t.label })),
+    [],
+  );
 
   const universityOptions = useMemo(() => {
     if (!draft.institutionType) return [];
-    const names = [
+    const fromColleges = [
       ...new Set(
         colleges
           .filter((c) => c.institutionType === draft.institutionType)
           .map((c) => c.affiliatedUniversity),
       ),
-    ].sort((a, b) => a.localeCompare(b));
+    ];
+    // Prefer universities that have approved colleges; fall back to full lookup if none match yet.
+    const names = (fromColleges.length ? fromColleges : [...AFFILIATED_UNIVERSITIES]).sort((a, b) =>
+      a.localeCompare(b),
+    );
     return names.map((u) => ({ value: u, label: u }));
   }, [colleges, draft.institutionType]);
 
   const districtOptions = useMemo(() => {
     if (!draft.institutionType || !draft.affiliatedUniversity) return [];
-    const names = [
+    const fromColleges = [
       ...new Set(
         colleges
           .filter(
@@ -110,7 +111,10 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
           )
           .map((c) => c.district),
       ),
-    ].sort((a, b) => a.localeCompare(b));
+    ];
+    const names = (fromColleges.length ? fromColleges : [...DISTRICTS]).sort((a, b) =>
+      a.localeCompare(b),
+    );
     return names.map((d) => ({ value: d, label: d }));
   }, [colleges, draft.institutionType, draft.affiliatedUniversity]);
 
