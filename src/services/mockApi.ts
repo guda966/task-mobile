@@ -358,6 +358,19 @@ export const mockApi = {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
 
+  async markCollegeNotificationsRead(enrollmentId: string): Promise<void> {
+    const enrollments = await readEnrollments();
+    const index = enrollments.findIndex((e) => e.id === enrollmentId);
+    if (index < 0) return;
+    enrollments[index] = {
+      ...enrollments[index],
+      notifications: (enrollments[index].notifications || []).map((n) =>
+        n.audience === 'college_admin' ? { ...n, read: true } : n,
+      ),
+    };
+    await writeEnrollments(enrollments);
+  },
+
   getDemoCredentials() {
     return {
       taskAdmin: TASK_ADMIN,

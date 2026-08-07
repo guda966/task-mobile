@@ -112,7 +112,7 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
         />
       </FilterGrid>
 
-      <PrimaryButton title={loading ? 'Refreshing…' : 'Refresh'} variant="secondary" onPress={load} />
+      <PrimaryButton title="Refresh" variant="secondary" onPress={load} />
 
       <ResultBar label="Sessions" count={filtered.length} />
 

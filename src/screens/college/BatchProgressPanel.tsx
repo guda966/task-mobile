@@ -17,7 +17,7 @@ import {
   SearchInput,
   StatTiles,
 } from '../../components/college/PanelChrome';
-import { DropdownField, PrimaryButton, StatusBadge } from '../../components/ui';
+import { DropdownField, StatusBadge } from '../../components/ui';
 import { BRANCHES } from '../../constants/courses';
 import { reportsApi } from '../../services/reportsApi';
 import { colors } from '../../theme/colors';
@@ -116,7 +116,6 @@ export function BatchProgressPanel({
         />
       </FilterGrid>
 
-      <PrimaryButton title="Refresh" variant="secondary" onPress={load} />
       <ResultBar label="Batches shown" count={filtered.length} />
 
       {filtered.length === 0 ? (

@@ -660,9 +660,9 @@ export const trainerApi = {
     await writeJson(REQUESTS_KEY, items);
     await collegePortalApi.notifyCollegeAdmin(
       updated.enrollmentId,
-      'Trainer assigned to course',
-      `${updated.courseName}: ${updated.trainerName} has been assigned${
-        updated.backupTrainerName ? ` (backup: ${updated.backupTrainerName})` : ''
+      'Trainer update',
+      `${updated.courseName}: ${updated.trainerName} will handle this batch${
+        updated.backupTrainerName ? `. Backup trainer: ${updated.backupTrainerName}` : ''
       }.`,
     );
     return updated;

@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-07-demo-v4';
+export const DEMO_SEED_VERSION = '2026-08-07-demo-v5';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -92,8 +92,17 @@ function buildApprovedCollege(): CollegeEnrollment {
         id: 'ntf_demo_welcome',
         audience: 'college_admin',
         enrollmentId: IDS.college,
-        title: 'College approved',
-        body: 'Vivekananda Degree & PG College (Demo) is approved for TASK programs.',
+        title: 'Welcome to TASK College portal',
+        body: 'Your college is active. You can manage students, request courses, and view the training calendar from the menu.',
+        createdAt: now,
+        read: false,
+      },
+      {
+        id: 'ntf_demo_course',
+        audience: 'college_admin',
+        enrollmentId: IDS.college,
+        title: 'Course request update',
+        body: '21st Century Transferrable Skills is approved for CSE. Open Calendar to see the dates.',
         createdAt: now,
         read: false,
       },

@@ -59,9 +59,9 @@ export function CourseRequestsPanel({
   return (
     <PanelPage>
       <PanelHeader
-        title="Request for a Course"
-        subtitle="Track every batch request your college has submitted to TASK."
-        action={<PrimaryButton title="Request a course" onPress={onOpenForm} />}
+        title="My requests"
+        subtitle="Track course batches you asked TASK to run for your college."
+        action={<PrimaryButton title="New request" onPress={onOpenForm} />}
       />
 
       <SearchInput
@@ -80,7 +80,7 @@ export function CourseRequestsPanel({
             { value: 'All', label: 'All statuses' },
             { value: 'pending', label: 'Pending' },
             { value: 'approved', label: 'Approved' },
-            { value: 'rejected', label: 'Rejected' },
+            { value: 'rejected', label: 'Needs update' },
           ]}
         />
         <DropdownField
@@ -102,12 +102,6 @@ export function CourseRequestsPanel({
           ]}
         />
       </FilterGrid>
-
-      <PrimaryButton
-        title={loading ? 'Loading…' : 'Apply filters'}
-        variant="secondary"
-        onPress={load}
-      />
 
       <ResultBar label="Requests" count={items.length} />
 

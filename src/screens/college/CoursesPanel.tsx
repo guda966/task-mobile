@@ -64,12 +64,6 @@ export function CoursesPanel({
         />
       </FilterGrid>
 
-      <PrimaryButton
-        title={loading ? 'Searching…' : 'Apply filters'}
-        variant="secondary"
-        onPress={load}
-      />
-
       <ResultBar label="Courses found" count={items.length} />
 
       <FlatList

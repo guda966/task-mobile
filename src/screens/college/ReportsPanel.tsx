@@ -160,7 +160,7 @@ export function ReportsPanel({
     <ScrollView contentContainerStyle={styles.pad}>
       <PanelHeader
         title="Reports"
-        subtitle="Generate college student lists, course rosters, attendance, and progress exports."
+        subtitle="Download student lists and training reports as CSV."
         action={<PrimaryButton title="Export CSV" onPress={exportCurrent} disabled={loading} />}
       />
 

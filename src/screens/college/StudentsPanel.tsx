@@ -151,7 +151,7 @@ export function StudentsPanel({ enrollmentId }: { enrollmentId: string }) {
     <PanelPage>
       <PanelHeader
         title="Students"
-        subtitle="Filter by branch or semester. Use Course enrolled for the final registered batch list."
+        subtitle="Find students by branch or semester. Course enrolled shows who joined your requested batches."
         action={<PrimaryButton title="Export CSV" variant="secondary" onPress={exportList} />}
       />
 
@@ -203,8 +203,6 @@ export function StudentsPanel({ enrollmentId }: { enrollmentId: string }) {
           />
         ) : null}
       </FilterGrid>
-
-      <PrimaryButton title={loading ? 'Loading…' : 'Apply filters'} onPress={load} />
 
       <ResultBar
         label={view === 'registry' ? 'College students' : 'Course-enrolled students'}

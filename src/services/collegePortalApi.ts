@@ -560,8 +560,8 @@ export const collegePortalApi = {
     await writeJson(REQUESTS_KEY, items);
     await notifyCollege(
       updated.enrollmentId,
-      'Course request approved',
-      `${updated.courseName} (${updated.branch}, ${updated.startDate} → ${updated.endDate}) was approved. Trainer assignment will follow.`,
+      'Course request update',
+      `${updated.courseName} is approved for ${updated.branch} (${updated.startDate} to ${updated.endDate}). You can check Calendar for dates.`,
     );
     return updated;
   },
@@ -582,8 +582,8 @@ export const collegePortalApi = {
     await writeJson(REQUESTS_KEY, items);
     await notifyCollege(
       updated.enrollmentId,
-      'Course request rejected',
-      `${updated.courseName} was rejected. Reason: ${reason.trim()}`,
+      'Course request update',
+      `${updated.courseName} needs a small change before it can move ahead. Note from TASK: ${reason.trim()}`,
     );
     return updated;
   },

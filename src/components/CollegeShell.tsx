@@ -13,6 +13,7 @@ import { colors } from '../theme/colors';
 
 export type CollegeMenuKey =
   | 'overview'
+  | 'messages'
   | 'students'
   | 'courses'
   | 'requests'
@@ -22,14 +23,15 @@ export type CollegeMenuKey =
   | 'renewal';
 
 const MENU: { key: CollegeMenuKey; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Home' },
+  { key: 'messages', label: 'Messages' },
   { key: 'students', label: 'Students' },
   { key: 'courses', label: 'Courses' },
-  { key: 'requests', label: 'Request for a Course' },
+  { key: 'requests', label: 'My requests' },
   { key: 'calendar', label: 'Calendar' },
-  { key: 'progress', label: 'Batch Progress' },
+  { key: 'progress', label: 'Progress' },
   { key: 'reports', label: 'Reports' },
-  { key: 'renewal', label: 'College Renewal/Payment' },
+  { key: 'renewal', label: 'Renewal' },
 ];
 
 export function CollegeShell({
@@ -37,12 +39,14 @@ export function CollegeShell({
   active,
   onChange,
   onSignOut,
+  unreadCount = 0,
   children,
 }: {
   collegeName: string;
   active: CollegeMenuKey;
   onChange: (key: CollegeMenuKey) => void;
   onSignOut: () => void;
+  unreadCount?: number;
   children: React.ReactNode;
 }) {
   const { width } = useWindowDimensions();
@@ -62,6 +66,7 @@ export function CollegeShell({
   const menuItems = (inDrawer: boolean) =>
     MENU.map((item) => {
       const isActive = item.key === active;
+      const showBadge = item.key === 'messages' && unreadCount > 0;
       return (
         <Pressable
           key={item.key}
@@ -71,6 +76,13 @@ export function CollegeShell({
           accessibilityState={{ selected: isActive }}
         >
           <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{item.label}</Text>
+          {showBadge ? (
+            <View style={[styles.badge, isActive && styles.badgeOnActive]}>
+              <Text style={[styles.badgeText, isActive && styles.badgeTextOnActive]}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       );
     });
@@ -87,7 +99,7 @@ export function CollegeShell({
             {menuItems(false)}
           </ScrollView>
           <Pressable onPress={onSignOut} style={styles.signOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
         </View>
         <View style={styles.main}>
@@ -95,6 +107,19 @@ export function CollegeShell({
             <Text style={styles.collegeName} numberOfLines={1}>
               {collegeName}
             </Text>
+            <Pressable
+              onPress={() => onChange('messages')}
+              style={styles.topMsgBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open messages"
+            >
+              <Text style={styles.topMsgText}>Messages</Text>
+              {unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
           <View style={styles.content}>{children}</View>
         </View>
@@ -116,6 +141,7 @@ export function CollegeShell({
           <View style={styles.burgerLine} />
           <View style={styles.burgerLine} />
           <View style={styles.burgerLine} />
+          {unreadCount > 0 ? <View style={styles.menuDot} /> : null}
         </Pressable>
 
         <View style={styles.mobileBrand}>
@@ -130,13 +156,23 @@ export function CollegeShell({
           </View>
         </View>
 
-        <Pressable onPress={onSignOut} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.signOutCompact}>Sign out</Text>
+        <Pressable
+          onPress={() => onChange('messages')}
+          style={styles.mobileMsgBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open messages"
+        >
+          <Text style={styles.mobileMsgText}>Msgs</Text>
+          {unreadCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
       <View style={styles.collegeBanner}>
-        <Text style={styles.collegeBannerText} numberOfLines={2}>
+        <Text style={styles.collegeBannerText} numberOfLines={1}>
           {collegeName}
         </Text>
       </View>
@@ -187,7 +223,7 @@ export function CollegeShell({
               }}
               style={styles.signOut}
             >
-              <Text style={styles.signOutText}>Sign Out</Text>
+              <Text style={styles.signOutText}>Sign out</Text>
             </Pressable>
           </View>
         </View>
@@ -215,27 +251,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   menuItemActive: { backgroundColor: colors.primary },
-  menuText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  menuText: { color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 },
   menuTextActive: { color: colors.white },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeOnActive: { backgroundColor: colors.white },
+  badgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
+  badgeTextOnActive: { color: colors.primary },
   signOut: { marginTop: 8, padding: 10 },
   signOutText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
-  signOutCompact: { color: colors.danger, fontWeight: '700', fontSize: 12 },
   main: { flex: 1 },
   topBar: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   collegeName: {
+    flex: 1,
     color: colors.text,
     fontWeight: '700',
     fontSize: 14,
-    textAlign: 'right',
   },
+  topMsgBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+  },
+  topMsgText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
   content: { flex: 1 },
   mobileHeader: {
     backgroundColor: colors.surface,
@@ -257,6 +322,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  menuDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   burgerLine: {
     width: 18,
@@ -283,17 +357,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 1,
   },
+  mobileMsgBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+  },
+  mobileMsgText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
   collegeBanner: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   collegeBannerText: {
-    color: colors.text,
-    fontWeight: '700',
-    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '600',
+    fontSize: 12,
   },
   drawerRoot: {
     flex: 1,
