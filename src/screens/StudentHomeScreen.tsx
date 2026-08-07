@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -18,10 +20,11 @@ import {
   SearchInput,
   SectionLabel,
   SegmentedTabs,
-  StatTiles,
 } from '../components/college/PanelChrome';
+import { StudentAnnouncementScroller } from '../components/StudentAnnouncementScroller';
 import { StudentShell, type StudentMenuKey } from '../components/StudentShell';
 import { PrimaryButton, StatusBadge } from '../components/ui';
+import { LATEST_ANNOUNCEMENT } from '../constants/studentAnnouncements';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { studentApi } from '../services/studentApi';
@@ -39,6 +42,8 @@ import type { TrainingRegistration } from '../types/training';
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
 type TrainingTab = 'enrolled' | 'available';
 
+const ANNOUNCEMENT_SEEN_KEY = 'task.student.announcementSeen.v1';
+
 export function StudentHomeScreen({ navigation }: Props) {
   const { user, signOut } = useAuth();
   const [menu, setMenu] = useState<StudentMenuKey>('home');
@@ -52,6 +57,7 @@ export function StudentHomeScreen({ navigation }: Props) {
   const [sessionQuery, setSessionQuery] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.studentId) return;
@@ -75,8 +81,23 @@ export function StudentHomeScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       load();
+      (async () => {
+        const seen = await AsyncStorage.getItem(ANNOUNCEMENT_SEEN_KEY);
+        if (seen !== LATEST_ANNOUNCEMENT.id) {
+          setShowAnnouncementPopup(true);
+        }
+      })();
     }, [load]),
   );
+
+  const dismissAnnouncementPopup = async () => {
+    await AsyncStorage.setItem(ANNOUNCEMENT_SEEN_KEY, LATEST_ANNOUNCEMENT.id);
+    setShowAnnouncementPopup(false);
+  };
+
+  const remindLaterAnnouncement = () => {
+    setShowAnnouncementPopup(false);
+  };
 
   const onSignOut = async () => {
     await signOut();
@@ -148,6 +169,7 @@ export function StudentHomeScreen({ navigation }: Props) {
   }
 
   return (
+    <>
     <StudentShell
       studentName={displayName}
       active={menu}
@@ -178,25 +200,48 @@ export function StudentHomeScreen({ navigation }: Props) {
             }
           />
 
-          <StatTiles
-            items={[
-              {
-                label: 'Enrolled',
-                value: active.length,
-                hint: 'Tap to open Trainings',
-                onPress: () => {
-                  setTrainingTab('enrolled');
-                  setMenu('trainings');
-                },
-              },
-              {
-                label: 'Unread alerts',
-                value: unreadCount,
-                hint: unreadCount > 0 ? 'Tap to view' : 'All caught up',
-                onPress: () => setMenu('alerts'),
-              },
-            ]}
-          />
+          <StudentAnnouncementScroller />
+
+          <View style={styles.shortcuts}>
+            <Pressable
+              style={styles.shortcut}
+              onPress={() => {
+                setTrainingTab(active.length ? 'enrolled' : 'available');
+                setMenu('trainings');
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.shortcutValue}>{active.length}</Text>
+              <View style={styles.shortcutText}>
+                <Text style={styles.shortcutTitle}>
+                  {active.length === 1 ? 'Active training' : 'Active trainings'}
+                </Text>
+                <Text style={styles.shortcutHint}>
+                  {active.length
+                    ? 'Batches you already joined · Tap to open'
+                    : 'None yet · Tap to browse available'}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={styles.shortcut}
+              onPress={() => setMenu('alerts')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.shortcutValue}>{unreadCount}</Text>
+              <View style={styles.shortcutText}>
+                <Text style={styles.shortcutTitle}>
+                  {unreadCount === 1 ? 'Unread alert' : 'Unread alerts'}
+                </Text>
+                <Text style={styles.shortcutHint}>
+                  {unreadCount > 0
+                    ? 'From TASK, college, or deadlines · Tap to view'
+                    : 'All caught up · Tap to open Alerts'}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
 
           {deadlineAlerts.length > 0 ? (
             <Pressable
@@ -533,6 +578,26 @@ export function StudentHomeScreen({ navigation }: Props) {
         </ScrollView>
       ) : null}
     </StudentShell>
+
+      <Modal
+        visible={showAnnouncementPopup && menu === 'home'}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissAnnouncementPopup}
+      >
+        <View style={styles.popupBackdrop}>
+          <View style={styles.popupCard}>
+            <Text style={styles.popupEyebrow}>Latest from TASK</Text>
+            <Text style={styles.popupTitle}>{LATEST_ANNOUNCEMENT.title}</Text>
+            <Text style={styles.popupBody}>{LATEST_ANNOUNCEMENT.body}</Text>
+            <PrimaryButton title="Got it" onPress={dismissAnnouncementPopup} />
+            <Pressable onPress={remindLaterAnnouncement} style={styles.popupLater}>
+              <Text style={styles.popupLaterText}>Remind me next visit</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -572,6 +637,51 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   listPad: { padding: 16, paddingBottom: 40 },
+  shortcuts: { gap: 8, marginBottom: 12 },
+  shortcut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: '#BFDCDC',
+    borderRadius: 12,
+    padding: 14,
+  },
+  shortcutValue: {
+    minWidth: 36,
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  shortcutText: { flex: 1 },
+  shortcutTitle: { fontWeight: '800', color: colors.text, fontSize: 15 },
+  shortcutHint: { color: colors.textMuted, fontSize: 12, marginTop: 2, lineHeight: 16 },
+  popupBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 35, 35, 0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  popupCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  popupEyebrow: {
+    color: colors.primaryDark,
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  popupTitle: { fontWeight: '800', color: colors.text, fontSize: 18, marginBottom: 8 },
+  popupBody: { color: colors.textMuted, fontSize: 14, lineHeight: 21, marginBottom: 16 },
+  popupLater: { marginTop: 12, alignSelf: 'center' },
+  popupLaterText: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -597,13 +707,6 @@ const styles = StyleSheet.create({
   deadlineTitle: { fontWeight: '800', color: colors.warning, marginBottom: 4 },
   deadlineBody: { color: colors.text, fontSize: 13, lineHeight: 18 },
   deadlineLink: { marginTop: 8, color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
-  softBanner: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  softBannerText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
   sourcePill: {
     backgroundColor: colors.primarySoft,
     borderRadius: 999,
