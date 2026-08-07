@@ -53,7 +53,7 @@ export function NotificationsPanel({
   return (
     <PanelPage>
       <PanelHeader
-        title="Messages from TASK"
+        title="Alerts from TASK"
         subtitle="Simple updates about your college registration and course requests."
         action={
           unread > 0 ? (

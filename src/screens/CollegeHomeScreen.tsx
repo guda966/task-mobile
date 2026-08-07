@@ -165,18 +165,18 @@ export function CollegeHomeScreen({ navigation }: Props) {
               { label: 'Students', value: studentCount },
               { label: 'Open requests', value: pendingCount },
               { label: 'Upcoming', value: upcomingSessions.length },
-              { label: 'New messages', value: unreadCount },
+              { label: 'New alerts', value: unreadCount },
             ]}
           />
 
           <View style={styles.sectionHead}>
-            <SectionLabel>Messages from TASK</SectionLabel>
+            <SectionLabel>Alerts from TASK</SectionLabel>
             <Pressable onPress={() => setMenu('messages')}>
               <Text style={styles.link}>View all</Text>
             </Pressable>
           </View>
           {latestMessages.length === 0 ? (
-            <EmptyState title="No messages" body="Updates from TASK will show here." />
+            <EmptyState title="No alerts" body="Updates from TASK will show here." />
           ) : (
             latestMessages.map((n) => (
               <DataCard key={n.id} onPress={() => setMenu('messages')}>

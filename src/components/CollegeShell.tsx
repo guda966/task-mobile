@@ -24,7 +24,7 @@ export type CollegeMenuKey =
 
 const MENU: { key: CollegeMenuKey; label: string }[] = [
   { key: 'overview', label: 'Home' },
-  { key: 'messages', label: 'Messages' },
+  { key: 'messages', label: 'Alerts' },
   { key: 'students', label: 'Students' },
   { key: 'courses', label: 'Courses' },
   { key: 'requests', label: 'My requests' },
@@ -33,6 +33,32 @@ const MENU: { key: CollegeMenuKey; label: string }[] = [
   { key: 'reports', label: 'Reports' },
   { key: 'renewal', label: 'Renewal' },
 ];
+
+function BellButton({
+  unreadCount,
+  onPress,
+}: {
+  unreadCount: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.bellBtn}
+      accessibilityRole="button"
+      accessibilityLabel={
+        unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'
+      }
+    >
+      <Text style={styles.bellGlyph}>🔔</Text>
+      {unreadCount > 0 ? (
+        <View style={styles.bellBadge}>
+          <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
 
 export function CollegeShell({
   collegeName,
@@ -107,19 +133,7 @@ export function CollegeShell({
             <Text style={styles.collegeName} numberOfLines={1}>
               {collegeName}
             </Text>
-            <Pressable
-              onPress={() => onChange('messages')}
-              style={styles.topMsgBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Open messages"
-            >
-              <Text style={styles.topMsgText}>Messages</Text>
-              {unreadCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              ) : null}
-            </Pressable>
+            <BellButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
           </View>
           <View style={styles.content}>{children}</View>
         </View>
@@ -156,19 +170,7 @@ export function CollegeShell({
           </View>
         </View>
 
-        <Pressable
-          onPress={() => onChange('messages')}
-          style={styles.mobileMsgBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Open messages"
-        >
-          <Text style={styles.mobileMsgText}>Msgs</Text>
-          {unreadCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-            </View>
-          ) : null}
-        </Pressable>
+        <BellButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
       </View>
 
       <View style={styles.collegeBanner}>
@@ -291,16 +293,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-  topMsgBtn: {
-    flexDirection: 'row',
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    justifyContent: 'center',
     backgroundColor: colors.primarySoft,
+    position: 'relative',
   },
-  topMsgText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
+  bellGlyph: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: '800',
+  },
   content: { flex: 1 },
   mobileHeader: {
     backgroundColor: colors.surface,
@@ -357,16 +379,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 1,
   },
-  mobileMsgBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.primarySoft,
-  },
-  mobileMsgText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
   collegeBanner: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
