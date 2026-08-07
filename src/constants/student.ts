@@ -30,3 +30,14 @@ export const DUMMY_STUDENT = {
   firstName: 'Ananya',
   lastName: 'Reddy',
 };
+
+export const EDUCATION_BOARDS = [
+  'TSBIE / Telangana Board',
+  'BSE Telangana',
+  'CBSE',
+  'ICSE / ISC',
+  'Other state board',
+  'Other',
+];
+
+export const PASSING_YEARS = Array.from({ length: 20 }, (_, i) => String(2026 - i));

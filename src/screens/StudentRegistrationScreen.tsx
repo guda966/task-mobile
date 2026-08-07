@@ -10,7 +10,12 @@ import {
 } from '../components/ui';
 import { AFFILIATED_UNIVERSITIES, DISTRICTS, INSTITUTION_TYPES } from '../constants/lookups';
 import { BRANCHES, GRADUATION_YEARS } from '../constants/courses';
-import { DUMMY_STUDENT, STUDENT_CATEGORIES } from '../constants/student';
+import {
+  DUMMY_STUDENT,
+  EDUCATION_BOARDS,
+  PASSING_YEARS,
+  STUDENT_CATEGORIES,
+} from '../constants/student';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { studentApi } from '../services/studentApi';
@@ -20,6 +25,8 @@ import type { StudentDraft } from '../types/student';
 import { studentFeeLabel, validateStudentDraft } from '../utils/studentValidation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentRegistration'>;
+
+const STEP_LABELS = ['Personal', 'College', '10th & 12th', 'Login & fee'];
 
 export function StudentRegistrationScreen({ navigation, route }: Props) {
   const { setUser } = useAuth();
@@ -42,6 +49,16 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     collegeRollNo: '21QU1A0501',
     yearOfGraduation: '2027',
     branch: 'CSE',
+    tenthBoard: 'BSE Telangana',
+    tenthSchoolName: 'Demo High School, Hyderabad',
+    tenthYearOfPassing: '2019',
+    tenthPercentage: '92.4',
+    tenthHallTicketNo: 'TS19X1001',
+    twelfthBoard: 'TSBIE / Telangana Board',
+    twelfthSchoolName: 'Demo Junior College, Hyderabad',
+    twelfthYearOfPassing: '2021',
+    twelfthPercentage: '88.6',
+    twelfthHallTicketNo: 'TS21I2001',
     password: DUMMY_STUDENT.password,
     confirmPassword: DUMMY_STUDENT.password,
     feeAcknowledged: true,
@@ -63,6 +80,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
         }));
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fee = useMemo(
@@ -97,6 +115,18 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
         'collegeRollNo',
         'yearOfGraduation',
         'branch',
+      ],
+      [
+        'tenthBoard',
+        'tenthSchoolName',
+        'tenthYearOfPassing',
+        'tenthPercentage',
+        'tenthHallTicketNo',
+        'twelfthBoard',
+        'twelfthSchoolName',
+        'twelfthYearOfPassing',
+        'twelfthPercentage',
+        'twelfthHallTicketNo',
       ],
       ['password', 'confirmPassword', 'feeAcknowledged', 'termsAccepted', 'declarationAccepted'],
     ];
@@ -139,13 +169,26 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
   return (
     <Screen
-      title="Student Registration"
-      subtitle={`Step ${step + 1} of 3 — Personal · Academic · Login & fee`}
+      showLogo={false}
+      subtitle={`Step ${step + 1} of 4 — ${STEP_LABELS.join(' · ')}`}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.stepper}>
+          {STEP_LABELS.map((label, index) => (
+            <View
+              key={label}
+              style={[styles.stepChip, index === step && styles.stepChipActive]}
+            >
+              <Text style={[styles.stepChipText, index === step && styles.stepChipTextActive]}>
+                {index + 1}. {label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
         {step === 0 && (
           <>
-            <Text style={styles.section}>Personal Details</Text>
+            <Text style={styles.section}>Personal details</Text>
             <FormField
               label="First Name"
               required
@@ -181,7 +224,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
               error={errors.category}
             />
             <Text style={styles.hint}>
-              Please provide a valid caste certificate to get 50% fee concession (ST / SC).
+              ST / SC students get 50% fee concession when caste certificate is confirmed.
             </Text>
             {(draft.category === 'ST' || draft.category === 'SC') && (
               <CheckboxRow
@@ -189,7 +232,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
                 onToggle={() =>
                   update('casteCertificateProvided', !draft.casteCertificateProvided)
                 }
-                label="I have uploaded a valid caste certificate (PDF / Image) — demo confirmation"
+                label="I confirm a valid caste certificate is available (demo)"
                 error={errors.casteCertificateProvided}
               />
             )}
@@ -198,7 +241,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
         {step === 1 && (
           <>
-            <Text style={styles.section}>Academic Details</Text>
+            <Text style={styles.section}>College details</Text>
             {colleges.length === 0 ? (
               <Text style={styles.warn}>
                 No TASK-approved colleges found. College must register and get approved first.
@@ -273,14 +316,104 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
         {step === 2 && (
           <>
+            <Text style={styles.section}>Class 10 (SSC) details</Text>
+            <DropdownField
+              label="Board"
+              required
+              placeholder="Select board"
+              value={draft.tenthBoard}
+              onChange={(v) => update('tenthBoard', v)}
+              options={EDUCATION_BOARDS.map((b) => ({ value: b, label: b }))}
+              error={errors.tenthBoard}
+            />
+            <FormField
+              label="School name"
+              required
+              value={draft.tenthSchoolName}
+              onChangeText={(t) => update('tenthSchoolName', t)}
+              error={errors.tenthSchoolName}
+            />
+            <DropdownField
+              label="Year of passing"
+              required
+              placeholder="Select year"
+              value={draft.tenthYearOfPassing}
+              onChange={(v) => update('tenthYearOfPassing', v)}
+              options={PASSING_YEARS.map((y) => ({ value: y, label: y }))}
+              error={errors.tenthYearOfPassing}
+            />
+            <FormField
+              label="Percentage / CGPA"
+              required
+              keyboardType="decimal-pad"
+              value={draft.tenthPercentage}
+              onChangeText={(t) => update('tenthPercentage', t)}
+              error={errors.tenthPercentage}
+              placeholder="e.g. 92.4"
+            />
+            <FormField
+              label="Hall ticket / roll no"
+              required
+              value={draft.tenthHallTicketNo}
+              onChangeText={(t) => update('tenthHallTicketNo', t)}
+              error={errors.tenthHallTicketNo}
+            />
+
+            <Text style={[styles.section, styles.sectionGap]}>Class 12 (Intermediate) details</Text>
+            <DropdownField
+              label="Board"
+              required
+              placeholder="Select board"
+              value={draft.twelfthBoard}
+              onChange={(v) => update('twelfthBoard', v)}
+              options={EDUCATION_BOARDS.map((b) => ({ value: b, label: b }))}
+              error={errors.twelfthBoard}
+            />
+            <FormField
+              label="College / school name"
+              required
+              value={draft.twelfthSchoolName}
+              onChangeText={(t) => update('twelfthSchoolName', t)}
+              error={errors.twelfthSchoolName}
+            />
+            <DropdownField
+              label="Year of passing"
+              required
+              placeholder="Select year"
+              value={draft.twelfthYearOfPassing}
+              onChange={(v) => update('twelfthYearOfPassing', v)}
+              options={PASSING_YEARS.map((y) => ({ value: y, label: y }))}
+              error={errors.twelfthYearOfPassing}
+            />
+            <FormField
+              label="Percentage / CGPA"
+              required
+              keyboardType="decimal-pad"
+              value={draft.twelfthPercentage}
+              onChangeText={(t) => update('twelfthPercentage', t)}
+              error={errors.twelfthPercentage}
+              placeholder="e.g. 88.6"
+            />
+            <FormField
+              label="Hall ticket / roll no"
+              required
+              value={draft.twelfthHallTicketNo}
+              onChangeText={(t) => update('twelfthHallTicketNo', t)}
+              error={errors.twelfthHallTicketNo}
+            />
+          </>
+        )}
+
+        {step === 3 && (
+          <>
             <View style={styles.feeBox}>
               <Text style={styles.feeLabel}>Registration Fee</Text>
               <Text style={styles.feeValue}>
                 {fee > 0 ? `₹ ${fee.toLocaleString('en-IN')}` : '—'}
               </Text>
               <Text style={styles.feeHint}>
-                SC / ST get 50% concession when caste certificate is confirmed. Payments are
-                final and non-refundable.
+                SC / ST get 50% concession when caste certificate is confirmed. Payments are final
+                and non-refundable.
               </Text>
             </View>
             <CheckboxRow
@@ -289,7 +422,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
               label="I acknowledge the student registration fee."
               error={errors.feeAcknowledged}
             />
-            <Text style={styles.section}>Login Details</Text>
+            <Text style={styles.section}>Login details</Text>
             <FormField
               label="Password"
               required
@@ -315,22 +448,19 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
             <CheckboxRow
               checked={draft.declarationAccepted}
               onToggle={() => update('declarationAccepted', !draft.declarationAccepted)}
-              label="I declare that all details are true. If found incorrect, I am liable to action by TASK."
+              label="I declare that all details are true."
               error={errors.declarationAccepted}
             />
             <View style={styles.terms}>
-              <Text style={styles.termsTitle}>Terms And Conditions</Text>
+              <Text style={styles.termsTitle}>Terms</Text>
               <Text style={styles.termsItem}>
-                • Individual applications from students of colleges not registered with TASK
-                will not be accepted.
+                • Students must belong to a college registered and approved with TASK.
               </Text>
               <Text style={styles.termsItem}>
-                • Contact details will be used for TASK communication and may be shared with
-                hiring organizations based on eligibility.
+                • Contact details may be used for TASK programmes and eligible hiring outreach.
               </Text>
               <Text style={styles.termsItem}>
-                • Refund Policy: Student registration fee payments are final and will not be
-                refunded.
+                • Student registration fee payments are final and will not be refunded.
               </Text>
             </View>
           </>
@@ -340,7 +470,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
           {step > 0 ? (
             <PrimaryButton title="Back" variant="secondary" onPress={() => setStep((s) => s - 1)} />
           ) : null}
-          {step < 2 ? (
+          {step < 3 ? (
             <PrimaryButton
               title="Continue"
               onPress={() => {
@@ -349,7 +479,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
             />
           ) : (
             <PrimaryButton
-              title={loading ? 'Submitting…' : 'Submit'}
+              title={loading ? 'Submitting…' : 'Submit registration'}
               onPress={submit}
               disabled={loading}
             />
@@ -362,7 +492,20 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 48 },
+  stepper: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
+  stepChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  stepChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  stepChipText: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+  stepChipTextActive: { color: colors.white },
   section: { fontWeight: '700', color: colors.text, marginBottom: 10, fontSize: 15 },
+  sectionGap: { marginTop: 16 },
   hint: { color: colors.textMuted, fontSize: 12, marginBottom: 10, lineHeight: 18 },
   warn: { color: colors.danger, marginBottom: 12, lineHeight: 18 },
   feeBox: {

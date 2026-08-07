@@ -127,7 +127,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="StudentHome"
           component={StudentHomeScreen}
-          options={{ title: 'Student', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="StudentSessions"

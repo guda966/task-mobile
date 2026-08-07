@@ -3,6 +3,15 @@ import { getStudentRegistrationFee } from '../constants/student';
 import { collegePortalApi } from './collegePortalApi';
 import type { CollegeEnrollment, SessionUser } from '../types/enrollment';
 import type { StudentDraft, StudentRecord } from '../types/student';
+import { emptySchoolExam, schoolExamFromDraft } from '../types/student';
+
+function normalizeStudent(record: StudentRecord): StudentRecord {
+  return {
+    ...record,
+    tenth: record.tenth ?? emptySchoolExam(),
+    twelfth: record.twelfth ?? emptySchoolExam(),
+  };
+}
 
 const STUDENTS_REG_KEY = 'task.studentRegistrations.v1';
 const ENROLLMENTS_KEY = 'task.collegeRegistrations.v2';
@@ -36,7 +45,8 @@ export const studentApi = {
   },
 
   async listStudents(): Promise<StudentRecord[]> {
-    return readJson<StudentRecord[]>(STUDENTS_REG_KEY, []);
+    const items = await readJson<StudentRecord[]>(STUDENTS_REG_KEY, []);
+    return items.map(normalizeStudent);
   },
 
   async getStudent(id: string): Promise<StudentRecord | null> {
@@ -88,6 +98,20 @@ export const studentApi = {
       collegeRollNo: draft.collegeRollNo.trim(),
       yearOfGraduation: draft.yearOfGraduation,
       branch: draft.branch,
+      tenth: schoolExamFromDraft(
+        draft.tenthBoard,
+        draft.tenthSchoolName,
+        draft.tenthYearOfPassing,
+        draft.tenthPercentage,
+        draft.tenthHallTicketNo,
+      ),
+      twelfth: schoolExamFromDraft(
+        draft.twelfthBoard,
+        draft.twelfthSchoolName,
+        draft.twelfthYearOfPassing,
+        draft.twelfthPercentage,
+        draft.twelfthHallTicketNo,
+      ),
       registrationFee: fee,
       passwordHash: draft.password,
       username,
@@ -167,6 +191,16 @@ export const studentApi = {
             collegeRollNo: '21QU1A0501',
             yearOfGraduation: '2027',
             branch: 'CSE',
+            tenthBoard: 'BSE Telangana',
+            tenthSchoolName: 'Demo High School, Hyderabad',
+            tenthYearOfPassing: '2019',
+            tenthPercentage: '92.4',
+            tenthHallTicketNo: 'TS19X1001',
+            twelfthBoard: 'TSBIE / Telangana Board',
+            twelfthSchoolName: 'Demo Junior College, Hyderabad',
+            twelfthYearOfPassing: '2021',
+            twelfthPercentage: '88.6',
+            twelfthHallTicketNo: 'TS21I2001',
             password: 'Student@123',
             confirmPassword: 'Student@123',
             feeAcknowledged: true,

@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-07-demo-v5';
+export const DEMO_SEED_VERSION = '2026-08-07-demo-v6';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -261,6 +261,20 @@ function buildDemoStudent(college: CollegeEnrollment): StudentRecord {
     collegeRollNo: '21QU1A0501',
     yearOfGraduation: '2027',
     branch: 'CSE',
+    tenth: {
+      board: 'BSE Telangana',
+      schoolName: 'Demo High School, Hyderabad',
+      yearOfPassing: '2019',
+      percentage: '92.4',
+      hallTicketNo: 'TS19X1001',
+    },
+    twelfth: {
+      board: 'TSBIE / Telangana Board',
+      schoolName: 'Demo Junior College, Hyderabad',
+      yearOfPassing: '2021',
+      percentage: '88.6',
+      hallTicketNo: 'TS21I2001',
+    },
     registrationFee: 500,
     passwordHash: DUMMY_STUDENT.password,
     username: 't26encs00801',
@@ -362,6 +376,20 @@ function buildRohanStudent(college: CollegeEnrollment): StudentRecord {
     collegeRollNo: '21QU1A0502',
     yearOfGraduation: '2027',
     branch: 'CSE',
+    tenth: {
+      board: 'CBSE',
+      schoolName: 'Demo Public School, Secunderabad',
+      yearOfPassing: '2019',
+      percentage: '90.0',
+      hallTicketNo: 'CB19X2002',
+    },
+    twelfth: {
+      board: 'CBSE',
+      schoolName: 'Demo Public School, Secunderabad',
+      yearOfPassing: '2021',
+      percentage: '86.2',
+      hallTicketNo: 'CB21I2002',
+    },
     registrationFee: 500,
     passwordHash: 'Student@123',
     username: 't26encs00802',
