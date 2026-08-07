@@ -50,7 +50,7 @@ export function WelcomeScreen({ navigation }: Props) {
             org="Government of Telangana"
           />
           <OfficialCard
-            source={require('../../assets/officials/minister-sridhar-babu.jpg')}
+            source={require('../../assets/officials/minister-sridhar-babu.png')}
             name="Sri D. Sridhar Babu"
             title="Hon’ble Minister for ITE&C"
             org="Industries & Commerce"
@@ -122,7 +122,14 @@ function OfficialCard({
 }) {
   return (
     <View style={styles.official}>
-      <Image source={source} style={styles.photo} accessibilityLabel={name} />
+      <View style={styles.photoFrame}>
+        <Image
+          source={source}
+          style={styles.photo}
+          resizeMode="cover"
+          accessibilityLabel={name}
+        />
+      </View>
       <Text style={styles.officialName}>{name}</Text>
       <Text style={styles.officialTitle}>{title}</Text>
       <Text style={styles.officialOrg}>{org}</Text>
@@ -134,20 +141,28 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 36 },
   officials: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginBottom: 14,
   },
   official: {
     flex: 1,
     alignItems: 'center',
   },
+  photoFrame: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    overflow: 'hidden',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   photo: {
     width: '100%',
-    height: 128,
-    borderRadius: 8,
-    resizeMode: 'cover',
-    backgroundColor: colors.primarySoft,
-    marginBottom: 8,
+    height: '100%',
   },
   officialName: {
     textAlign: 'center',
