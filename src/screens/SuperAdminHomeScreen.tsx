@@ -20,7 +20,7 @@ import {
   StatTiles,
 } from '../components/college/PanelChrome';
 import { DropdownField, FormField, PrimaryButton, StatusBadge } from '../components/ui';
-import { DISTRICTS } from '../constants/lookups';
+import { DISTRICTS, REGIONAL_CENTERS } from '../constants/lookups';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { adminUsersApi } from '../services/adminUsersApi';
@@ -33,11 +33,12 @@ import {
   type AdminUserDraft,
   type ManagedAdminRole,
 } from '../types/adminUser';
-import type { BatchProgressRow, PlatformSummary } from '../types/reports';
+import type { BatchProgressRow, PlatformSummary, ReportScopeFilter } from '../types/reports';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SuperAdminHome'>;
+/** Menu: Dashboard data · Create users · Extract / download data */
 type MenuKey = 'home' | 'admins' | 'reports';
-type ReportKind = 'progress' | 'attendance' | 'certificates' | 'submissions';
+type ReportKind = 'progress' | 'attendance' | 'certificates' | 'submissions' | 'colleges';
 
 const emptyDraft = (): AdminUserDraft => ({
   name: '',
@@ -53,28 +54,47 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
   const { user, signOut } = useAuth();
   const [menu, setMenu] = useState<MenuKey>('home');
   const [summary, setSummary] = useState<PlatformSummary | null>(null);
-  const [batches, setBatches] = useState<BatchProgressRow[]>([]);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [colleges, setColleges] = useState<{ id: string; name: string; district: string }[]>([]);
+  const [colleges, setColleges] = useState<
+    {
+      id: string;
+      name: string;
+      district: string;
+      regionalCenterId?: string;
+      regionalCenterName?: string;
+    }[]
+  >([]);
   const [refreshing, setRefreshing] = useState(false);
   const [draft, setDraft] = useState<AdminUserDraft>(emptyDraft());
   const [saving, setSaving] = useState(false);
+
+  /** Shared data scope for Dashboard + Extract data */
+  const [regionalCenterId, setRegionalCenterId] = useState('All');
   const [district, setDistrict] = useState('All');
   const [collegeId, setCollegeId] = useState('');
   const [reportKind, setReportKind] = useState<ReportKind>('progress');
   const [filteredProgress, setFilteredProgress] = useState<BatchProgressRow[]>([]);
 
+  const scopeFilter = useMemo((): ReportScopeFilter => {
+    return {
+      regionalCenterId: regionalCenterId === 'All' ? undefined : regionalCenterId,
+      district: district === 'All' ? undefined : district,
+      enrollmentId: collegeId || undefined,
+    };
+  }, [regionalCenterId, district, collegeId]);
+
   const load = useCallback(async () => {
-    setSummary(await reportsApi.getPlatformSummary());
-    setBatches(await reportsApi.listBatchProgress());
+    setSummary(await reportsApi.getPlatformSummary(scopeFilter));
     setAdmins(await adminUsersApi.listUsers());
     setColleges(await reportsApi.listCollegesForReports());
-    const scoped = await reportsApi.listBatchProgress(
-      collegeId || undefined,
-      district === 'All' ? undefined : district,
+    setFilteredProgress(
+      await reportsApi.listBatchProgress(
+        scopeFilter.enrollmentId,
+        scopeFilter.district,
+        scopeFilter.regionalCenterId,
+      ),
     );
-    setFilteredProgress(scoped);
-  }, [collegeId, district]);
+  }, [scopeFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,22 +113,49 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
   );
 
   const collegeOptions = useMemo(() => {
-    const scoped =
-      district === 'All' ? colleges : colleges.filter((c) => c.district === district);
+    let scoped = colleges;
+    if (regionalCenterId !== 'All') {
+      scoped = scoped.filter((c) => c.regionalCenterId === regionalCenterId);
+    }
+    if (district !== 'All') {
+      scoped = scoped.filter((c) => c.district === district);
+    }
     return [
-      { value: '', label: 'All colleges (scope above)' },
-      ...scoped.map((c) => ({ value: c.id, label: `${c.name} · ${c.district}` })),
+      { value: '', label: 'All colleges in scope' },
+      ...scoped.map((c) => ({
+        value: c.id,
+        label: `${c.name} · ${c.district}`,
+      })),
     ];
-  }, [colleges, district]);
+  }, [colleges, district, regionalCenterId]);
+
+  const scopeLabel = useMemo(() => {
+    if (!scopeFilter.regionalCenterId && !scopeFilter.district && !scopeFilter.enrollmentId) {
+      return 'Entire Telangana (whole state)';
+    }
+    const parts: string[] = [];
+    if (scopeFilter.regionalCenterId) {
+      const rc = REGIONAL_CENTERS.find((r) => r.id === scopeFilter.regionalCenterId);
+      parts.push(rc?.name || 'Regional centre');
+    }
+    if (scopeFilter.district) parts.push(`District: ${scopeFilter.district}`);
+    if (scopeFilter.enrollmentId) {
+      const c = colleges.find((x) => x.id === scopeFilter.enrollmentId);
+      parts.push(c ? `College: ${c.name}` : 'Selected college');
+    }
+    return parts.join(' · ');
+  }, [scopeFilter, colleges]);
 
   const createAdmin = async () => {
     try {
       setSaving(true);
       await adminUsersApi.createUser(draft, user?.email || 'super_admin');
       setDraft(emptyDraft());
-      Alert.alert('Admin created', 'Share the email and password with the staff member.');
+      Alert.alert(
+        'User created',
+        'Share the email, password, and Staff Sign In link with the staff member.',
+      );
       await load();
-      setMenu('admins');
     } catch (e) {
       Alert.alert('Unable to create', e instanceof Error ? e.message : 'Try again');
     } finally {
@@ -134,32 +181,57 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
 
   const downloadReport = async () => {
     try {
-      const enrollmentId = collegeId || undefined;
-      const dist = district === 'All' ? undefined : district;
-      const progress = await reportsApi.listBatchProgress(enrollmentId, dist);
+      const progress = await reportsApi.listBatchProgress(
+        scopeFilter.enrollmentId,
+        scopeFilter.district,
+        scopeFilter.regionalCenterId,
+      );
       const requestIds = new Set(progress.map((p) => p.requestId));
+      const titleSuffix = ` — ${scopeLabel}`;
 
       if (reportKind === 'progress') {
-        await exportTextReport('Batch Progress (filtered)', reportsApi.batchProgressToCsv(progress));
+        await exportTextReport(
+          `Batch progress${titleSuffix}`,
+          reportsApi.batchProgressToCsv(progress),
+        );
       } else if (reportKind === 'attendance') {
-        const rows = (await reportsApi.getAttendanceReport(undefined, enrollmentId)).filter((r) =>
-          requestIds.has(r.requestId),
-        );
-        await exportTextReport('Attendance (filtered)', reportsApi.attendanceToCsv(rows));
+        const rows = (
+          await reportsApi.getAttendanceReport(undefined, scopeFilter.enrollmentId)
+        ).filter((r) => requestIds.has(r.requestId));
+        await exportTextReport(`Attendance${titleSuffix}`, reportsApi.attendanceToCsv(rows));
       } else if (reportKind === 'certificates') {
-        const rows = (await reportsApi.getCertificatesReport(undefined, enrollmentId)).filter((r) =>
-          requestIds.has(r.requestId),
-        );
-        await exportTextReport('Certificates (filtered)', reportsApi.certificatesToCsv(rows));
+        const rows = (
+          await reportsApi.getCertificatesReport(undefined, scopeFilter.enrollmentId)
+        ).filter((r) => requestIds.has(r.requestId));
+        await exportTextReport(`Certificates${titleSuffix}`, reportsApi.certificatesToCsv(rows));
+      } else if (reportKind === 'submissions') {
+        const rows = (
+          await reportsApi.getSubmissionsReport(undefined, scopeFilter.enrollmentId)
+        ).filter((r) => requestIds.has(r.requestId));
+        await exportTextReport(`Submissions${titleSuffix}`, reportsApi.submissionsToCsv(rows));
       } else {
-        const rows = (await reportsApi.getSubmissionsReport(undefined, enrollmentId)).filter((r) =>
-          requestIds.has(r.requestId),
-        );
-        await exportTextReport('Submissions (filtered)', reportsApi.submissionsToCsv(rows));
+        let list = colleges;
+        if (scopeFilter.regionalCenterId) {
+          list = list.filter((c) => c.regionalCenterId === scopeFilter.regionalCenterId);
+        }
+        if (scopeFilter.district) {
+          list = list.filter((c) => c.district === scopeFilter.district);
+        }
+        if (scopeFilter.enrollmentId) {
+          list = list.filter((c) => c.id === scopeFilter.enrollmentId);
+        }
+        const csv = [
+          'College,District,Regional Centre',
+          ...list.map(
+            (c) =>
+              `"${c.name.replace(/"/g, '""')}","${c.district}","${(c.regionalCenterName || '').replace(/"/g, '""')}"`,
+          ),
+        ].join('\n');
+        await exportTextReport(`Colleges${titleSuffix}`, csv);
       }
 
       Alert.alert(
-        'Ready',
+        'Download ready',
         Platform.OS === 'web'
           ? 'CSV copied to clipboard. Paste into Excel / Google Sheets.'
           : 'Report ready to share.',
@@ -169,12 +241,46 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
     }
   };
 
-  const scopeLabel =
-    district === 'All' && !collegeId
-      ? 'Entire Telangana (all approved colleges)'
-      : [district !== 'All' ? district : null, collegeId ? 'selected college' : null]
-          .filter(Boolean)
-          .join(' · ');
+  const ScopeFilters = (
+    <DataCard>
+      <Text style={styles.scopeBanner}>{scopeLabel}</Text>
+      <Text style={styles.scopeHelp}>
+        Choose whole state, or narrow by regional centre, district, and/or college. Dashboard
+        numbers and downloads both use this scope.
+      </Text>
+      <DropdownField
+        label="1. Regional centre"
+        value={regionalCenterId}
+        onChange={(v) => {
+          setRegionalCenterId(v);
+          setCollegeId('');
+        }}
+        options={[
+          { value: 'All', label: 'All Telangana (whole state)' },
+          ...REGIONAL_CENTERS.map((r) => ({ value: r.id, label: r.name })),
+        ]}
+      />
+      <DropdownField
+        label="2. District"
+        value={district}
+        onChange={(v) => {
+          setDistrict(v);
+          setCollegeId('');
+        }}
+        options={[
+          { value: 'All', label: 'All districts in scope' },
+          ...DISTRICTS.map((d) => ({ value: d, label: d })),
+        ]}
+      />
+      <DropdownField
+        label="3. College"
+        value={collegeId}
+        onChange={setCollegeId}
+        options={collegeOptions}
+      />
+      <PrimaryButton title="Apply scope" onPress={load} />
+    </DataCard>
+  );
 
   return (
     <AdminShell
@@ -184,9 +290,9 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
       onChange={(key) => setMenu(key as MenuKey)}
       onSignOut={onSignOut}
       menu={[
-        { key: 'home', label: 'Overview' },
-        { key: 'admins', label: 'Staff admins', badge: managedAdmins.length || undefined },
-        { key: 'reports', label: 'Reports' },
+        { key: 'home', label: 'Dashboard' },
+        { key: 'admins', label: 'Create users' },
+        { key: 'reports', label: 'Extract data' },
       ]}
     >
       <ScrollView
@@ -205,8 +311,8 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
         {menu === 'home' ? (
           <>
             <PanelHeader
-              title="State overview"
-              subtitle="Create staff admins, monitor operations, download statewide reports"
+              title="Dashboard"
+              subtitle="Live counts for colleges, students, trainings, and placements"
               action={
                 <PrimaryButton
                   title="Profile"
@@ -215,62 +321,114 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                 />
               }
             />
+
+            <View style={styles.whereBox}>
+              <Text style={styles.whereTitle}>Where to find things</Text>
+              <Pressable onPress={() => setMenu('admins')} accessibilityRole="button">
+                <Text style={styles.whereLink}>
+                  → Create users — add TASK Admin / Placement Coordinator with email & password
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => setMenu('reports')} accessibilityRole="button">
+                <Text style={styles.whereLink}>
+                  → Extract data — download CSV for state / centre / district / college
+                </Text>
+              </Pressable>
+            </View>
+
+            <SectionLabel>Data scope</SectionLabel>
+            {ScopeFilters}
+
+            <SectionLabel>Counts in this scope</SectionLabel>
             {summary ? (
               <StatTiles
                 items={[
-                  { label: 'Colleges', value: String(summary.collegesApproved) },
-                  { label: 'Students', value: String(summary.students) },
-                  { label: 'Trainers', value: String(summary.trainersActive) },
-                  { label: 'Sessions', value: String(summary.sessionsApproved) },
-                  { label: 'Certificates', value: String(summary.certificatesIssued) },
-                  { label: 'Pending colleges', value: String(summary.collegesPending) },
+                  {
+                    label: 'Approved colleges',
+                    value: String(summary.collegesApproved),
+                    hint: 'Registered with TASK',
+                  },
+                  {
+                    label: 'Students registered',
+                    value: String(summary.students),
+                    hint: 'Student portal accounts',
+                  },
+                  {
+                    label: 'In trainings',
+                    value: String(summary.studentsInTrainings),
+                    hint: 'Enrolled in batches',
+                  },
+                  {
+                    label: 'Placements done',
+                    value: String(summary.placementsCompleted),
+                    hint: 'Completed trainings',
+                  },
+                  {
+                    label: 'Active batches',
+                    value: String(summary.sessionsApproved),
+                    hint: 'Approved course sessions',
+                  },
+                  {
+                    label: 'Certificates issued',
+                    value: String(summary.certificatesIssued),
+                    hint: 'Within this scope',
+                  },
+                  {
+                    label: 'Pending colleges',
+                    value: String(summary.collegesPending),
+                    hint: 'Awaiting TASK Admin',
+                  },
+                  {
+                    label: 'Active trainers',
+                    value: String(summary.trainersActive),
+                    hint: 'Statewide trainer pool',
+                  },
                 ]}
               />
             ) : (
-              <EmptyState title="Loading overview…" />
+              <EmptyState title="Loading counts…" />
             )}
 
-            <SectionLabel>Quick links</SectionLabel>
+            <SectionLabel>{`Batches in scope (${filteredProgress.length})`}</SectionLabel>
+            {filteredProgress.length === 0 ? (
+              <EmptyState
+                title="No training batches here"
+                body="Widen the regional centre / district / college filters."
+              />
+            ) : (
+              filteredProgress.slice(0, 8).map((b) => (
+                <DataCard key={b.requestId}>
+                  <Text style={styles.cardTitle}>{b.courseName}</Text>
+                  <Text style={styles.meta}>
+                    {b.collegeName} · {b.branch} YOG {b.yearOfGraduation}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {b.registeredStudents} students · {b.avgAttendancePercent}% attendance ·{' '}
+                    {b.certificatesIssued} certificates
+                  </Text>
+                </DataCard>
+              ))
+            )}
+
+            <View style={styles.gap} />
+            <PrimaryButton title="Go to Extract data" onPress={() => setMenu('reports')} />
+            <View style={styles.gap} />
             <PrimaryButton
               title="Open TASK Admin operations"
+              variant="secondary"
               onPress={() => navigation.navigate('TaskAdminHome')}
             />
-            <View style={styles.gap} />
-            <PrimaryButton
-              title="Create staff admin"
-              variant="secondary"
-              onPress={() => setMenu('admins')}
-            />
-            <View style={styles.gap} />
-            <PrimaryButton
-              title="Download reports"
-              variant="secondary"
-              onPress={() => setMenu('reports')}
-            />
-
-            <SectionLabel>Recent batches</SectionLabel>
-            {batches.slice(0, 6).map((b) => (
-              <DataCard key={b.requestId}>
-                <Text style={styles.cardTitle}>{b.courseName}</Text>
-                <Text style={styles.meta}>
-                  {b.collegeName} · {b.branch} · {b.registeredStudents} students
-                </Text>
-                <Text style={styles.meta}>
-                  Attendance {b.avgAttendancePercent}% · Certs {b.certificatesIssued}
-                </Text>
-              </DataCard>
-            ))}
           </>
         ) : null}
 
         {menu === 'admins' ? (
           <>
             <PanelHeader
-              title="Staff admins"
-              subtitle="Create TASK Admin and Placement Coordinator accounts with login credentials"
+              title="Create users"
+              subtitle="Assign role + login credentials. Staff sign in via Sign In → Staff / Admin sign in"
             />
 
-            <SectionLabel>Create admin user</SectionLabel>
+            <SectionLabel>New user account</SectionLabel>
             <DataCard>
               <FormField
                 label="Full name"
@@ -279,7 +437,7 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                 onChangeText={(v) => setDraft((d) => ({ ...d, name: v }))}
               />
               <FormField
-                label="Email"
+                label="Login email"
                 required
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -318,7 +476,7 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                 />
               ) : null}
               <FormField
-                label="Temporary password"
+                label="Password (share with user)"
                 required
                 secureTextEntry
                 value={draft.password}
@@ -332,13 +490,13 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                 onChangeText={(v) => setDraft((d) => ({ ...d, confirmPassword: v }))}
               />
               <PrimaryButton
-                title={saving ? 'Creating…' : 'Create admin & credentials'}
+                title={saving ? 'Creating…' : 'Create user & credentials'}
                 onPress={createAdmin}
                 disabled={saving}
               />
             </DataCard>
 
-            <SectionLabel>Directory</SectionLabel>
+            <SectionLabel>{`Existing staff (${managedAdmins.length})`}</SectionLabel>
             {admins.map((admin) => (
               <Pressable
                 key={admin.id}
@@ -374,54 +532,43 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
         {menu === 'reports' ? (
           <>
             <PanelHeader
-              title="Statewide reports"
-              subtitle="Download for entire state or filter by district / college"
+              title="Extract data"
+              subtitle="Download CSV for whole state or filtered regional centre / district / college"
             />
+
+            <SectionLabel>1. Choose scope</SectionLabel>
+            {ScopeFilters}
+
+            <SectionLabel>2. Choose dataset & download</SectionLabel>
             <DataCard>
-              <Text style={styles.scope}>Scope: {scopeLabel}</Text>
               <DropdownField
-                label="District"
-                value={district}
-                onChange={(v) => {
-                  setDistrict(v);
-                  setCollegeId('');
-                }}
-                options={[
-                  { value: 'All', label: 'All Telangana' },
-                  ...DISTRICTS.map((d) => ({ value: d, label: d })),
-                ]}
-              />
-              <DropdownField
-                label="College"
-                value={collegeId}
-                onChange={setCollegeId}
-                options={collegeOptions}
-              />
-              <DropdownField
-                label="Report type"
+                label="What to download"
                 value={reportKind}
                 onChange={(v) => setReportKind(v as ReportKind)}
                 options={[
-                  { value: 'progress', label: 'Batch progress' },
-                  { value: 'attendance', label: 'Attendance' },
-                  { value: 'certificates', label: 'Certificates' },
+                  { value: 'progress', label: 'Training batch progress' },
+                  { value: 'attendance', label: 'Student attendance' },
+                  { value: 'certificates', label: 'Certificates issued' },
                   { value: 'submissions', label: 'Assignment submissions' },
+                  { value: 'colleges', label: 'College list' },
                 ]}
               />
-              <PrimaryButton title="Apply filters & refresh preview" onPress={load} />
-              <View style={styles.gap} />
-              <PrimaryButton title="Download CSV" onPress={downloadReport} />
+              <Text style={styles.hint}>
+                File is copied to clipboard on web (paste into Excel). Scope: {scopeLabel}
+              </Text>
+              <PrimaryButton title="Download / copy CSV" onPress={downloadReport} />
             </DataCard>
 
-            <SectionLabel>{`Preview (${filteredProgress.length} batches)`}</SectionLabel>
+            <SectionLabel>{`Preview — ${filteredProgress.length} batches`}</SectionLabel>
             {filteredProgress.length === 0 ? (
-              <EmptyState title="No batches in this scope" body="Widen district/college filters." />
+              <EmptyState title="Nothing in this scope" body="Widen filters, then Apply scope." />
             ) : (
               filteredProgress.slice(0, 12).map((b) => (
                 <DataCard key={b.requestId}>
                   <Text style={styles.cardTitle}>{b.courseName}</Text>
                   <Text style={styles.meta}>
-                    {b.collegeName} · {b.registeredStudents} students · {b.avgAttendancePercent}% att.
+                    {b.collegeName} · {b.registeredStudents} students · {b.avgAttendancePercent}%
+                    att.
                   </Text>
                 </DataCard>
               ))
@@ -449,5 +596,17 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   cta: { marginTop: 8, color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
-  scope: { fontWeight: '700', color: colors.primaryDark, marginBottom: 10, fontSize: 13 },
+  scopeBanner: { fontWeight: '800', color: colors.primaryDark, marginBottom: 6, fontSize: 14 },
+  scopeHelp: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginBottom: 12 },
+  whereBox: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDCDC',
+    padding: 14,
+    marginBottom: 14,
+    gap: 8,
+  },
+  whereTitle: { fontWeight: '800', color: colors.primaryDark, fontSize: 13, marginBottom: 2 },
+  whereLink: { color: colors.text, fontSize: 13, lineHeight: 19, fontWeight: '600' },
 });

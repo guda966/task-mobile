@@ -5,6 +5,7 @@ import type {
   CertificateReportRow,
   CourseEnrolledReportRow,
   PlatformSummary,
+  ReportScopeFilter,
   StudentRosterReportRow,
   SubmissionReportRow,
 } from '../types/reports';
@@ -43,6 +44,36 @@ function delay(ms = 200): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hasScope(scope?: ReportScopeFilter): boolean {
+  if (!scope) return false;
+  return Boolean(
+    (scope.enrollmentId && scope.enrollmentId.trim()) ||
+      (scope.district && scope.district !== 'All') ||
+      (scope.regionalCenterId && scope.regionalCenterId !== 'All'),
+  );
+}
+
+function filterEnrollments(
+  enrollments: CollegeEnrollment[],
+  scope?: ReportScopeFilter,
+): CollegeEnrollment[] {
+  if (!hasScope(scope)) return enrollments;
+  return enrollments.filter((e) => {
+    if (scope?.enrollmentId && e.id !== scope.enrollmentId) return false;
+    if (scope?.district && scope.district !== 'All' && e.district !== scope.district) {
+      return false;
+    }
+    if (
+      scope?.regionalCenterId &&
+      scope.regionalCenterId !== 'All' &&
+      e.regionalCenterId !== scope.regionalCenterId
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 function toCsv(headers: string[], rows: string[][]): string {
   const escape = (v: string) => {
     if (v.includes(',') || v.includes('"') || v.includes('\n')) {
@@ -63,7 +94,7 @@ export async function exportTextReport(title: string, body: string): Promise<voi
 }
 
 export const reportsApi = {
-  async getPlatformSummary(): Promise<PlatformSummary> {
+  async getPlatformSummary(scope?: ReportScopeFilter): Promise<PlatformSummary> {
     await delay();
     const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
     const students = await readJson<StudentRecord[]>(STUDENTS_REG_KEY, []);
@@ -71,20 +102,52 @@ export const reportsApi = {
     const requests = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
     const certs = await readJson<SessionCertificate[]>(CERTIFICATES_KEY, []);
     const subs = await readJson<AssignmentSubmission[]>(SUBMISSIONS_KEY, []);
+    const registrations = await readJson<TrainingRegistration[]>(TRAINING_KEY, []);
+
+    const scopedColleges = filterEnrollments(enrollments, scope);
+    const collegeIds = new Set(scopedColleges.map((e) => e.id));
+    const statewide = !hasScope(scope);
+
+    const scopedStudents = statewide
+      ? students
+      : students.filter((s) => collegeIds.has(s.enrollmentId));
+    const scopedRequests = statewide
+      ? requests
+      : requests.filter((r) => collegeIds.has(r.enrollmentId));
+    const requestIds = new Set(scopedRequests.map((r) => r.id));
+    const scopedRegs = statewide
+      ? registrations
+      : registrations.filter((r) => requestIds.has(r.courseRequestId));
+    const scopedCerts = statewide
+      ? certs
+      : certs.filter((c) => requestIds.has(c.requestId));
+    const scopedSubs = statewide
+      ? subs
+      : subs.filter((s) => requestIds.has(s.requestId));
 
     return {
-      collegesApproved: enrollments.filter((e) => e.status === 'approved').length,
-      collegesPending: enrollments.filter((e) => e.status === 'pending').length,
-      students: students.length,
+      collegesApproved: scopedColleges.filter((e) => e.status === 'approved').length,
+      collegesPending: statewide
+        ? enrollments.filter((e) => e.status === 'pending').length
+        : scopedColleges.filter((e) => e.status === 'pending').length,
+      students: scopedStudents.length,
       trainersActive: trainers.filter((t) => t.status === 'active').length,
       trainersPending: trainers.filter((t) => t.status === 'pending').length,
-      sessionsApproved: requests.filter((r) => r.status === 'approved').length,
-      certificatesIssued: certs.length,
-      submissionsPending: subs.filter((s) => s.status === 'submitted').length,
+      sessionsApproved: scopedRequests.filter((r) => r.status === 'approved').length,
+      certificatesIssued: scopedCerts.length,
+      submissionsPending: scopedSubs.filter((s) => s.status === 'submitted').length,
+      studentsInTrainings: scopedRegs.filter(
+        (r) => r.status === 'registered' || r.status === 'completed',
+      ).length,
+      placementsCompleted: scopedRegs.filter((r) => r.status === 'completed').length,
     };
   },
 
-  async listBatchProgress(enrollmentId?: string, district?: string): Promise<BatchProgressRow[]> {
+  async listBatchProgress(
+    enrollmentId?: string,
+    district?: string,
+    regionalCenterId?: string,
+  ): Promise<BatchProgressRow[]> {
     await delay();
     const requests = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
     const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
@@ -95,17 +158,22 @@ export const reportsApi = {
     const certificates = await readJson<SessionCertificate[]>(CERTIFICATES_KEY, []);
 
     const allowedEnrollmentIds = new Set(
-      enrollments
-        .filter((e) => {
-          if (e.status !== 'approved') return false;
-          if (enrollmentId && e.id !== enrollmentId) return false;
-          if (district && district !== 'All' && e.district !== district) return false;
-          return true;
-        })
+      filterEnrollments(enrollments, {
+        enrollmentId,
+        district: district && district !== 'All' ? district : undefined,
+        regionalCenterId:
+          regionalCenterId && regionalCenterId !== 'All' ? regionalCenterId : undefined,
+      })
+        .filter((e) => e.status === 'approved')
         .map((e) => e.id),
     );
 
-    const useScope = Boolean(enrollmentId) || Boolean(district && district !== 'All');
+    const useScope = hasScope({
+      enrollmentId,
+      district: district && district !== 'All' ? district : undefined,
+      regionalCenterId:
+        regionalCenterId && regionalCenterId !== 'All' ? regionalCenterId : undefined,
+    });
 
     const sessions = requests
       .filter(
@@ -467,12 +535,20 @@ export const reportsApi = {
     );
   },
 
-  async listCollegesForReports(): Promise<{ id: string; name: string; district: string }[]> {
+  async listCollegesForReports(): Promise<
+    { id: string; name: string; district: string; regionalCenterId?: string; regionalCenterName?: string }[]
+  > {
     await delay(100);
     const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
     return enrollments
       .filter((e) => e.status === 'approved')
-      .map((e) => ({ id: e.id, name: e.institutionName, district: e.district }))
+      .map((e) => ({
+        id: e.id,
+        name: e.institutionName,
+        district: e.district,
+        regionalCenterId: e.regionalCenterId,
+        regionalCenterName: e.regionalCenterName,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   },
 };

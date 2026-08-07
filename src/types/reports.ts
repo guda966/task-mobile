@@ -84,4 +84,15 @@ export interface PlatformSummary {
   sessionsApproved: number;
   certificatesIssued: number;
   submissionsPending: number;
+  /** Students currently registered or completed in approved batches. */
+  studentsInTrainings: number;
+  /** Registrations marked completed (placement-ready / finished). */
+  placementsCompleted: number;
+}
+
+export interface ReportScopeFilter {
+  /** Entire state when all empty / All */
+  regionalCenterId?: string;
+  district?: string;
+  enrollmentId?: string;
 }
