@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -10,7 +10,15 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
+import { AdminShell } from '../components/AdminShell';
+import {
+  DataCard,
+  EmptyState,
+  PanelHeader,
+  SectionLabel,
+  StatTiles,
+} from '../components/college/PanelChrome';
+import { FormField, PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { trainerApi } from '../services/trainerApi';
@@ -20,11 +28,11 @@ import type { TrainerFeedback, TrainerRecord } from '../types/trainer';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerHome'>;
-type Tab = 'sessions' | 'credentials' | 'history' | 'feedback';
+type MenuKey = 'home' | 'sessions' | 'documents' | 'history' | 'feedback' | 'profile';
 
 export function TrainerHomeScreen({ navigation }: Props) {
   const { user, signOut } = useAuth();
-  const [tab, setTab] = useState<Tab>('sessions');
+  const [menu, setMenu] = useState<MenuKey>('home');
   const [profile, setProfile] = useState<TrainerRecord | null>(null);
   const [sessions, setSessions] = useState<CourseRequest[]>([]);
   const [history, setHistory] = useState<CourseRequest[]>([]);
@@ -57,6 +65,16 @@ export function TrainerHomeScreen({ navigation }: Props) {
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
 
+  const primary = useMemo(
+    () => sessions.filter((s) => s.trainerId === user?.trainerId),
+    [sessions, user?.trainerId],
+  );
+  const backup = useMemo(
+    () => sessions.filter((s) => s.backupTrainerId === user?.trainerId),
+    [sessions, user?.trainerId],
+  );
+  const isActive = profile?.status === 'active';
+
   const uploadResume = async () => {
     if (!user?.trainerId) return;
     try {
@@ -65,7 +83,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
         ...file,
         uploadedAt: new Date().toISOString(),
       });
-      Alert.alert('Resume uploaded', `${file.fileName} saved to your profile (demo storage).`);
+      Alert.alert('Resume uploaded', `${file.fileName} saved to your profile.`);
       await load();
     } catch (e) {
       if (e instanceof Error && e.message === 'Cancelled') return;
@@ -86,9 +104,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
         title: certTitle,
         issuer: certIssuer,
         year: certYear,
-        file: file
-          ? { ...file, uploadedAt: new Date().toISOString() }
-          : undefined,
+        file: file ? { ...file, uploadedAt: new Date().toISOString() } : undefined,
       });
       setCertTitle('');
       setCertIssuer('');
@@ -116,13 +132,46 @@ export function TrainerHomeScreen({ navigation }: Props) {
     }
   };
 
-  const primary = sessions.filter((s) => s.trainerId === user?.trainerId);
-  const backup = sessions.filter((s) => s.backupTrainerId === user?.trainerId);
+  const openSession = (requestId: string) => {
+    navigation.navigate('TrainerSessionDetail', { requestId });
+  };
+
+  const SessionCard = ({
+    item,
+    role,
+  }: {
+    item: CourseRequest;
+    role: 'Primary trainer' | 'Backup trainer';
+  }) => (
+    <Pressable style={styles.sessionCard} onPress={() => openSession(item.id)}>
+      <View style={styles.row}>
+        <Text style={styles.cardTitle}>{item.courseName}</Text>
+        <StatusBadge status="approved" />
+      </View>
+      <Text style={styles.rolePill}>{role}</Text>
+      <Text style={styles.meta}>{item.collegeName}</Text>
+      <Text style={styles.meta}>
+        {item.startDate} → {item.endDate} · {item.branch} · Batch {item.batchSize}
+      </Text>
+      <Text style={styles.openLink}>Open session workspace →</Text>
+    </Pressable>
+  );
 
   return (
-    <Screen
-      title="Trainer Dashboard"
-      subtitle={user ? `${user.name} · ${user.email}` : 'Trainer'}
+    <AdminShell
+      brandTitle="TASK Trainer"
+      userName={user?.name || 'Trainer'}
+      active={menu}
+      onChange={(key) => setMenu(key as MenuKey)}
+      onSignOut={onSignOut}
+      menu={[
+        { key: 'home', label: 'Home' },
+        { key: 'sessions', label: 'My sessions', badge: sessions.length || undefined },
+        { key: 'documents', label: 'Documents' },
+        { key: 'history', label: 'History' },
+        { key: 'feedback', label: 'Feedback', badge: feedback.length || undefined },
+        { key: 'profile', label: 'Profile' },
+      ]}
     >
       <ScrollView
         contentContainerStyle={styles.content}
@@ -137,133 +186,161 @@ export function TrainerHomeScreen({ navigation }: Props) {
           />
         }
       >
-        {profile ? (
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.name}>
-                {profile.firstName} {profile.lastName}
-              </Text>
-              <StatusBadge status={profile.status} />
-            </View>
-            <Text style={styles.meta}>
-              {profile.city} · {profile.experienceYears} yrs experience
-            </Text>
-            <Text style={styles.skills}>{profile.skills.join(' · ')}</Text>
-            {profile.status === 'pending' ? (
-              <Text style={styles.warn}>
-                Your trainer account is not active yet. Contact TASK Admin if you cannot access
-                sessions.
-              </Text>
-            ) : null}
-            {profile.status === 'rejected' ? (
-              <Text style={styles.danger}>
-                This trainer account is inactive or blocked
-                {profile.rejectionReason ? `: ${profile.rejectionReason}` : '.'} Contact TASK Admin.
-              </Text>
-            ) : null}
-            {profile.status === 'active' ? (
-              <Text style={styles.ok}>Active TASK trainer — assigned sessions appear below.</Text>
-            ) : null}
-          </View>
-        ) : (
-          <Text style={styles.muted}>Loading profile…</Text>
-        )}
-
-        <PrimaryButton title="Edit profile" onPress={() => navigation.navigate('ProfileEdit')} />
-        <View style={styles.gap} />
-
-        {profile?.status === 'active' ? (
+        {menu === 'home' ? (
           <>
-            <View style={styles.tabs}>
-              {(
-                [
-                  ['sessions', 'Sessions'],
-                  ['credentials', 'Docs'],
-                  ['history', 'History'],
-                  ['feedback', 'Feedback'],
-                ] as const
-              ).map(([key, label]) => (
-                <Pressable
-                  key={key}
-                  onPress={() => setTab(key)}
-                  style={[styles.tab, tab === key && styles.tabActive]}
-                >
-                  <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <PanelHeader
+              title={profile ? `Hi, ${profile.firstName}` : 'Trainer home'}
+              subtitle={
+                profile
+                  ? `${profile.city} · ${profile.skills.join(' · ')}`
+                  : 'Your assigned TASK batches'
+              }
+            />
 
-            {tab === 'sessions' ? (
-              <>
-                <Text style={styles.h2}>Assigned sessions (primary)</Text>
-                {primary.length === 0 ? (
-                  <Text style={styles.muted}>No primary assignments yet.</Text>
-                ) : (
-                  primary.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      style={styles.session}
-                      onPress={() =>
-                        navigation.navigate('TrainerSessionDetail', { requestId: item.id })
-                      }
-                    >
-                      <Text style={styles.sessionTitle}>{item.courseName}</Text>
-                      <Text style={styles.meta}>{item.collegeName}</Text>
-                      <Text style={styles.meta}>
-                        {item.startDate} → {item.endDate}
-                      </Text>
-                      <Text style={styles.meta}>
-                        {item.branch} · Batch {item.batchSize}
-                      </Text>
-                      <Text style={styles.openLink}>Open session workspace →</Text>
-                    </Pressable>
-                  ))
-                )}
-                {backup.length > 0 ? (
-                  <>
-                    <Text style={styles.h2}>Backup assignments</Text>
-                    {backup.map((item) => (
-                      <Pressable
-                        key={item.id}
-                        style={styles.session}
-                        onPress={() =>
-                          navigation.navigate('TrainerSessionDetail', { requestId: item.id })
-                        }
-                      >
-                        <Text style={styles.sessionTitle}>{item.courseName}</Text>
-                        <Text style={styles.meta}>
-                          {item.collegeName} · Primary: {item.trainerName}
-                        </Text>
-                        <Text style={styles.openLink}>Open session workspace →</Text>
-                      </Pressable>
-                    ))}
-                  </>
-                ) : null}
-              </>
-            ) : null}
-
-            {tab === 'credentials' ? (
-              <>
-                <Text style={styles.h2}>Resume</Text>
-                {profile?.resume ? (
-                  <Text style={styles.meta}>
-                    {profile.resume.fileName} · {profile.resume.sizeLabel} · uploaded{' '}
-                    {new Date(profile.resume.uploadedAt).toLocaleDateString()}
+            {profile ? (
+              <DataCard>
+                <View style={styles.row}>
+                  <Text style={styles.cardTitle}>
+                    {profile.firstName} {profile.lastName}
+                  </Text>
+                  <StatusBadge status={profile.status} />
+                </View>
+                <Text style={styles.meta}>
+                  {profile.experienceYears} yrs experience · {user?.email}
+                </Text>
+                {profile.status === 'active' ? (
+                  <Text style={styles.ok}>
+                    Active trainer — open My sessions to run materials, attendance, and certificates.
+                  </Text>
+                ) : profile.status === 'inactive' ? (
+                  <Text style={styles.warn}>
+                    Account inactive. Contact TASK Admin if you need access restored.
                   </Text>
                 ) : (
-                  <Text style={styles.muted}>No resume uploaded yet.</Text>
+                  <Text style={styles.warn}>
+                    Account not active yet. Contact TASK Admin for credentials support.
+                  </Text>
                 )}
-                <View style={styles.gap} />
-                <PrimaryButton
-                  title="Upload / replace resume"
-                  variant="secondary"
-                  onPress={uploadResume}
+              </DataCard>
+            ) : (
+              <EmptyState title="Loading profile…" />
+            )}
+
+            {isActive ? (
+              <>
+                <StatTiles
+                  items={[
+                    {
+                      label: 'Primary sessions',
+                      value: String(primary.length),
+                      hint: 'You lead these',
+                      onPress: () => setMenu('sessions'),
+                    },
+                    {
+                      label: 'Backup sessions',
+                      value: String(backup.length),
+                      hint: 'Support role',
+                      onPress: () => setMenu('sessions'),
+                    },
+                    {
+                      label: 'Past trainings',
+                      value: String(history.length),
+                      onPress: () => setMenu('history'),
+                    },
+                    {
+                      label: 'Feedback notes',
+                      value: String(feedback.length),
+                      onPress: () => setMenu('feedback'),
+                    },
+                  ]}
                 />
 
-                <Text style={styles.h2}>Certificates (optional)</Text>
-                {(profile?.certificates || []).map((c) => (
-                  <View key={c.id} style={styles.session}>
-                    <Text style={styles.sessionTitle}>{c.title}</Text>
+                <SectionLabel>Up next</SectionLabel>
+                {primary[0] ? (
+                  <SessionCard item={primary[0]} role="Primary trainer" />
+                ) : backup[0] ? (
+                  <SessionCard item={backup[0]} role="Backup trainer" />
+                ) : (
+                  <EmptyState
+                    title="No sessions assigned yet"
+                    body="TASK Admin assigns you to approved college batches. Check back after assignment."
+                  />
+                )}
+
+                <View style={styles.gap} />
+                <PrimaryButton title="Go to My sessions" onPress={() => setMenu('sessions')} />
+              </>
+            ) : null}
+          </>
+        ) : null}
+
+        {menu === 'sessions' ? (
+          <>
+            <PanelHeader
+              title="My sessions"
+              subtitle="Open a batch workspace for materials, assignments, attendance, certificates, and queries"
+            />
+            {!isActive ? (
+              <EmptyState
+                title="Sessions locked"
+                body="Your trainer account must be active. Contact TASK Admin."
+              />
+            ) : (
+              <>
+                <SectionLabel>{`Primary (${primary.length})`}</SectionLabel>
+                {primary.length === 0 ? (
+                  <EmptyState title="No primary assignments" body="You are not lead trainer on any batch yet." />
+                ) : (
+                  primary.map((item) => (
+                    <SessionCard key={item.id} item={item} role="Primary trainer" />
+                  ))
+                )}
+
+                <SectionLabel>{`Backup (${backup.length})`}</SectionLabel>
+                {backup.length === 0 ? (
+                  <Text style={styles.muted}>No backup assignments.</Text>
+                ) : (
+                  backup.map((item) => (
+                    <SessionCard key={item.id} item={item} role="Backup trainer" />
+                  ))
+                )}
+              </>
+            )}
+          </>
+        ) : null}
+
+        {menu === 'documents' ? (
+          <>
+            <PanelHeader
+              title="Documents"
+              subtitle="Keep resume, certificates, and achievements up to date"
+            />
+            {!profile ? (
+              <EmptyState title="Loading…" />
+            ) : (
+              <>
+                <SectionLabel>Resume</SectionLabel>
+                <DataCard>
+                  {profile.resume ? (
+                    <Text style={styles.meta}>
+                      {profile.resume.fileName} · {profile.resume.sizeLabel} ·{' '}
+                      {new Date(profile.resume.uploadedAt).toLocaleDateString()}
+                    </Text>
+                  ) : (
+                    <Text style={styles.muted}>No resume uploaded yet.</Text>
+                  )}
+                  <View style={styles.gap} />
+                  <PrimaryButton
+                    title="Upload / replace resume"
+                    variant="secondary"
+                    onPress={uploadResume}
+                  />
+                </DataCard>
+
+                <SectionLabel>Certificates</SectionLabel>
+                {(profile.certificates || []).map((c) => (
+                  <DataCard key={c.id}>
+                    <Text style={styles.cardTitle}>{c.title}</Text>
                     <Text style={styles.meta}>
                       {c.issuer} · {c.year || 'Year n/a'}
                     </Text>
@@ -277,22 +354,24 @@ export function TrainerHomeScreen({ navigation }: Props) {
                     >
                       <Text style={styles.linkDanger}>Remove</Text>
                     </Pressable>
-                  </View>
+                  </DataCard>
                 ))}
-                <FormField label="Certificate title" value={certTitle} onChangeText={setCertTitle} />
-                <FormField label="Issuer" value={certIssuer} onChangeText={setCertIssuer} />
-                <FormField
-                  label="Year"
-                  value={certYear}
-                  onChangeText={setCertYear}
-                  keyboardType="number-pad"
-                />
-                <PrimaryButton title="Add certificate (+ optional file)" onPress={addCert} />
+                <DataCard>
+                  <FormField label="Certificate title" value={certTitle} onChangeText={setCertTitle} />
+                  <FormField label="Issuer" value={certIssuer} onChangeText={setCertIssuer} />
+                  <FormField
+                    label="Year"
+                    value={certYear}
+                    onChangeText={setCertYear}
+                    keyboardType="number-pad"
+                  />
+                  <PrimaryButton title="Add certificate" onPress={addCert} />
+                </DataCard>
 
-                <Text style={styles.h2}>Achievements (optional)</Text>
-                {(profile?.achievements || []).map((a) => (
-                  <View key={a.id} style={styles.session}>
-                    <Text style={styles.sessionTitle}>{a.title}</Text>
+                <SectionLabel>Achievements</SectionLabel>
+                {(profile.achievements || []).map((a) => (
+                  <DataCard key={a.id}>
+                    <Text style={styles.cardTitle}>{a.title}</Text>
                     <Text style={styles.meta}>{a.description}</Text>
                     <Text style={styles.meta}>{a.year || 'Year n/a'}</Text>
                     <Pressable
@@ -304,120 +383,139 @@ export function TrainerHomeScreen({ navigation }: Props) {
                     >
                       <Text style={styles.linkDanger}>Remove</Text>
                     </Pressable>
-                  </View>
+                  </DataCard>
                 ))}
-                <FormField label="Achievement title" value={achTitle} onChangeText={setAchTitle} />
-                <FormField label="Description" value={achDesc} onChangeText={setAchDesc} />
-                <FormField
-                  label="Year"
-                  value={achYear}
-                  onChangeText={setAchYear}
-                  keyboardType="number-pad"
-                />
-                <PrimaryButton title="Add achievement" onPress={addAchievement} />
+                <DataCard>
+                  <FormField label="Achievement title" value={achTitle} onChangeText={setAchTitle} />
+                  <FormField label="Description" value={achDesc} onChangeText={setAchDesc} />
+                  <FormField
+                    label="Year"
+                    value={achYear}
+                    onChangeText={setAchYear}
+                    keyboardType="number-pad"
+                  />
+                  <PrimaryButton title="Add achievement" onPress={addAchievement} />
+                </DataCard>
               </>
-            ) : null}
-
-            {tab === 'history' ? (
-              <>
-                <Text style={styles.h2}>Previous trainings</Text>
-                {history.length === 0 ? (
-                  <Text style={styles.muted}>No completed trainings yet.</Text>
-                ) : (
-                  history.map((item) => (
-                    <View key={item.id} style={styles.session}>
-                      <Text style={styles.sessionTitle}>{item.courseName}</Text>
-                      <Text style={styles.meta}>{item.collegeName}</Text>
-                      <Text style={styles.meta}>
-                        {item.startDate} → {item.endDate} · Batch {item.batchSize}
-                      </Text>
-                    </View>
-                  ))
-                )}
-              </>
-            ) : null}
-
-            {tab === 'feedback' ? (
-              <>
-                <Text style={styles.h2}>Feedback</Text>
-                {feedback.length === 0 ? (
-                  <Text style={styles.muted}>
-                    No feedback yet from TASK Admin, colleges, or students.
-                  </Text>
-                ) : (
-                  feedback.map((item) => (
-                    <View key={item.id} style={styles.session}>
-                      <Text style={styles.sessionTitle}>
-                        {item.fromName} ({item.fromRole.replace('_', ' ')})
-                        {item.rating ? ` · ${item.rating}/5` : ''}
-                      </Text>
-                      {item.courseName ? <Text style={styles.meta}>{item.courseName}</Text> : null}
-                      <Text style={styles.bio}>{item.comment}</Text>
-                      <Text style={styles.meta}>{new Date(item.createdAt).toLocaleString()}</Text>
-                    </View>
-                  ))
-                )}
-              </>
-            ) : null}
+            )}
           </>
         ) : null}
 
-        <View style={styles.gap} />
-        <PrimaryButton title="Sign Out" variant="secondary" onPress={onSignOut} />
+        {menu === 'history' ? (
+          <>
+            <PanelHeader title="Training history" subtitle="Past batches you delivered" />
+            {history.length === 0 ? (
+              <EmptyState title="No completed trainings yet" />
+            ) : (
+              history.map((item) => (
+                <DataCard key={item.id}>
+                  <Text style={styles.cardTitle}>{item.courseName}</Text>
+                  <Text style={styles.meta}>{item.collegeName}</Text>
+                  <Text style={styles.meta}>
+                    {item.startDate} → {item.endDate} · Batch {item.batchSize}
+                  </Text>
+                  <PrimaryButton
+                    title="View session"
+                    variant="secondary"
+                    onPress={() => openSession(item.id)}
+                  />
+                </DataCard>
+              ))
+            )}
+          </>
+        ) : null}
+
+        {menu === 'feedback' ? (
+          <>
+            <PanelHeader
+              title="Feedback"
+              subtitle="Notes from TASK Admin, colleges, and students"
+            />
+            {feedback.length === 0 ? (
+              <EmptyState title="No feedback yet" body="Feedback appears after sessions run." />
+            ) : (
+              feedback.map((item) => (
+                <DataCard key={item.id}>
+                  <Text style={styles.cardTitle}>
+                    {item.fromName} · {item.fromRole.replace(/_/g, ' ')}
+                    {item.rating ? ` · ${item.rating}/5` : ''}
+                  </Text>
+                  {item.courseName ? <Text style={styles.meta}>{item.courseName}</Text> : null}
+                  <Text style={styles.body}>{item.comment}</Text>
+                  <Text style={styles.meta}>{new Date(item.createdAt).toLocaleString()}</Text>
+                </DataCard>
+              ))
+            )}
+          </>
+        ) : null}
+
+        {menu === 'profile' ? (
+          <>
+            <PanelHeader
+              title="My profile"
+              subtitle="Contact details and skills — credentials were issued by TASK Admin"
+            />
+            {!profile ? (
+              <EmptyState title="Loading…" />
+            ) : (
+              <DataCard>
+                <Text style={styles.cardTitle}>
+                  {profile.firstName} {profile.lastName}
+                </Text>
+                <Text style={styles.meta}>Email: {profile.email}</Text>
+                <Text style={styles.meta}>Mobile: {profile.mobile}</Text>
+                <Text style={styles.meta}>
+                  City: {profile.city} · Experience: {profile.experienceYears} yrs
+                </Text>
+                <Text style={styles.meta}>Skills: {profile.skills.join(' · ')}</Text>
+                <Text style={styles.body}>{profile.bio}</Text>
+                <View style={styles.gap} />
+                <PrimaryButton
+                  title="Edit profile & password"
+                  onPress={() => navigation.navigate('ProfileEdit')}
+                />
+              </DataCard>
+            )}
+          </>
+        ) : null}
       </ScrollView>
-    </Screen>
+    </AdminShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 40 },
-  card: {
+  content: { padding: 16, paddingBottom: 40 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  cardTitle: { fontWeight: '800', color: colors.text, fontSize: 15, flex: 1 },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+  body: { color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 8 },
+  muted: { color: colors.textMuted, lineHeight: 20, marginBottom: 8 },
+  ok: { marginTop: 8, color: colors.success, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  warn: { marginTop: 8, color: colors.warning, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  gap: { height: 10 },
+  sessionCard: {
     backgroundColor: colors.surface,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
-  },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
-  name: { flex: 1, fontWeight: '800', color: colors.text, fontSize: 16 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  skills: { marginTop: 6, color: colors.primaryDark, fontWeight: '600', fontSize: 12 },
-  bio: { marginTop: 8, color: colors.text, lineHeight: 20, fontSize: 13 },
-  warn: { marginTop: 8, color: colors.warning, fontSize: 12, fontWeight: '600', lineHeight: 18 },
-  danger: { marginTop: 8, color: colors.danger, fontSize: 12, fontWeight: '600', lineHeight: 18 },
-  ok: { marginTop: 8, color: colors.success, fontSize: 12, fontWeight: '600', lineHeight: 18 },
-  h2: { marginTop: 16, marginBottom: 8, fontWeight: '800', color: colors.text, fontSize: 15 },
-  muted: { color: colors.textMuted, lineHeight: 20 },
-  session: {
-    backgroundColor: colors.surface,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    padding: 14,
+    marginBottom: 10,
   },
-  sessionTitle: { fontWeight: '700', color: colors.text, marginBottom: 2, flex: 1 },
-  openLink: {
-    marginTop: 10,
-    color: colors.primary,
+  rolePill: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    marginBottom: 2,
+    backgroundColor: colors.primarySoft,
+    color: colors.primaryDark,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
-  gap: { height: 10 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  tab: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  tabTextActive: { color: colors.white },
-  linkDanger: { color: colors.danger, marginTop: 6, fontWeight: '600', fontSize: 12 },
+  openLink: { marginTop: 10, color: colors.primary, fontWeight: '700', fontSize: 13 },
+  linkDanger: { color: colors.danger, marginTop: 8, fontWeight: '700', fontSize: 13 },
 });

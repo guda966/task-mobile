@@ -403,11 +403,11 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
   return (
     <Screen
-      title={session?.courseName || 'Session'}
+      title={session?.courseName || 'Session workspace'}
       subtitle={
         session
           ? `${session.collegeName} · ${session.startDate} → ${session.endDate}`
-          : 'Loading…'
+          : 'Loading batch…'
       }
       showLogo={false}
     >
@@ -426,14 +426,18 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       >
         {session ? (
           <View style={styles.card}>
+            <Text style={styles.workspaceLabel}>Session workspace</Text>
             <Text style={styles.meta}>
               {session.branch} · Batch {session.batchSize} · Grad year {session.yearOfGraduation}
             </Text>
             <Text style={styles.meta}>
-              Role:{' '}
+              Your role:{' '}
               {session.trainerId === user?.trainerId ? 'Primary trainer' : 'Backup trainer'}
             </Text>
-            <Text style={styles.meta}>Registered students: {roster.length}</Text>
+            <Text style={styles.meta}>
+              Students: {roster.length} · Pending reviews: {pendingSubs} · Open queries:{' '}
+              {openQueries}
+            </Text>
           </View>
         ) : null}
 
@@ -865,6 +869,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
+  },
+  workspaceLabel: {
+    fontWeight: '800',
+    color: colors.primaryDark,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   tab: {

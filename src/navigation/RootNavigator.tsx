@@ -148,7 +148,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="TrainerHome"
           component={TrainerHomeScreen}
-          options={{ title: 'Trainer', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="CorporateOtp"
