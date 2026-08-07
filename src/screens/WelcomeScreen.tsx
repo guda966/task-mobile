@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
@@ -23,8 +24,12 @@ const REGISTRATION_OPTIONS = [
   { value: 'trainer', label: 'Trainer Registration' },
 ];
 
+/** Official TASK header artwork (source asset is 1024×84). */
+const BANNER_ASPECT = 1024 / 84;
+
 export function WelcomeScreen({ navigation }: Props) {
   const [regType, setRegType] = useState<RegistrationType | ''>('');
+  const { width } = useWindowDimensions();
 
   const startRegistration = () => {
     if (!regType) {
@@ -36,26 +41,45 @@ export function WelcomeScreen({ navigation }: Props) {
     else navigation.navigate('TrainerOtp');
   };
 
+  // Keep the official banner readable on narrow screens by scaling height up
+  // and allowing horizontal scroll when needed.
+  const bannerHeight = Math.max(84, Math.min(110, width * 0.12));
+  const bannerWidth = Math.max(width, bannerHeight * BANNER_ASPECT);
+
   return (
-    <Screen
-      title="TASK Portal"
-      subtitle="Telangana Academy for Skill and Knowledge (TASK)"
-    >
+    <Screen showLogo={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.officials}>
-          <OfficialCard
-            source={require('../../assets/officials/cm-revanth-reddy.png')}
-            name="Sri Anumula Revanth Reddy"
-            title="Hon’ble Chief Minister"
-            org="Government of Telangana"
-          />
-          <OfficialCard
-            source={require('../../assets/officials/minister-sridhar-babu.png')}
-            name="Sri D. Sridhar Babu"
-            title="Hon’ble Minister for ITE&C"
-            org="Industries & Commerce"
-          />
+        <View style={styles.bannerBlock}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={width < bannerWidth}
+            bounces={false}
+            style={styles.bannerScroll}
+          >
+            <Image
+              source={require('../../assets/brand/task-official-banner.png')}
+              style={{ width: bannerWidth, height: bannerHeight }}
+              resizeMode="contain"
+              accessibilityLabel="Telangana Academy for Skill and Knowledge — Department of ITE&C, Government of Telangana"
+            />
+          </ScrollView>
+
+          <View style={styles.nameRow}>
+            <View style={styles.nameCol}>
+              <Text style={styles.name}>Sri Anumula Revanth Reddy</Text>
+              <Text style={styles.role}>Hon’ble Chief Minister</Text>
+              <Text style={styles.org}>Government of Telangana</Text>
+            </View>
+            <View style={styles.nameDivider} />
+            <View style={styles.nameCol}>
+              <Text style={styles.name}>Sri D. Sridhar Babu</Text>
+              <Text style={styles.role}>Hon’ble Minister for ITE&C</Text>
+              <Text style={styles.org}>Industries & Commerce</Text>
+            </View>
+          </View>
         </View>
+
+        <Text style={styles.portalTitle}>TASK Portal</Text>
 
         <NewsTicker />
 
@@ -109,90 +133,65 @@ export function WelcomeScreen({ navigation }: Props) {
   );
 }
 
-function OfficialCard({
-  source,
-  name,
-  title,
-  org,
-}: {
-  source: number;
-  name: string;
-  title: string;
-  org: string;
-}) {
-  return (
-    <View style={styles.official}>
-      <View style={styles.photoFrame}>
-        <Image
-          source={source}
-          style={styles.photo}
-          resizeMode="cover"
-          accessibilityLabel={name}
-        />
-      </View>
-      <View style={styles.caption}>
-        <Text style={styles.officialName}>{name}</Text>
-        <Text style={styles.officialTitle}>{title}</Text>
-        <Text style={styles.officialOrg}>{org}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { paddingBottom: 36 },
-  officials: {
+  bannerBlock: {
+    marginHorizontal: -16,
+    marginTop: -16,
+    marginBottom: 14,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  bannerScroll: {
+    backgroundColor: colors.white,
+  },
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 12,
-    marginBottom: 14,
-  },
-  official: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  photoFrame: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: colors.primarySoft,
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  caption: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    minHeight: 78,
-    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  officialName: {
+  nameCol: {
+    flex: 1,
+    paddingHorizontal: 6,
+  },
+  nameDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: 2,
+  },
+  name: {
     textAlign: 'center',
     fontWeight: '800',
     color: colors.text,
     fontSize: 12,
     lineHeight: 16,
   },
-  officialTitle: {
+  role: {
     textAlign: 'center',
     color: colors.primaryDark,
-    fontSize: 11,
     fontWeight: '700',
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 3,
     lineHeight: 15,
   },
-  officialOrg: {
+  org: {
     textAlign: 'center',
     color: colors.textMuted,
     fontSize: 10,
     marginTop: 2,
     lineHeight: 14,
+  },
+  portalTitle: {
+    fontWeight: '800',
+    color: colors.primaryDark,
+    fontSize: 18,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   sectionTitle: {
     fontWeight: '800',
