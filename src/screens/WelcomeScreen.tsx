@@ -171,7 +171,7 @@ export function WelcomeScreen({ navigation }: Props) {
             </View>
             <View style={styles.accessBtn}>
               <PrimaryButton
-                title="Sign In"
+                title="Already have an account? Sign In"
                 variant="secondary"
                 onPress={() => navigation.navigate('SignIn')}
               />
