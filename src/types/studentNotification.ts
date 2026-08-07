@@ -10,4 +10,5 @@ export interface StudentNotification {
   read: boolean;
   relatedRequestId?: string;
   relatedAssignmentId?: string;
+  relatedProgramSessionId?: string;
 }

@@ -32,15 +32,17 @@ import {
   studentAlertSourceLabel,
   studentNotificationApi,
 } from '../services/studentNotificationApi';
+import { taskBroadcastApi } from '../services/taskBroadcastApi';
 import { trainingApi } from '../services/trainingApi';
 import { colors } from '../theme/colors';
 import type { CourseRequest } from '../types/collegePortal';
 import type { SchoolExamDetails, StudentRecord } from '../types/student';
 import type { StudentNotification } from '../types/studentNotification';
+import type { TaskProgramSession } from '../types/taskBroadcast';
 import type { TrainingRegistration } from '../types/training';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
-type TrainingTab = 'enrolled' | 'available';
+type TrainingTab = 'enrolled' | 'available' | 'task';
 
 const ANNOUNCEMENT_SEEN_KEY = 'task.student.announcementSeen.v1';
 
@@ -52,6 +54,9 @@ export function StudentHomeScreen({ navigation }: Props) {
   const [registrations, setRegistrations] = useState<TrainingRegistration[]>([]);
   const [sessions, setSessions] = useState<CourseRequest[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [taskAvailable, setTaskAvailable] = useState<TaskProgramSession[]>([]);
+  const [taskEnrolled, setTaskEnrolled] = useState<TaskProgramSession[]>([]);
+  const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [alerts, setAlerts] = useState<StudentNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [sessionQuery, setSessionQuery] = useState('');
@@ -72,6 +77,14 @@ export function StudentHomeScreen({ navigation }: Props) {
       nextCounts[s.id] = await trainingApi.getRegistrationCount(s.id);
     }
     setCounts(nextCounts);
+    const task = await taskBroadcastApi.listSessionsForStudent(profile);
+    setTaskAvailable(task.available);
+    setTaskEnrolled(task.enrolled);
+    const nextTaskCounts: Record<string, number> = {};
+    for (const s of [...task.available, ...task.enrolled]) {
+      nextTaskCounts[s.id] = await taskBroadcastApi.getEnrollmentCount(s.id);
+    }
+    setTaskCounts(nextTaskCounts);
     await studentNotificationApi.refreshDeadlineAlerts(profile.id);
     const notes = await studentNotificationApi.listForStudent(profile.id);
     setAlerts(notes);
@@ -152,8 +165,49 @@ export function StudentHomeScreen({ navigation }: Props) {
     }
   };
 
+  const enrollTaskSession = async (session: TaskProgramSession) => {
+    if (!student) return;
+    try {
+      setLoadingId(session.id);
+      await taskBroadcastApi.enrollStudent({
+        sessionId: session.id,
+        studentId: student.id,
+        studentName: `${student.firstName} ${student.lastName}`,
+        collegeName: student.collegeName,
+      });
+      Alert.alert('Enrolled', `You are enrolled in ${session.title}.`);
+      await load();
+      setTrainingTab('task');
+      setMenu('trainings');
+    } catch (e) {
+      Alert.alert('Unable to enrol', e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   const isRegistered = (sessionId: string) =>
     registrations.some((r) => r.courseRequestId === sessionId && r.status === 'registered');
+
+  const openTaskSessionFromAlert = (sessionId: string) => {
+    setTrainingTab('task');
+    setMenu('trainings');
+    const session =
+      taskAvailable.find((s) => s.id === sessionId) ||
+      taskEnrolled.find((s) => s.id === sessionId);
+    if (session) {
+      Alert.alert(
+        session.title,
+        `${session.mode === 'online' ? 'Online' : 'Offline'} · ${session.startDate} ${session.startTime}\n${session.venueOrLink}\n\n${session.description}`,
+        taskEnrolled.some((s) => s.id === sessionId)
+          ? [{ text: 'OK' }]
+          : [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Enrol now', onPress: () => enrollTaskSession(session) },
+            ],
+      );
+    }
+  };
 
   const displayName = student
     ? `${student.firstName} ${student.lastName}`
@@ -220,6 +274,29 @@ export function StudentHomeScreen({ navigation }: Props) {
                   {active.length
                     ? 'Batches you already joined · Tap to open'
                     : 'None yet · Tap to browse available'}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={styles.shortcut}
+              onPress={() => {
+                setTrainingTab('task');
+                setMenu('trainings');
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.shortcutValue}>
+                {taskAvailable.length + taskEnrolled.length}
+              </Text>
+              <View style={styles.shortcutText}>
+                <Text style={styles.shortcutTitle}>TASK sessions</Text>
+                <Text style={styles.shortcutHint}>
+                  {taskAvailable.length
+                    ? `${taskAvailable.length} open to enrol · Alerts go here too`
+                    : taskEnrolled.length
+                      ? 'Your statewide / college programmes'
+                      : 'Posted by TASK Admin for your audience'}
                 </Text>
               </View>
             </Pressable>
@@ -376,6 +453,16 @@ export function StudentHomeScreen({ navigation }: Props) {
                     />
                   </>
                 ) : null}
+                {item.relatedProgramSessionId ? (
+                  <>
+                    <View style={styles.gap} />
+                    <PrimaryButton
+                      title="View TASK session / enrol"
+                      variant="secondary"
+                      onPress={() => openTaskSessionFromAlert(item.relatedProgramSessionId!)}
+                    />
+                  </>
+                ) : null}
               </DataCard>
             )}
           />
@@ -399,6 +486,10 @@ export function StudentHomeScreen({ navigation }: Props) {
               options={[
                 { value: 'enrolled', label: `Enrolled (${active.length})` },
                 { value: 'available', label: `Available (${filteredSessions.length})` },
+                {
+                  value: 'task',
+                  label: `TASK (${taskAvailable.length + taskEnrolled.length})`,
+                },
               ]}
             />
           </View>
@@ -463,7 +554,7 @@ export function StudentHomeScreen({ navigation }: Props) {
                 />
               ) : null}
             </ScrollView>
-          ) : (
+          ) : trainingTab === 'available' ? (
             <View style={styles.flex}>
               <View style={styles.availableSearch}>
                 <SearchInput
@@ -523,6 +614,86 @@ export function StudentHomeScreen({ navigation }: Props) {
                 }}
               />
             </View>
+          ) : (
+            <ScrollView contentContainerStyle={styles.listPad}>
+              <Text style={styles.resultText}>
+                Statewide / district / university / college programmes posted by TASK Admin
+              </Text>
+              {taskEnrolled.length > 0 ? (
+                <>
+                  <SectionLabel>You enrolled</SectionLabel>
+                  {taskEnrolled.map((item) => (
+                    <DataCard key={item.id} accent>
+                      <View style={styles.row}>
+                        <Text style={styles.name}>{item.title}</Text>
+                        <StatusBadge status="registered" />
+                      </View>
+                      <Text style={styles.meta}>
+                        {item.mode === 'online' ? 'Online' : 'Offline'} · {item.startDate}{' '}
+                        {item.startTime} → {item.endDate} {item.endTime}
+                      </Text>
+                      <Text style={styles.meta}>{item.scope.label}</Text>
+                      <Text style={styles.meta}>
+                        {item.mode === 'online' ? 'Link' : 'Venue'}: {item.venueOrLink}
+                      </Text>
+                      <Text style={styles.alertBody}>{item.description}</Text>
+                      <Text style={styles.meta}>
+                        Enrolled students: {taskCounts[item.id] ?? 0}
+                        {item.maxSeats ? ` / ${item.maxSeats}` : ''}
+                      </Text>
+                    </DataCard>
+                  ))}
+                </>
+              ) : null}
+
+              <SectionLabel>Open for enrolment</SectionLabel>
+              {taskAvailable.length === 0 ? (
+                <EmptyState
+                  title="No TASK sessions for you right now"
+                  body="When TASK Admin schedules a session for your state, district, university, or college, it appears here with an alert."
+                />
+              ) : (
+                taskAvailable.map((item) => {
+                  const enrolled = taskCounts[item.id] ?? 0;
+                  const full = item.maxSeats ? enrolled >= item.maxSeats : false;
+                  return (
+                    <DataCard key={item.id} accent>
+                      <View style={styles.row}>
+                        <Text style={styles.name}>{item.title}</Text>
+                        <StatusBadge status={item.mode} />
+                      </View>
+                      <Text style={styles.meta}>
+                        {item.startDate} {item.startTime} → {item.endDate} {item.endTime}
+                      </Text>
+                      <Text style={styles.meta}>{item.scope.label}</Text>
+                      <Text style={styles.meta}>
+                        {item.mode === 'online' ? 'Link' : 'Venue'}: {item.venueOrLink}
+                      </Text>
+                      {item.instructorName ? (
+                        <Text style={styles.meta}>Facilitator: {item.instructorName}</Text>
+                      ) : null}
+                      <Text style={styles.alertBody}>{item.description}</Text>
+                      <Text style={styles.meta}>
+                        Enrolled {enrolled}
+                        {item.maxSeats ? ` / ${item.maxSeats}` : ''}
+                      </Text>
+                      <View style={styles.gap} />
+                      <PrimaryButton
+                        title={
+                          loadingId === item.id
+                            ? 'Enrolling…'
+                            : full
+                              ? 'Session full'
+                              : 'Enrol'
+                        }
+                        onPress={() => enrollTaskSession(item)}
+                        disabled={loadingId === item.id || full}
+                      />
+                    </DataCard>
+                  );
+                })
+              )}
+            </ScrollView>
           )}
         </View>
       ) : null}

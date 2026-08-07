@@ -14,6 +14,7 @@ import {
   PanelHeader,
   StatTiles,
 } from '../components/college/PanelChrome';
+import { TaskAdminOutreachPanel } from '../components/TaskAdminOutreachPanel';
 import { PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -28,6 +29,7 @@ import type { TrainerRecord } from '../types/trainer';
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskAdminHome'>;
 type AdminTab =
   | 'actions'
+  | 'outreach'
   | 'registrations'
   | 'courseRequests'
   | 'catalogue'
@@ -102,6 +104,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
       onSignOut={onSignOut}
       menu={[
         { key: 'actions', label: 'Home', badge: actionCount || undefined },
+        { key: 'outreach', label: 'Announce' },
         { key: 'registrations', label: 'Colleges', badge: pendingRegs.length || undefined },
         { key: 'courseRequests', label: 'Course requests', badge: pendingReqs.length || undefined },
         { key: 'catalogue', label: 'Catalogue' },
@@ -109,6 +112,12 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
         { key: 'calendar', label: 'Calendar' },
       ]}
     >
+      {tab === 'outreach' ? (
+        <TaskAdminOutreachPanel
+          colleges={items}
+          adminName={user?.name || 'TASK Admin'}
+        />
+      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -137,6 +146,11 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                 { label: 'Need trainers', value: String(needsTrainerAssign.length) },
                 { label: 'Active trainers', value: String(trainers.filter((t) => t.status === 'active').length) },
               ]}
+            />
+            <View style={{ height: 8 }} />
+            <PrimaryButton
+              title="Post announcement / schedule session"
+              onPress={() => setTab('outreach')}
             />
           </>
         ) : null}
@@ -395,6 +409,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
           </>
         ) : null}
       </ScrollView>
+      )}
     </AdminShell>
   );
 }

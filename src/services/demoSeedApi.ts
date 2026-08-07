@@ -18,7 +18,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v11';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v12';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -696,7 +696,59 @@ function buildStudentAlerts(student: StudentRecord) {
       read: false,
       relatedRequestId: IDS.batch,
     },
+    {
+      id: 'sntf_demo_task_session_1',
+      studentId: student.id,
+      source: 'task' as const,
+      title: 'TASK session scheduled: Career readiness clinic',
+      body: 'Online · open for your college. Open Trainings → TASK sessions to enrol.',
+      createdAt: now,
+      read: false,
+      relatedProgramSessionId: 'tps_demo_1',
+    },
   ];
+}
+
+function buildTaskBroadcastSeed(student: StudentRecord, college: CollegeEnrollment) {
+  const now = nowIso();
+  const announcement = {
+    id: 'tann_demo_1',
+    kind: 'announcement' as const,
+    title: 'State-wide soft-skills drive this month',
+    body: 'TASK is running employability programmes across Telangana. Check Alerts and Trainings → TASK sessions for schedules that match your college.',
+    scope: {
+      kind: 'state' as const,
+      label: 'Entire Telangana (all registered students)',
+    },
+    createdAt: now,
+    createdBy: 'TASK Admin',
+    notifiedCount: 2,
+  };
+  const session = {
+    id: 'tps_demo_1',
+    kind: 'session' as const,
+    title: 'Career readiness clinic',
+    description:
+      'Interactive clinic covering resume polish, interview basics, and TASK placement pathways. Bring your updated CV.',
+    mode: 'online' as const,
+    startDate: '2026-08-20',
+    endDate: '2026-08-20',
+    startTime: '10:00',
+    endTime: '13:00',
+    venueOrLink: 'https://meet.task.telangana.gov.in/career-clinic-demo',
+    instructorName: 'TASK Facilitation Team',
+    maxSeats: 120,
+    scope: {
+      kind: 'college' as const,
+      enrollmentId: college.id,
+      label: `College · ${college.institutionName}`,
+    },
+    createdAt: now,
+    createdBy: 'TASK Admin',
+    notifiedCount: 2,
+    status: 'open' as const,
+  };
+  return { announcement, session, studentId: student.id };
 }
 
 export type DemoSeedResult = {
@@ -755,6 +807,10 @@ export async function ensureDemoData(options?: {
   await write('task.trainerFeedback.v1', []);
   await write('task.trainerMessages.v1', []);
   await write('task.trainerQueries.v1', []);
+  const broadcast = buildTaskBroadcastSeed(student, college);
+  await write('task.adminAnnouncements.v1', [broadcast.announcement]);
+  await write('task.adminProgramSessions.v1', [broadcast.session]);
+  await write('task.adminProgramEnrollments.v1', []);
   await write('task.corporateRegistrations.v1', [
     {
       id: 'corp_demo_1',

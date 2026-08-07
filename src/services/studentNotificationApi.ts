@@ -49,6 +49,7 @@ export const studentNotificationApi = {
     body: string;
     relatedRequestId?: string;
     relatedAssignmentId?: string;
+    relatedProgramSessionId?: string;
     /** Stable id so deadline alerts are not duplicated on each refresh */
     id?: string;
   }): Promise<StudentNotification> {
@@ -67,6 +68,7 @@ export const studentNotificationApi = {
       read: false,
       relatedRequestId: input.relatedRequestId,
       relatedAssignmentId: input.relatedAssignmentId,
+      relatedProgramSessionId: input.relatedProgramSessionId,
     };
     all.unshift(note);
     await writeJson(KEY, all);
