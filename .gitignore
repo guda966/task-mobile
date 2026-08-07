@@ -43,3 +43,5 @@ yarn-error.*
 # local AI / editor helpers
 .claude/
 .cursor/
+
+.vercel

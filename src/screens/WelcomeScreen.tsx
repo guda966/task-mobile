@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NewsTicker } from '../components/NewsTicker';
 import { DropdownField, PrimaryButton, Screen } from '../components/ui';
-import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
@@ -34,21 +42,42 @@ export function WelcomeScreen({ navigation }: Props) {
       subtitle="Telangana Academy for Skill and Knowledge (TASK)"
     >
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.lead}>
-          Register colleges, students, and trainers for TASK training programs.
+        <View style={styles.officials}>
+          <OfficialCard
+            source={require('../../assets/officials/cm-revanth-reddy.png')}
+            name="Sri Anumula Revanth Reddy"
+            title="Hon’ble Chief Minister"
+            org="Government of Telangana"
+          />
+          <OfficialCard
+            source={require('../../assets/officials/minister-sridhar-babu.jpg')}
+            name="Sri D. Sridhar Babu"
+            title="Hon’ble Minister for ITE&C"
+            org="Industries & Commerce"
+          />
+        </View>
+
+        <NewsTicker />
+
+        <Text style={styles.sectionTitle}>About TASK</Text>
+        <Text style={styles.about}>
+          TASK (Telangana Academy for Skill and Knowledge) was set up by the Government of Telangana
+          to skill youth and improve employability. It connects colleges, industry, and trainers to
+          offer technology and workplace skills aligned to today’s job market.
         </Text>
 
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Please read before continuing</Text>
+        <View style={styles.noteBox}>
+          <Text style={styles.noteTitle}>Important note</Text>
           <Text style={styles.bullet}>
-            • Provide a valid email and contact number. All official communication goes there.
+            • Use a valid email and mobile number — all official communication is sent there.
           </Text>
-          <Text style={styles.bullet}>• * denotes mandatory fields.</Text>
+          <Text style={styles.bullet}>• Fields marked * are mandatory.</Text>
           <Text style={styles.bullet}>
             • Students can register only from TASK-approved colleges.
           </Text>
           <Text style={styles.bullet}>
-            • Trainers must submit resume, certificates, and achievements for TASK Admin approval.
+            • Trainers must submit a resume (certificates/achievements optional) for TASK Admin
+            approval.
           </Text>
         </View>
 
@@ -72,9 +101,7 @@ export function WelcomeScreen({ navigation }: Props) {
         />
 
         <Text style={styles.hint}>
-          Demo TASK Admin: admin@task.telangana.gov.in / TaskAdmin@123{'\n'}
-          Demo Student: student.demo@gmail.com / Student@123{'\n'}
-          Demo Trainer: trainer.demo@task.telangana.gov.in / Trainer@123{'\n'}
+          Demo sign-in autofills after you select a role on the Sign In screen.{'\n'}
           Dummy OTP — Email: 111111 · Mobile: 222222
         </Text>
       </ScrollView>
@@ -82,25 +109,92 @@ export function WelcomeScreen({ navigation }: Props) {
   );
 }
 
+function OfficialCard({
+  source,
+  name,
+  title,
+  org,
+}: {
+  source: number;
+  name: string;
+  title: string;
+  org: string;
+}) {
+  return (
+    <View style={styles.official}>
+      <Image source={source} style={styles.photo} accessibilityLabel={name} />
+      <Text style={styles.officialName}>{name}</Text>
+      <Text style={styles.officialTitle}>{title}</Text>
+      <Text style={styles.officialOrg}>{org}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  content: { paddingBottom: 32 },
-  lead: {
+  content: { paddingBottom: 36 },
+  officials: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  official: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  photo: {
+    width: '100%',
+    height: 128,
+    borderRadius: 8,
+    resizeMode: 'cover',
+    backgroundColor: colors.primarySoft,
+    marginBottom: 8,
+  },
+  officialName: {
+    textAlign: 'center',
+    fontWeight: '800',
+    color: colors.text,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  officialTitle: {
+    textAlign: 'center',
+    color: colors.primaryDark,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  officialOrg: {
+    textAlign: 'center',
+    color: colors.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontWeight: '800',
     color: colors.text,
     fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 16,
+    marginBottom: 6,
   },
-  panel: {
-    backgroundColor: colors.surface,
+  about: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  noteBox: {
+    backgroundColor: '#FFF8F3',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#F0D9C8',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
     borderRadius: 10,
     padding: 14,
     marginBottom: 18,
   },
-  panelTitle: {
+  noteTitle: {
     color: colors.accent,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: 8,
     fontSize: 14,
   },
