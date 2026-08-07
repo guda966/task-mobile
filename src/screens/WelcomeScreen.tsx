@@ -130,9 +130,11 @@ function OfficialCard({
           accessibilityLabel={name}
         />
       </View>
-      <Text style={styles.officialName}>{name}</Text>
-      <Text style={styles.officialTitle}>{title}</Text>
-      <Text style={styles.officialOrg}>{org}</Text>
+      <View style={styles.caption}>
+        <Text style={styles.officialName}>{name}</Text>
+        <Text style={styles.officialTitle}>{title}</Text>
+        <Text style={styles.officialOrg}>{org}</Text>
+      </View>
     </View>
   );
 }
@@ -141,28 +143,34 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 36 },
   officials: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 12,
     marginBottom: 14,
   },
   official: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   photoFrame: {
     width: '100%',
-    aspectRatio: 3 / 4,
-    borderRadius: 10,
+    aspectRatio: 1,
     backgroundColor: colors.primarySoft,
-    overflow: 'hidden',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   photo: {
     width: '100%',
     height: '100%',
+  },
+  caption: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 78,
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   officialName: {
     textAlign: 'center',
@@ -176,7 +184,7 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     fontSize: 11,
     fontWeight: '700',
-    marginTop: 3,
+    marginTop: 4,
     lineHeight: 15,
   },
   officialOrg: {
@@ -184,6 +192,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 10,
     marginTop: 2,
+    lineHeight: 14,
   },
   sectionTitle: {
     fontWeight: '800',
