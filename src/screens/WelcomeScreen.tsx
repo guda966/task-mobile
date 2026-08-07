@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
 import { DropdownField, PrimaryButton, Screen } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
+import {
+  DEMO_CREDENTIALS_SUMMARY,
+  DEMO_SEED_VERSION,
+  ensureDemoData,
+} from '../services/demoSeedApi';
 import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
@@ -17,7 +23,24 @@ const REGISTRATION_OPTIONS = [
 ];
 
 export function WelcomeScreen({ navigation }: Props) {
+  const { signOut } = useAuth();
   const [regType, setRegType] = useState<RegistrationType | ''>('');
+  const [seedReady, setSeedReady] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await ensureDemoData();
+      } finally {
+        if (alive) setSeedReady(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const startRegistration = () => {
     if (!regType) {
@@ -27,6 +50,45 @@ export function WelcomeScreen({ navigation }: Props) {
     if (regType === 'college') navigation.navigate('OtpVerify');
     else if (regType === 'student') navigation.navigate('StudentOtp');
     else navigation.navigate('TrainerOtp');
+  };
+
+  const loadFreshDemo = () => {
+    const run = async () => {
+      setSeeding(true);
+      try {
+        await signOut();
+        await ensureDemoData({ force: true });
+        setSeedReady(true);
+        Alert.alert(
+          'Fresh demo data loaded',
+          `Seed ${DEMO_SEED_VERSION} is ready.\n\n${DEMO_CREDENTIALS_SUMMARY}`,
+        );
+      } catch (e) {
+        Alert.alert('Could not load demo data', e instanceof Error ? e.message : 'Unknown error');
+      } finally {
+        setSeeding(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const ok =
+        typeof window !== 'undefined'
+          ? window.confirm(
+              'This clears all local demo data in this browser and reloads fresh dummy records. Continue?',
+            )
+          : true;
+      if (ok) void run();
+      return;
+    }
+
+    Alert.alert(
+      'Load fresh demo data?',
+      'This clears all local demo data on this device and reloads fresh dummy records.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Load fresh data', style: 'destructive', onPress: () => void run() },
+      ],
+    );
   };
 
   return (
@@ -57,6 +119,21 @@ export function WelcomeScreen({ navigation }: Props) {
             • Trainers must submit a resume (certificates/achievements optional) for TASK Admin
             approval.
           </Text>
+        </View>
+
+        <View style={styles.demoBox}>
+          <Text style={styles.demoTitle}>Team demo</Text>
+          <Text style={styles.demoBody}>
+            {seedReady
+              ? 'Dummy data is ready for this browser. Use “Load fresh demo data” before a walkthrough so every role starts clean.'
+              : 'Preparing demo data…'}
+          </Text>
+          <PrimaryButton
+            title={seeding ? 'Loading…' : 'Load fresh demo data'}
+            variant="secondary"
+            onPress={loadFreshDemo}
+            disabled={seeding}
+          />
         </View>
 
         <Text style={styles.group}>New registration</Text>
@@ -122,6 +199,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     marginBottom: 4,
+  },
+  demoBox: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 18,
+    gap: 10,
+  },
+  demoTitle: {
+    fontWeight: '800',
+    color: colors.primaryDark,
+    fontSize: 14,
+  },
+  demoBody: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
   },
   group: {
     fontWeight: '700',
