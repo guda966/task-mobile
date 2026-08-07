@@ -173,7 +173,7 @@ export const collegePortalApi = {
     return approved;
   },
 
-  async listCourses(category?: string): Promise<Course[]> {
+  async listCourses(category?: string, query = ''): Promise<Course[]> {
     await delay();
     await this.ensureSeedData();
     let courses = (await readJson<Course[]>(COURSES_KEY, [])).filter(
@@ -182,7 +182,16 @@ export const collegePortalApi = {
     if (category && category !== 'All Categories') {
       courses = courses.filter((c) => c.category === category);
     }
-    return courses;
+    const q = query.trim().toLowerCase();
+    if (q) {
+      courses = courses.filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.category.toLowerCase().includes(q) ||
+          (c.description || '').toLowerCase().includes(q),
+      );
+    }
+    return courses.sort((a, b) => a.title.localeCompare(b.title));
   },
 
   async listCoursesAdmin(params?: {
@@ -460,6 +469,8 @@ export const collegePortalApi = {
     enrollmentId?: string;
     status?: string;
     query?: string;
+    branch?: string;
+    yearOfGraduation?: string;
   }): Promise<CourseRequest[]> {
     await delay();
     let items = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
@@ -469,12 +480,20 @@ export const collegePortalApi = {
     if (params?.status && params.status !== 'All') {
       items = items.filter((r) => r.status === params.status!.toLowerCase());
     }
+    if (params?.branch) {
+      items = items.filter((r) => r.branch === params.branch);
+    }
+    if (params?.yearOfGraduation) {
+      items = items.filter((r) => r.yearOfGraduation === params.yearOfGraduation);
+    }
     if (params?.query?.trim()) {
       const q = params.query.trim().toLowerCase();
       items = items.filter(
         (r) =>
           r.courseName.toLowerCase().includes(q) ||
-          r.collegeName.toLowerCase().includes(q),
+          r.collegeName.toLowerCase().includes(q) ||
+          r.branch.toLowerCase().includes(q) ||
+          (r.trainerName || '').toLowerCase().includes(q),
       );
     }
     return items.sort((a, b) => b.requestedOn.localeCompare(a.requestedOn));

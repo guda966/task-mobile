@@ -1,6 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  DataCard,
+  EmptyState,
+  FilterGrid,
+  PanelHeader,
+  ResultBar,
+} from '../../components/college/PanelChrome';
 import { DropdownField, PrimaryButton } from '../../components/ui';
 import { BRANCHES, SEMESTERS } from '../../constants/courses';
 import { exportTextReport, reportsApi } from '../../services/reportsApi';
@@ -136,42 +143,53 @@ export function ReportsPanel({
               ? roster.slice(0, 20)
               : enrolled.slice(0, 20);
 
+  const previewCount =
+    kind === 'progress'
+      ? progress.length
+      : kind === 'attendance'
+        ? attendance.length
+        : kind === 'submissions'
+          ? submissions.length
+          : kind === 'certificates'
+            ? certificates.length
+            : kind === 'student_roster'
+              ? roster.length
+              : enrolled.length;
+
   return (
     <ScrollView contentContainerStyle={styles.pad}>
-      <Text style={styles.h1}>Reports</Text>
-      <Text style={styles.lead}>
-        Student lists, course-enrolled rosters, attendance, submissions, certificates, and batch
-        progress. Export as CSV.
-      </Text>
-
-      <DropdownField
-        label="Report type"
-        value={kind}
-        onChange={(v) => setKind(v as ReportKind)}
-        options={[
-          { value: 'student_roster', label: 'College student list' },
-          { value: 'course_enrolled', label: 'Course enrolled students' },
-          { value: 'progress', label: 'Batch progress' },
-          { value: 'attendance', label: 'Attendance sheet' },
-          { value: 'submissions', label: 'Assignment submissions' },
-          { value: 'certificates', label: 'Certificates issued' },
-        ]}
+      <PanelHeader
+        title="Reports"
+        subtitle="Generate college student lists, course rosters, attendance, and progress exports."
+        action={<PrimaryButton title="Export CSV" onPress={exportCurrent} disabled={loading} />}
       />
 
-      {showCollegeFilter ? (
+      <FilterGrid>
         <DropdownField
-          label="College"
-          value={collegeFilter}
-          onChange={setCollegeFilter}
+          label="Report type"
+          value={kind}
+          onChange={(v) => setKind(v as ReportKind)}
           options={[
-            { value: '', label: 'All colleges' },
-            ...colleges.map((c) => ({ value: c.id, label: c.name })),
+            { value: 'student_roster', label: 'College student list' },
+            { value: 'course_enrolled', label: 'Course enrolled students' },
+            { value: 'progress', label: 'Batch progress' },
+            { value: 'attendance', label: 'Attendance sheet' },
+            { value: 'submissions', label: 'Assignment submissions' },
+            { value: 'certificates', label: 'Certificates issued' },
           ]}
         />
-      ) : null}
-
-      {kind === 'student_roster' || kind === 'course_enrolled' ? (
-        <>
+        {showCollegeFilter ? (
+          <DropdownField
+            label="College"
+            value={collegeFilter}
+            onChange={setCollegeFilter}
+            options={[
+              { value: '', label: 'All colleges' },
+              ...colleges.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          />
+        ) : null}
+        {kind === 'student_roster' || kind === 'course_enrolled' ? (
           <DropdownField
             label="Branch"
             value={branchFilter}
@@ -181,39 +199,40 @@ export function ReportsPanel({
               ...BRANCHES.map((b) => ({ value: b, label: b })),
             ]}
           />
-          {kind === 'student_roster' ? (
-            <DropdownField
-              label="Semester"
-              value={semesterFilter}
-              onChange={setSemesterFilter}
-              options={[
-                { value: '', label: 'All semesters' },
-                ...SEMESTERS.map((s) => ({ value: s, label: `Semester ${s}` })),
-              ]}
-            />
-          ) : null}
-        </>
-      ) : null}
+        ) : null}
+        {kind === 'student_roster' ? (
+          <DropdownField
+            label="Semester"
+            value={semesterFilter}
+            onChange={setSemesterFilter}
+            options={[
+              { value: '', label: 'All semesters' },
+              ...SEMESTERS.map((s) => ({ value: s, label: `Semester ${s}` })),
+            ]}
+          />
+        ) : null}
+        {kind !== 'student_roster' ? (
+          <DropdownField
+            label="Session"
+            value={sessionFilter}
+            onChange={setSessionFilter}
+            options={sessionOptions}
+          />
+        ) : null}
+      </FilterGrid>
 
-      {kind !== 'student_roster' ? (
-        <DropdownField
-          label="Session"
-          value={sessionFilter}
-          onChange={setSessionFilter}
-          options={sessionOptions}
-        />
-      ) : null}
-
-      <PrimaryButton title={loading ? 'Loading…' : 'Refresh'} variant="secondary" onPress={load} />
-      <View style={styles.gap} />
-      <PrimaryButton title="Export CSV" onPress={exportCurrent} disabled={loading} />
+      <PrimaryButton title={loading ? 'Loading…' : 'Refresh preview'} variant="secondary" onPress={load} />
+      <ResultBar label="Rows" count={previewCount} />
 
       <Text style={styles.h2}>Preview</Text>
       {preview.length === 0 ? (
-        <Text style={styles.muted}>{loading ? 'Loading…' : 'No rows for this report.'}</Text>
+        <EmptyState
+          title={loading ? 'Loading report…' : 'No rows for this report'}
+          body="Adjust filters or wait until students register for approved batches."
+        />
       ) : kind === 'progress' ? (
         (preview as BatchProgressRow[]).map((r) => (
-          <View key={r.requestId} style={styles.card}>
+          <DataCard key={r.requestId} accent>
             <Text style={styles.title}>{r.courseName}</Text>
             <Text style={styles.meta}>
               {r.collegeName} · Students {r.registeredStudents} · Attendance {r.avgAttendancePercent}%
@@ -221,42 +240,42 @@ export function ReportsPanel({
             <Text style={styles.meta}>
               Certs {r.certificatesIssued} · Pending submissions {r.submissionsPending}
             </Text>
-          </View>
+          </DataCard>
         ))
       ) : kind === 'attendance' ? (
         (preview as AttendanceReportRow[]).map((r, i) => (
-          <View key={`${r.studentId}_${r.sessionDate}_${i}`} style={styles.card}>
+          <DataCard key={`${r.studentId}_${r.sessionDate}_${i}`}>
             <Text style={styles.title}>
               {r.studentName} · {r.status}
             </Text>
             <Text style={styles.meta}>
               {r.courseName} · {r.sessionDate}
             </Text>
-          </View>
+          </DataCard>
         ))
       ) : kind === 'submissions' ? (
         (preview as SubmissionReportRow[]).map((r, i) => (
-          <View key={`${r.studentName}_${r.submittedAt}_${i}`} style={styles.card}>
+          <DataCard key={`${r.studentName}_${r.submittedAt}_${i}`}>
             <Text style={styles.title}>
               {r.assignmentTitle} · {r.status}
             </Text>
             <Text style={styles.meta}>
               {r.studentName} · {r.courseName}
             </Text>
-          </View>
+          </DataCard>
         ))
       ) : kind === 'certificates' ? (
         (preview as CertificateReportRow[]).map((r) => (
-          <View key={r.certificateCode} style={styles.card}>
+          <DataCard key={r.certificateCode}>
             <Text style={styles.title}>{r.studentName}</Text>
             <Text style={styles.meta}>
               {r.certificateCode} · {r.courseName}
             </Text>
-          </View>
+          </DataCard>
         ))
       ) : kind === 'student_roster' ? (
         (preview as StudentRosterReportRow[]).map((r, i) => (
-          <View key={`${r.hallTicketNo}_${i}`} style={styles.card}>
+          <DataCard key={`${r.hallTicketNo}_${i}`}>
             <Text style={styles.title}>{r.fullName}</Text>
             <Text style={styles.meta}>
               {r.branch}
@@ -265,11 +284,11 @@ export function ReportsPanel({
             <Text style={styles.meta}>
               {r.email} · {r.hallTicketNo}
             </Text>
-          </View>
+          </DataCard>
         ))
       ) : (
         (preview as CourseEnrolledReportRow[]).map((r, i) => (
-          <View key={`${r.email}_${r.courseName}_${i}`} style={styles.card}>
+          <DataCard key={`${r.email}_${r.courseName}_${i}`} accent>
             <Text style={styles.title}>{r.fullName}</Text>
             <Text style={styles.meta}>
               {r.courseName} · {r.branch}
@@ -278,7 +297,7 @@ export function ReportsPanel({
             <Text style={styles.meta}>
               {r.registrationStatus} · Registered {r.registeredAt.slice(0, 10)}
             </Text>
-          </View>
+          </DataCard>
         ))
       )}
     </ScrollView>
@@ -287,19 +306,7 @@ export function ReportsPanel({
 
 const styles = StyleSheet.create({
   pad: { padding: 16, paddingBottom: 40 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 6 },
-  h2: { marginTop: 16, marginBottom: 8, fontWeight: '800', color: colors.text, fontSize: 15 },
-  lead: { color: colors.textMuted, marginBottom: 12, lineHeight: 20 },
-  muted: { color: colors.textMuted, lineHeight: 20 },
-  gap: { height: 10 },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-  },
+  h2: { marginTop: 8, marginBottom: 8, fontWeight: '800', color: colors.text, fontSize: 15 },
   title: { fontWeight: '700', color: colors.text },
   meta: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
 });

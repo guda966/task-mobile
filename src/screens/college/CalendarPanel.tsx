@@ -1,7 +1,17 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { DropdownField, StatusBadge } from '../../components/ui';
+import {
+  DataCard,
+  EmptyState,
+  FilterGrid,
+  PanelHeader,
+  PanelPage,
+  ResultBar,
+  SearchInput,
+} from '../../components/college/PanelChrome';
+import { DropdownField, PrimaryButton, StatusBadge } from '../../components/ui';
+import { BRANCHES } from '../../constants/courses';
 import { collegePortalApi } from '../../services/collegePortalApi';
 import { colors } from '../../theme/colors';
 import type { CourseRequest } from '../../types/collegePortal';
@@ -22,9 +32,17 @@ function formatRange(start: string, end: string) {
 export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
   const [items, setItems] = useState<CourseRequest[]>([]);
   const [month, setMonth] = useState('All');
+  const [branch, setBranch] = useState('');
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    setItems(await collegePortalApi.listCalendarEvents(enrollmentId));
+    setLoading(true);
+    try {
+      setItems(await collegePortalApi.listCalendarEvents(enrollmentId));
+    } finally {
+      setLoading(false);
+    }
   }, [enrollmentId]);
 
   useFocusEffect(
@@ -39,9 +57,18 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
   }, [items]);
 
   const filtered = useMemo(() => {
-    if (month === 'All') return items;
-    return items.filter((i) => monthKey(i.startDate) === month);
-  }, [items, month]);
+    const q = query.trim().toLowerCase();
+    return items.filter((i) => {
+      if (month !== 'All' && monthKey(i.startDate) !== month) return false;
+      if (branch && i.branch !== branch) return false;
+      if (!q) return true;
+      return (
+        i.courseName.toLowerCase().includes(q) ||
+        i.branch.toLowerCase().includes(q) ||
+        (i.trainerName || '').toLowerCase().includes(q)
+      );
+    });
+  }, [items, month, branch, query]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, CourseRequest[]>();
@@ -55,26 +82,45 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
   }, [filtered]);
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.h1}>Calendar</Text>
-      <Text style={styles.lead}>
-        Only approved trainings for your college. Simple list by month — no clutter.
-      </Text>
-
-      <DropdownField
-        label="Month"
-        value={month}
-        onChange={setMonth}
-        options={months.map((m) => ({ value: m, label: m }))}
+    <PanelPage>
+      <PanelHeader
+        title="Calendar"
+        subtitle="Approved trainings for your college, grouped by month."
       />
 
+      <SearchInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search by course, branch, or trainer"
+      />
+
+      <FilterGrid>
+        <DropdownField
+          label="Month"
+          value={month}
+          onChange={setMonth}
+          options={months.map((m) => ({ value: m, label: m === 'All' ? 'All months' : m }))}
+        />
+        <DropdownField
+          label="Branch"
+          value={branch}
+          onChange={setBranch}
+          options={[
+            { value: '', label: 'All branches' },
+            ...BRANCHES.map((b) => ({ value: b, label: b })),
+          ]}
+        />
+      </FilterGrid>
+
+      <PrimaryButton title={loading ? 'Refreshing…' : 'Refresh'} variant="secondary" onPress={load} />
+
+      <ResultBar label="Sessions" count={filtered.length} />
+
       {grouped.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyTitle}>No approved sessions yet</Text>
-          <Text style={styles.emptyBody}>
-            Request a course and wait for TASK Admin approval. Approved dates will appear here.
-          </Text>
-        </View>
+        <EmptyState
+          title={loading ? 'Loading calendar…' : 'No approved sessions match'}
+          body="Request a course and wait for TASK Admin approval. Approved dates appear here."
+        />
       ) : (
         <FlatList
           data={grouped}
@@ -84,7 +130,7 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
             <View style={styles.monthBlock}>
               <Text style={styles.monthLabel}>{label}</Text>
               {rows.map((row) => (
-                <View key={row.id} style={styles.card}>
+                <DataCard key={row.id} accent>
                   <View style={styles.row}>
                     <Text style={styles.title}>{row.courseName}</Text>
                     <StatusBadge status="approved" />
@@ -97,21 +143,9 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
                     <View style={styles.trainerBox}>
                       <Text style={styles.trainerTitle}>Assigned trainer</Text>
                       <Text style={styles.trainerName}>{row.trainerName}</Text>
-                      {row.trainerEmail ? (
-                        <Text style={styles.meta}>{row.trainerEmail}</Text>
-                      ) : null}
+                      {row.trainerEmail ? <Text style={styles.meta}>{row.trainerEmail}</Text> : null}
                       {row.trainerMobile ? (
                         <Text style={styles.meta}>Mobile: {row.trainerMobile}</Text>
-                      ) : null}
-                      {row.trainerCity || row.trainerExperienceYears ? (
-                        <Text style={styles.meta}>
-                          {[row.trainerCity, row.trainerExperienceYears ? `${row.trainerExperienceYears} yrs exp` : null]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </Text>
-                      ) : null}
-                      {row.trainerSkills ? (
-                        <Text style={styles.skills}>{row.trainerSkills}</Text>
                       ) : null}
                       {row.backupTrainerName ? (
                         <Text style={styles.meta}>
@@ -123,43 +157,34 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
                   ) : (
                     <Text style={styles.meta}>Trainer: Not assigned yet</Text>
                   )}
-                </View>
+                </DataCard>
               ))}
             </View>
           )}
         />
       )}
-    </View>
+    </PanelPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 6 },
-  lead: { color: colors.textMuted, marginBottom: 12, lineHeight: 20 },
   list: { paddingBottom: 40 },
-  monthBlock: { marginBottom: 18 },
+  monthBlock: { marginBottom: 16 },
   monthLabel: {
     fontSize: 14,
     fontWeight: '800',
     color: colors.primaryDark,
     marginBottom: 8,
-    letterSpacing: 0.3,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 6,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 6 },
   title: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
   dates: { color: colors.text, fontWeight: '600', marginBottom: 4 },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  meta: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   trainerBox: {
     marginTop: 10,
     paddingTop: 10,
@@ -172,16 +197,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 4,
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
   trainerName: { fontWeight: '700', color: colors.text, fontSize: 14 },
-  skills: { marginTop: 4, color: colors.primaryDark, fontSize: 12, fontWeight: '600' },
-  emptyBox: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 8,
-  },
-  emptyTitle: { fontWeight: '800', color: colors.primaryDark, marginBottom: 6 },
-  emptyBody: { color: colors.textMuted, lineHeight: 20 },
 });

@@ -3,13 +3,21 @@ import {
   Alert,
   FlatList,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  DataCard,
+  EmptyState,
+  FilterGrid,
+  PanelHeader,
+  PanelPage,
+  ResultBar,
+  SearchInput,
+  SegmentedTabs,
+} from '../../components/college/PanelChrome';
 import { DropdownField, PrimaryButton, StatusBadge } from '../../components/ui';
 import { BRANCHES, GRADUATION_YEARS, SEMESTERS } from '../../constants/courses';
 import { collegePortalApi } from '../../services/collegePortalApi';
@@ -81,17 +89,13 @@ export function StudentsPanel({ enrollmentId }: { enrollmentId: string }) {
       { value: '', label: 'All course batches' },
       ...batches.map((b) => ({
         value: b.id,
-        label: `${b.courseName} · ${b.branch} · ${b.yearOfGraduation} (${b.status})`,
+        label: `${b.courseName} · ${b.branch} · ${b.yearOfGraduation}`,
       })),
     ],
     [batches],
   );
 
   const items = view === 'registry' ? registry : enrolled;
-  const countLabel =
-    view === 'registry'
-      ? `College students: ${registry.length}`
-      : `Course-enrolled students: ${enrolled.length}`;
 
   const exportList = async () => {
     try {
@@ -144,208 +148,144 @@ export function StudentsPanel({ enrollmentId }: { enrollmentId: string }) {
   };
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.h1}>Students</Text>
-      <Text style={styles.lead}>
-        Filter by branch or semester. Switch to Course enrolled to see the final list of students
-        registered on courses requested by your college.
-      </Text>
-
-      <View style={styles.tabs}>
-        <Pressable
-          style={[styles.tab, view === 'registry' && styles.tabActive]}
-          onPress={() => setView('registry')}
-        >
-          <Text style={[styles.tabText, view === 'registry' && styles.tabTextActive]}>
-            College students
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, view === 'enrolled' && styles.tabActive]}
-          onPress={() => setView('enrolled')}
-        >
-          <Text style={[styles.tabText, view === 'enrolled' && styles.tabTextActive]}>
-            Course enrolled
-          </Text>
-        </Pressable>
-      </View>
-
-      <TextInput
-        style={styles.search}
-        placeholder="Search by name, ID, email, or course"
-        placeholderTextColor={colors.textMuted}
-        value={query}
-        onChangeText={setQuery}
-        onSubmitEditing={load}
+    <PanelPage>
+      <PanelHeader
+        title="Students"
+        subtitle="Filter by branch or semester. Use Course enrolled for the final registered batch list."
+        action={<PrimaryButton title="Export CSV" variant="secondary" onPress={exportList} />}
       />
 
-      <View style={styles.filters}>
-        <View style={styles.filterCol}>
-          <DropdownField
-            label="Branch"
-            value={branch}
-            onChange={setBranch}
-            options={branchOptions}
-            placeholder="All branches"
-          />
-        </View>
-        <View style={styles.filterCol}>
-          <DropdownField
-            label="Semester"
-            value={semester}
-            onChange={setSemester}
-            options={semesterOptions}
-            placeholder="All semesters"
-          />
-        </View>
-      </View>
+      <SegmentedTabs
+        value={view}
+        onChange={setView}
+        options={[
+          { value: 'registry', label: 'College students' },
+          { value: 'enrolled', label: 'Course enrolled' },
+        ]}
+      />
 
-      <View style={styles.filters}>
-        <View style={styles.filterCol}>
-          <DropdownField
-            label="Year of graduation"
-            value={yearOfGraduation}
-            onChange={setYearOfGraduation}
-            options={yearOptions}
-            placeholder="All years"
-          />
-        </View>
+      <SearchInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search by name, ID, email, or course"
+        onSubmit={load}
+      />
+
+      <FilterGrid>
+        <DropdownField
+          label="Branch"
+          value={branch}
+          onChange={setBranch}
+          options={branchOptions}
+          placeholder="All branches"
+        />
+        <DropdownField
+          label="Semester"
+          value={semester}
+          onChange={setSemester}
+          options={semesterOptions}
+          placeholder="All semesters"
+        />
+        <DropdownField
+          label="Year of graduation"
+          value={yearOfGraduation}
+          onChange={setYearOfGraduation}
+          options={yearOptions}
+          placeholder="All years"
+        />
         {view === 'enrolled' ? (
-          <View style={styles.filterCol}>
-            <DropdownField
-              label="Course batch"
-              value={courseRequestId}
-              onChange={setCourseRequestId}
-              options={courseOptions}
-              placeholder="All course batches"
-            />
-          </View>
-        ) : (
-          <View style={styles.filterCol} />
-        )}
-      </View>
+          <DropdownField
+            label="Course batch"
+            value={courseRequestId}
+            onChange={setCourseRequestId}
+            options={courseOptions}
+            placeholder="All course batches"
+          />
+        ) : null}
+      </FilterGrid>
 
-      <View style={styles.actions}>
-        <PrimaryButton title={loading ? 'Loading…' : 'Apply filters'} onPress={load} />
-        <View style={styles.actionGap} />
-        <PrimaryButton title="Export CSV" variant="secondary" onPress={exportList} />
-      </View>
+      <PrimaryButton title={loading ? 'Loading…' : 'Apply filters'} onPress={load} />
 
-      <Text style={styles.count}>{countLabel}</Text>
+      <ResultBar
+        label={view === 'registry' ? 'College students' : 'Course-enrolled students'}
+        count={items.length}
+      />
 
       <FlatList
         data={items as (CollegeStudent | CourseEnrolledStudent)[]}
-        keyExtractor={(item) =>
-          'registrationId' in item ? item.registrationId : item.id
-        }
+        keyExtractor={(item) => ('registrationId' in item ? item.registrationId : item.id)}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {loading
-              ? 'Loading…'
-              : view === 'enrolled'
-                ? 'No students registered on college-requested courses yet.'
-                : 'No students found for these filters.'}
-          </Text>
+          <EmptyState
+            title={
+              loading
+                ? 'Loading students…'
+                : view === 'enrolled'
+                  ? 'No course-enrolled students yet'
+                  : 'No students match these filters'
+            }
+            body={
+              view === 'enrolled'
+                ? 'Students appear here after they register on a college-requested course batch.'
+                : 'Try another branch, semester, or clear search.'
+            }
+          />
         }
         renderItem={({ item, index }) => {
           if (view === 'enrolled' && 'courseName' in item) {
             const row = item as CourseEnrolledStudent;
             return (
-              <View style={styles.row}>
-                <Text style={styles.hash}>{index + 1}</Text>
-                <View style={styles.body}>
-                  <Text style={styles.name}>{row.fullName}</Text>
-                  <Text style={styles.meta}>
-                    {row.courseName}
-                    {row.hallTicketNo ? ` · ${row.hallTicketNo}` : ''}
-                  </Text>
-                  <Text style={styles.meta}>
-                    {row.email} · {row.branch}
-                    {row.semester ? ` · Sem ${row.semester}` : ''} · YOG {row.yearOfGraduation}
-                  </Text>
-                  <Text style={styles.meta}>
-                    Registered {row.registeredAt.slice(0, 10)} · Batch {row.startDate} → {row.endDate}
-                  </Text>
+              <DataCard accent>
+                <View style={styles.rowTop}>
+                  <Text style={styles.hash}>{index + 1}</Text>
+                  <View style={styles.body}>
+                    <Text style={styles.name}>{row.fullName}</Text>
+                    <Text style={styles.meta}>{row.courseName}</Text>
+                    <Text style={styles.meta}>
+                      {row.email}
+                      {row.hallTicketNo ? ` · ${row.hallTicketNo}` : ''}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {row.branch}
+                      {row.semester ? ` · Sem ${row.semester}` : ''} · YOG {row.yearOfGraduation}
+                    </Text>
+                  </View>
+                  <StatusBadge status={row.registrationStatus} />
                 </View>
-                <StatusBadge status={row.registrationStatus} />
-              </View>
+              </DataCard>
             );
           }
 
           const row = item as CollegeStudent;
           return (
-            <View style={styles.row}>
-              <Text style={styles.hash}>{index + 1}</Text>
-              <View style={styles.body}>
-                <Text style={styles.name}>{row.fullName}</Text>
-                <Text style={styles.meta}>
-                  {row.username} · {row.hallTicketNo}
-                </Text>
-                <Text style={styles.meta}>
-                  {row.email} · {row.caste} · {row.branch}
-                  {row.semester ? ` · Sem ${row.semester}` : ''}
-                  {row.yearOfGraduation ? ` · YOG ${row.yearOfGraduation}` : ''}
-                </Text>
+            <DataCard>
+              <View style={styles.rowTop}>
+                <Text style={styles.hash}>{index + 1}</Text>
+                <View style={styles.body}>
+                  <Text style={styles.name}>{row.fullName}</Text>
+                  <Text style={styles.meta}>
+                    {row.username} · {row.hallTicketNo}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {row.email} · {row.caste} · {row.branch}
+                    {row.semester ? ` · Sem ${row.semester}` : ''}
+                    {row.yearOfGraduation ? ` · YOG ${row.yearOfGraduation}` : ''}
+                  </Text>
+                </View>
+                <StatusBadge status={row.status.toLowerCase()} />
               </View>
-              <StatusBadge status={row.status.toLowerCase()} />
-            </View>
+            </DataCard>
           );
         }}
       />
-    </View>
+    </PanelPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 6 },
-  lead: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 12 },
-  tabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  tab: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  tabActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  tabText: { color: colors.text, fontWeight: '700', fontSize: 13 },
-  tabTextActive: { color: colors.white },
-  search: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-    color: colors.text,
-  },
-  filters: { flexDirection: 'row', gap: 10 },
-  filterCol: { flex: 1 },
-  actions: { marginTop: 4, marginBottom: 8 },
-  actionGap: { height: 8 },
-  count: { color: colors.textMuted, marginBottom: 10, fontWeight: '600' },
   list: { paddingBottom: 40 },
-  empty: { color: colors.textMuted, lineHeight: 20 },
-  row: {
-    flexDirection: 'row',
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    alignItems: 'flex-start',
-  },
-  hash: { color: colors.textMuted, width: 20, marginTop: 2 },
+  rowTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  hash: { color: colors.textMuted, width: 20, marginTop: 2, fontWeight: '700' },
   body: { flex: 1 },
   name: { fontWeight: '700', color: colors.text, marginBottom: 2 },
   meta: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },

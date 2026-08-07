@@ -1,7 +1,17 @@
 import React, { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  DataCard,
+  EmptyState,
+  FilterGrid,
+  PanelHeader,
+  PanelPage,
+  ResultBar,
+  SearchInput,
+} from '../../components/college/PanelChrome';
 import { DropdownField, PrimaryButton, StatusBadge } from '../../components/ui';
+import { BRANCHES, GRADUATION_YEARS } from '../../constants/courses';
 import { collegePortalApi } from '../../services/collegePortalApi';
 import { colors } from '../../theme/colors';
 import type { CourseRequest } from '../../types/collegePortal';
@@ -18,17 +28,27 @@ export function CourseRequestsPanel({
 }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All');
+  const [branch, setBranch] = useState('');
+  const [yearOfGraduation, setYearOfGraduation] = useState('');
   const [items, setItems] = useState<CourseRequest[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    setItems(
-      await collegePortalApi.listCourseRequests({
-        enrollmentId: enrollment.id,
-        status,
-        query,
-      }),
-    );
-  }, [enrollment.id, status, query]);
+    setLoading(true);
+    try {
+      setItems(
+        await collegePortalApi.listCourseRequests({
+          enrollmentId: enrollment.id,
+          status,
+          query,
+          branch: branch || undefined,
+          yearOfGraduation: yearOfGraduation || undefined,
+        }),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [enrollment.id, status, query, branch, yearOfGraduation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,52 +57,91 @@ export function CourseRequestsPanel({
   );
 
   return (
-    <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.h1}>Request for a Course</Text>
-        <PrimaryButton title="Request a course" onPress={onOpenForm} />
-      </View>
+    <PanelPage>
+      <PanelHeader
+        title="Request for a Course"
+        subtitle="Track every batch request your college has submitted to TASK."
+        action={<PrimaryButton title="Request a course" onPress={onOpenForm} />}
+      />
 
-      <TextInput
-        style={styles.search}
-        placeholder="Search courses..."
-        placeholderTextColor={colors.textMuted}
+      <SearchInput
         value={query}
         onChangeText={setQuery}
-        onSubmitEditing={load}
+        placeholder="Search by course, branch, or trainer"
+        onSubmit={load}
       />
-      <DropdownField
-        label="Status"
-        value={status}
-        onChange={setStatus}
-        options={[
-          { value: 'All', label: 'All' },
-          { value: 'pending', label: 'Pending' },
-          { value: 'approved', label: 'Approved' },
-          { value: 'rejected', label: 'Rejected' },
-        ]}
+
+      <FilterGrid>
+        <DropdownField
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: 'All', label: 'All statuses' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'rejected', label: 'Rejected' },
+          ]}
+        />
+        <DropdownField
+          label="Branch"
+          value={branch}
+          onChange={setBranch}
+          options={[
+            { value: '', label: 'All branches' },
+            ...BRANCHES.map((b) => ({ value: b, label: b })),
+          ]}
+        />
+        <DropdownField
+          label="Year of graduation"
+          value={yearOfGraduation}
+          onChange={setYearOfGraduation}
+          options={[
+            { value: '', label: 'All years' },
+            ...GRADUATION_YEARS.map((y) => ({ value: y, label: y })),
+          ]}
+        />
+      </FilterGrid>
+
+      <PrimaryButton
+        title={loading ? 'Loading…' : 'Apply filters'}
+        variant="secondary"
+        onPress={load}
       />
+
+      <ResultBar label="Requests" count={items.length} />
 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>No course requests yet.</Text>}
+        ListEmptyComponent={
+          <EmptyState
+            title={loading ? 'Loading requests…' : 'No course requests found'}
+            body="Submit a new request from Courses, or clear filters to see older requests."
+          />
+        }
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => onView(item.id)}>
+          <DataCard accent onPress={() => onView(item.id)}>
             <View style={styles.row}>
               <Text style={styles.title}>{item.courseName}</Text>
               <StatusBadge status={item.status} />
             </View>
-            <Text style={styles.meta}>Requested on {formatDate(item.requestedOn)}</Text>
             <Text style={styles.meta}>
-              {formatDate(item.startDate)} → {formatDate(item.endDate)} · Batch {item.batchSize}
+              {item.branch} · YOG {item.yearOfGraduation} · Batch {item.batchSize}
             </Text>
-            <Text style={styles.view}>View</Text>
-          </Pressable>
+            <Text style={styles.meta}>
+              {formatDate(item.startDate)} → {formatDate(item.endDate)}
+            </Text>
+            <Text style={styles.meta}>Requested on {formatDate(item.requestedOn)}</Text>
+            {item.trainerName ? (
+              <Text style={styles.trainer}>Trainer: {item.trainerName}</Text>
+            ) : null}
+            <Text style={styles.view}>View details →</Text>
+          </DataCard>
         )}
       />
-    </View>
+    </PanelPage>
   );
 }
 
@@ -93,31 +152,20 @@ function formatDate(value: string) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16 },
-  header: { gap: 10, marginBottom: 12 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text },
-  search: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 4,
-    color: colors.text,
-  },
   list: { paddingBottom: 40 },
-  empty: { color: colors.textMuted },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 6,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 6 },
-  title: { flex: 1, fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted, fontSize: 12, marginBottom: 2 },
-  view: { marginTop: 8, color: colors.primary, fontWeight: '700' },
+  title: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
+  meta: { color: colors.textMuted, fontSize: 12, marginBottom: 2, lineHeight: 17 },
+  trainer: {
+    marginTop: 4,
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  view: { marginTop: 10, color: colors.primary, fontWeight: '700', fontSize: 13 },
 });

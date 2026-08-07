@@ -1,14 +1,48 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import {
+  DataCard,
+  PanelHeader,
+  PanelPage,
+  SectionLabel,
+  StatTiles,
+} from '../../components/college/PanelChrome';
 import { StatusBadge } from '../../components/ui';
 import { colors } from '../../theme/colors';
 import type { CollegeEnrollment } from '../../types/enrollment';
 
 export function RenewalPanel({ enrollment }: { enrollment: CollegeEnrollment }) {
   return (
-    <View style={styles.root}>
-      <Text style={styles.h1}>College Renewal / Payment</Text>
-      <View style={styles.card}>
+    <PanelPage>
+      <PanelHeader
+        title="College Renewal / Payment"
+        subtitle="Review your college registration status and fee acknowledgement."
+      />
+
+      <StatTiles
+        items={[
+          {
+            label: 'Status',
+            value: enrollment.status === 'approved' ? 'Active' : enrollment.status,
+          },
+          {
+            label: 'Fee paid',
+            value: `₹${enrollment.registrationFee.toLocaleString('en-IN')}`,
+          },
+          {
+            label: 'District',
+            value: enrollment.district,
+          },
+          {
+            label: 'Centre',
+            value: enrollment.regionalCenterName?.split(' ')[0] || '—',
+            hint: enrollment.regionalCenterName,
+          },
+        ]}
+      />
+
+      <SectionLabel>Registration summary</SectionLabel>
+      <DataCard>
         <View style={styles.row}>
           <Text style={styles.label}>Registration status</Text>
           <StatusBadge status={enrollment.status} />
@@ -16,34 +50,37 @@ export function RenewalPanel({ enrollment }: { enrollment: CollegeEnrollment }) 
         <Text style={styles.meta}>College: {enrollment.institutionName}</Text>
         <Text style={styles.meta}>Affiliation: {enrollment.affiliationNumber}</Text>
         <Text style={styles.meta}>
+          Contact: {enrollment.contactPersonName} ({enrollment.contactDesignation})
+        </Text>
+        <Text style={styles.meta}>
+          Email: {enrollment.officialEmail} · Mobile: {enrollment.officialMobile}
+        </Text>
+        <Text style={styles.meta}>
           Last fee acknowledged: ₹ {enrollment.registrationFee.toLocaleString('en-IN')}
         </Text>
+      </DataCard>
+
+      <DataCard>
+        <Text style={styles.noteTitle}>Next renewal</Text>
         <Text style={styles.note}>
-          Renewal and online payment gateway will be connected in a later phase. For now this
-          screen confirms your college tenant is active.
+          Online renewal and payment gateway will be connected in a later phase. For now this
+          screen confirms your college tenant is active with TASK.
         </Text>
-      </View>
-    </View>
+      </DataCard>
+    </PanelPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 12 },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+    gap: 8,
   },
   label: { fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted, marginBottom: 4, fontSize: 13 },
-  note: { marginTop: 12, color: colors.textMuted, lineHeight: 20, fontSize: 13 },
+  meta: { color: colors.textMuted, marginBottom: 4, fontSize: 13, lineHeight: 18 },
+  noteTitle: { fontWeight: '800', color: colors.primaryDark, marginBottom: 6 },
+  note: { color: colors.textMuted, lineHeight: 20, fontSize: 13 },
 });

@@ -1,6 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  DataCard,
+  EmptyState,
+  FilterGrid,
+  PanelHeader,
+  PanelPage,
+  ResultBar,
+  SearchInput,
+} from '../../components/college/PanelChrome';
 import { DropdownField, PrimaryButton } from '../../components/ui';
 import { COURSE_CATEGORIES } from '../../constants/courses';
 import { collegePortalApi } from '../../services/collegePortalApi';
@@ -13,11 +22,18 @@ export function CoursesPanel({
   onRequestCourse: (course: Course) => void;
 }) {
   const [category, setCategory] = useState('All Categories');
+  const [query, setQuery] = useState('');
   const [items, setItems] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    setItems(await collegePortalApi.listCourses(category));
-  }, [category]);
+    setLoading(true);
+    try {
+      setItems(await collegePortalApi.listCourses(category, query));
+    } finally {
+      setLoading(false);
+    }
+  }, [category, query]);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,59 +42,87 @@ export function CoursesPanel({
   );
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.h1}>Courses</Text>
-      <DropdownField
-        label="Category"
-        value={category}
-        onChange={setCategory}
-        options={COURSE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+    <PanelPage>
+      <PanelHeader
+        title="Courses"
+        subtitle="Browse the TASK catalogue and request a course for your college batch."
       />
-      <Text style={styles.count}>Total Results: {items.length}</Text>
+
+      <SearchInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search courses by title or category"
+        onSubmit={load}
+      />
+
+      <FilterGrid>
+        <DropdownField
+          label="Category"
+          value={category}
+          onChange={setCategory}
+          options={COURSE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+        />
+      </FilterGrid>
+
+      <PrimaryButton
+        title={loading ? 'Searching…' : 'Apply filters'}
+        variant="secondary"
+        onPress={load}
+      />
+
+      <ResultBar label="Courses found" count={items.length} />
+
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <EmptyState
+            title={loading ? 'Loading courses…' : 'No courses match your filters'}
+            body="Try another category or clear the search text."
+          />
+        }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.category}>{item.category}</Text>
-            <Text style={styles.desc}>{item.description || '—'}</Text>
+          <DataCard>
+            <View style={styles.cardTop}>
+              <Text style={styles.title}>{item.title}</Text>
+              <View style={styles.chip}>
+                <Text style={styles.chipText}>{item.category}</Text>
+              </View>
+            </View>
+            <Text style={styles.desc}>{item.description || 'No description provided.'}</Text>
             <Text style={styles.years}>
-              Year of graduation:{' '}
-              {item.graduationYears.length
-                ? `[ ${item.graduationYears.map((y) => `"${y}"`).join(', ')} ]`
-                : '—'}
+              Graduation years:{' '}
+              {item.graduationYears.length ? item.graduationYears.join(', ') : 'Open'}
             </Text>
             <View style={styles.action}>
-              <PrimaryButton
-                title="Request this course"
-                onPress={() => onRequestCourse(item)}
-              />
+              <PrimaryButton title="Request this course" onPress={() => onRequestCourse(item)} />
             </View>
-          </View>
+          </DataCard>
         )}
       />
-    </View>
+    </PanelPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 8 },
-  count: { color: colors.textMuted, marginBottom: 10, fontWeight: '600' },
   list: { paddingBottom: 40 },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
     marginBottom: 8,
   },
-  title: { fontWeight: '700', color: colors.text, fontSize: 15, marginBottom: 4 },
-  category: { color: colors.primary, fontWeight: '600', marginBottom: 6 },
-  desc: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 8 },
+  title: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
+  chip: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  chipText: { color: colors.primaryDark, fontWeight: '700', fontSize: 11 },
+  desc: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 8 },
   years: { color: colors.textMuted, fontSize: 12, marginBottom: 12 },
-  action: { marginTop: 4 },
+  action: { marginTop: 2 },
 });

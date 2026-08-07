@@ -10,6 +10,13 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { DUMMY_COLLEGE_CONTACTS } from '../constants/demoData';
+import {
+  DataCard,
+  EmptyState,
+  PanelHeader,
+  SectionLabel,
+  StatTiles,
+} from '../components/college/PanelChrome';
 import { CollegeShell, type CollegeMenuKey } from '../components/CollegeShell';
 import { PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
@@ -148,8 +155,33 @@ export function CollegeHomeScreen({ navigation }: Props) {
           contentContainerStyle={styles.pad}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          <Text style={styles.h1}>Overview</Text>
-          <View style={styles.card}>
+          <PanelHeader
+            title="Overview"
+            subtitle="College status, latest TASK updates, and quick links for daily work."
+          />
+
+          <StatTiles
+            items={[
+              { label: 'Students', value: studentCount, hint: 'In college registry' },
+              {
+                label: 'Pending requests',
+                value: pendingRequests.length,
+                hint: 'Awaiting TASK Admin',
+              },
+              {
+                label: 'Upcoming sessions',
+                value: upcomingSessions.length,
+                hint: 'Approved calendar',
+              },
+              {
+                label: 'Status',
+                value: enrollment.status === 'approved' ? 'Active' : enrollment.status,
+                hint: enrollment.regionalCenterName,
+              },
+            ]}
+          />
+
+          <DataCard>
             <View style={styles.row}>
               <Text style={styles.college}>{enrollment.institutionName}</Text>
               <StatusBadge status={enrollment.status} />
@@ -161,15 +193,9 @@ export function CollegeHomeScreen({ navigation }: Props) {
             <Text style={styles.meta}>
               Contact: {enrollment.contactPersonName} ({enrollment.contactDesignation})
             </Text>
-            <Text style={styles.meta}>
-              Students: {studentCount} · Pending requests: {pendingRequests.length}
-            </Text>
-          </View>
+          </DataCard>
 
-          <Text style={styles.h2}>Latest updates</Text>
-          <Text style={styles.lead}>
-            Approvals, trainer assignments, and other TASK Admin activity for your college.
-          </Text>
+          <SectionLabel>Latest updates</SectionLabel>
           {(() => {
             const updates: {
               id: string;
@@ -239,86 +265,92 @@ export function CollegeHomeScreen({ navigation }: Props) {
             const unique = updates.slice(0, 8);
 
             if (unique.length === 0) {
-              return <Text style={styles.muted}>No recent updates yet.</Text>;
+              return <EmptyState title="No recent updates yet" body="Approvals and trainer assignments will show here." />;
             }
 
             return unique.map((u) => (
-              <Pressable
-                key={u.id}
-                style={styles.updateCard}
-                onPress={u.onPress}
-                disabled={!u.onPress}
-              >
+              <DataCard key={u.id} accent onPress={u.onPress}>
                 <View style={styles.row}>
                   <Text style={styles.noteTitle}>{u.title}</Text>
                   {u.status ? <StatusBadge status={u.status} /> : null}
                 </View>
                 <Text style={styles.meta}>{u.body}</Text>
-                <Text style={styles.when}>
-                  {new Date(u.when).toLocaleString('en-IN')}
-                </Text>
-              </Pressable>
+                <Text style={styles.when}>{new Date(u.when).toLocaleString('en-IN')}</Text>
+              </DataCard>
             ));
           })()}
 
-          <Text style={styles.h2}>Upcoming trainings</Text>
+          <SectionLabel>Upcoming trainings</SectionLabel>
           {upcomingSessions.length === 0 ? (
-            <Text style={styles.muted}>No upcoming approved sessions on the calendar.</Text>
+            <EmptyState
+              title="No upcoming approved sessions"
+              body="Approved calendar sessions will appear here."
+            />
           ) : (
             upcomingSessions.map((s) => (
-              <Pressable
-                key={s.id}
-                style={styles.updateCard}
-                onPress={() => setMenu('calendar')}
-              >
+              <DataCard key={s.id} accent onPress={() => setMenu('calendar')}>
                 <Text style={styles.noteTitle}>{s.courseName}</Text>
                 <Text style={styles.meta}>
                   {s.startDate} → {s.endDate} · {s.branch} · Batch {s.batchSize}
                 </Text>
-                <Text style={styles.meta}>
-                  Trainer: {s.trainerName || 'Not assigned yet'}
-                </Text>
-              </Pressable>
+                <Text style={styles.meta}>Trainer: {s.trainerName || 'Not assigned yet'}</Text>
+              </DataCard>
             ))
           )}
 
-          <Text style={styles.h2}>Quick actions</Text>
+          <SectionLabel>Quick actions</SectionLabel>
           <View style={styles.actions}>
-            <Pressable style={styles.action} onPress={() => navigation.navigate('ProfileEdit')}>
-              <Text style={styles.actionTitle}>Edit profile</Text>
-              <Text style={styles.actionBody}>Update contact details or password</Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('courses')}>
-              <Text style={styles.actionTitle}>Courses</Text>
-              <Text style={styles.actionBody}>Browse TASK course catalogue</Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('requests')}>
-              <Text style={styles.actionTitle}>Request a Course</Text>
-              <Text style={styles.actionBody}>Submit and track requests</Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('calendar')}>
-              <Text style={styles.actionTitle}>Calendar</Text>
-              <Text style={styles.actionBody}>Approved trainings only</Text>
-            </Pressable>
-            <Pressable style={styles.action} onPress={() => setMenu('students')}>
-              <Text style={styles.actionTitle}>Students</Text>
-              <Text style={styles.actionBody}>{studentCount} registered students</Text>
-            </Pressable>
+            {[
+              {
+                title: 'Students',
+                body: `${studentCount} registered students`,
+                onPress: () => setMenu('students'),
+              },
+              {
+                title: 'Courses',
+                body: 'Browse TASK course catalogue',
+                onPress: () => setMenu('courses'),
+              },
+              {
+                title: 'Request a Course',
+                body: 'Submit and track requests',
+                onPress: () => setMenu('requests'),
+              },
+              {
+                title: 'Reports',
+                body: 'Export student and batch reports',
+                onPress: () => setMenu('reports'),
+              },
+              {
+                title: 'Calendar',
+                body: 'Approved trainings only',
+                onPress: () => setMenu('calendar'),
+              },
+              {
+                title: 'Edit profile',
+                body: 'Update contact details or password',
+                onPress: () => navigation.navigate('ProfileEdit'),
+              },
+            ].map((action) => (
+              <Pressable key={action.title} style={styles.action} onPress={action.onPress}>
+                <Text style={styles.actionTitle}>{action.title}</Text>
+                <Text style={styles.actionBody}>{action.body}</Text>
+              </Pressable>
+            ))}
           </View>
 
           <View style={styles.sectionHead}>
-            <Text style={styles.h2}>Pending course requests</Text>
+            <SectionLabel>Pending course requests</SectionLabel>
             <Pressable onPress={() => setMenu('requests')}>
               <Text style={styles.link}>View all</Text>
             </Pressable>
           </View>
           {pendingRequests.length === 0 ? (
-            <Text style={styles.muted}>No pending course requests right now.</Text>
+            <EmptyState title="No pending course requests" body="New submissions will appear here while awaiting approval." />
           ) : (
             pendingRequests.map((req) => (
-              <Pressable
+              <DataCard
                 key={req.id}
-                style={styles.note}
                 onPress={() =>
                   navigation.navigate('CourseRequestDetail', { requestId: req.id })
                 }
@@ -333,7 +365,7 @@ export function CollegeHomeScreen({ navigation }: Props) {
                 <Text style={styles.meta}>
                   Requested {new Date(req.requestedOn).toLocaleString('en-IN')}
                 </Text>
-              </Pressable>
+              </DataCard>
             ))
           )}
         </ScrollView>
@@ -377,9 +409,6 @@ const styles = StyleSheet.create({
   blocked: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
   blockedTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   pad: { padding: 16, paddingBottom: 40 },
-  h1: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 12 },
-  h2: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 8, marginBottom: 8 },
-  lead: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 10, marginTop: -4 },
   sectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -387,14 +416,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   link: { color: colors.primary, fontWeight: '700', fontSize: 13 },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 14,
-  },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
   college: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 16 },
   meta: { color: colors.textMuted, fontSize: 13, marginBottom: 3, lineHeight: 18 },
@@ -405,28 +426,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
   },
   actionTitle: { fontWeight: '700', color: colors.primaryDark, marginBottom: 4 },
   actionBody: { color: colors.textMuted, fontSize: 13 },
-  note: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  updateCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
   noteTitle: { flex: 1, fontWeight: '700', color: colors.text, marginBottom: 4 },
 });
