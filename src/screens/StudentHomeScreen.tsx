@@ -17,6 +17,7 @@ import {
   PanelHeader,
   SearchInput,
   SectionLabel,
+  StatTiles,
 } from '../components/college/PanelChrome';
 import { StudentShell, type StudentMenuKey } from '../components/StudentShell';
 import { PrimaryButton, StatusBadge } from '../components/ui';
@@ -173,6 +174,13 @@ export function StudentHomeScreen({ navigation }: Props) {
             }
           />
 
+          <StatTiles
+            items={[
+              { label: 'My trainings', value: active.length },
+              { label: 'Alerts', value: unreadCount, hint: unreadCount ? 'Unread' : 'All read' },
+            ]}
+          />
+
           {deadlineAlerts.length > 0 ? (
             <Pressable
               style={styles.deadlineBanner}
@@ -194,12 +202,6 @@ export function StudentHomeScreen({ navigation }: Props) {
               </Text>
               <Text style={styles.deadlineLink}>
                 {deadlineAlerts[0].relatedRequestId ? 'Open assignment →' : 'View alerts →'}
-              </Text>
-            </Pressable>
-          ) : unreadCount > 0 ? (
-            <Pressable style={styles.softBanner} onPress={() => setMenu('alerts')}>
-              <Text style={styles.softBannerText}>
-                You have {unreadCount} unread alert{unreadCount === 1 ? '' : 's'}
               </Text>
             </Pressable>
           ) : null}

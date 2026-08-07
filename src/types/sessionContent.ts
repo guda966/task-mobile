@@ -50,6 +50,9 @@ export interface AssignmentSubmission {
   notes?: string;
   status: SubmissionStatus;
   trainerRemark?: string;
+  /** Marks awarded by trainer (shown when status is accepted). */
+  score?: number;
+  maxScore?: number;
   submittedAt: string;
   reviewedAt?: string;
 }

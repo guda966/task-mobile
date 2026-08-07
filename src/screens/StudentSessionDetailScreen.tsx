@@ -39,6 +39,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'StudentSessionDetail'>;
 type Tab =
   | 'materials'
   | 'assignments'
+  | 'results'
   | 'attendance'
   | 'certificates'
   | 'feedback'
@@ -55,6 +56,7 @@ const RATING_OPTIONS = [
 const TABS: { key: Tab; label: string }[] = [
   { key: 'materials', label: 'Materials' },
   { key: 'assignments', label: 'Assignments' },
+  { key: 'results', label: 'Results' },
   { key: 'attendance', label: 'Attendance' },
   { key: 'certificates', label: 'Certificates' },
   { key: 'feedback', label: 'Feedback' },
@@ -89,13 +91,13 @@ function submissionStatusCopy(status?: string): { label: string; hint: string } 
   if (!status) {
     return {
       label: 'Not submitted',
-      hint: 'Upload your file below, then tap Submit assignment.',
+      hint: 'Choose a file from your device, then submit.',
     };
   }
   if (status === 'submitted') {
     return {
-      label: 'Submitted — awaiting trainer review',
-      hint: 'You can wait for acceptance or a revision request.',
+      label: 'Under review',
+      hint: 'Trainer will accept, score, or ask for revision.',
     };
   }
   if (status === 'needs_revision') {
@@ -107,7 +109,7 @@ function submissionStatusCopy(status?: string): { label: string; hint: string } 
   if (status === 'accepted') {
     return {
       label: 'Accepted',
-      hint: 'This assignment is complete. No further action needed.',
+      hint: 'Your assessment score is shown below.',
     };
   }
   return { label: status, hint: '' };
@@ -185,6 +187,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
   const tabCounts: Partial<Record<Tab, number>> = {
     materials: materials.length,
     assignments: assignments.length,
+    results: submissions.filter((s) => s.score !== undefined).length,
     attendance: attendance.length,
     certificates: certificates.length,
     feedback: myFeedback.length,
@@ -205,7 +208,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
         notes: submitNotes[assignmentId],
       });
       setSubmitNotes((prev) => ({ ...prev, [assignmentId]: '' }));
-      Alert.alert('Submitted', 'Your assignment was sent to the trainer.');
+      Alert.alert(
+        'Submitted',
+        'Your file was sent to the trainer. Check Results after it is reviewed and scored.',
+      );
       await load();
     } catch (e) {
       if (e instanceof Error && e.message === 'Cancelled') return;
@@ -332,6 +338,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'materials' ? (
           <>
+            <Text style={styles.sectionLead}>Slides and notes from your trainer</Text>
             {materials.length === 0 ? (
               <EmptyState
                 title="No materials yet"
@@ -359,7 +366,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
                       style={styles.primarySoftBtn}
                       onPress={() => demoOpenFile(item.file.fileName)}
                     >
-                      <Text style={styles.primarySoftBtnText}>View file</Text>
+                      <Text style={styles.primarySoftBtnText}>View / download</Text>
                     </Pressable>
                   </View>
                 </DataCard>
@@ -370,6 +377,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
 
         {tab === 'assignments' ? (
           <>
+            <Text style={styles.sectionLead}>
+              Submit work from your device. Trainer review and scores appear under Results.
+            </Text>
             {assignments.length === 0 ? (
               <EmptyState
                 title="No assignments posted"
@@ -388,54 +398,128 @@ export function StudentSessionDetailScreen({ route }: Props) {
                       <StatusBadge status={mine?.status || 'pending'} />
                     </View>
                     {due ? (
-                      <Text style={[styles.dueInline, due.urgent && styles.dueInlineUrgent]}>
-                        {due.text}
-                      </Text>
+                      <View style={[styles.dueChip, due.urgent && styles.dueChipUrgent]}>
+                        <Text style={[styles.dueChipText, due.urgent && styles.dueChipTextUrgent]}>
+                          {due.text}
+                        </Text>
+                      </View>
                     ) : null}
                     <Text style={styles.body}>{item.instructions}</Text>
-                    <Text style={styles.statusHint}>{statusCopy.hint}</Text>
 
                     {item.file ? (
                       <Pressable
                         onPress={() => demoOpenFile(item.file!.fileName)}
-                        style={styles.inlineLink}
+                        style={styles.templateBtn}
                       >
-                        <Text style={styles.linkText}>
-                          Template: {item.file.fileName} · {item.file.sizeLabel}
+                        <Text style={styles.templateBtnText}>
+                          Download template · {item.file.fileName}
                         </Text>
                       </Pressable>
                     ) : null}
 
-                    {mine ? (
-                      <Text style={styles.meta}>
-                        Your file: {mine.file.fileName}
-                        {mine.trainerRemark ? ` · Trainer: ${mine.trainerRemark}` : ''}
-                      </Text>
-                    ) : null}
+                    <View style={styles.statusPanel}>
+                      <Text style={styles.statusPanelLabel}>{statusCopy.label}</Text>
+                      <Text style={styles.statusHint}>{statusCopy.hint}</Text>
+                      {mine ? (
+                        <Text style={styles.meta}>
+                          Uploaded: {mine.file.fileName} · {mine.file.sizeLabel}
+                        </Text>
+                      ) : null}
+                      {mine?.trainerRemark ? (
+                        <Text style={styles.remark}>Trainer: {mine.trainerRemark}</Text>
+                      ) : null}
+                      {mine?.score !== undefined && mine.maxScore !== undefined ? (
+                        <Text style={styles.scoreLine}>
+                          Score: {mine.score} / {mine.maxScore}
+                        </Text>
+                      ) : null}
+                    </View>
 
                     {canSubmit ? (
-                      <View style={styles.submitBox}>
+                      <View style={styles.submitPanel}>
+                        <Text style={styles.submitTitle}>How to submit</Text>
+                        <Text style={styles.stepLine}>1. Download the template (if provided)</Text>
+                        <Text style={styles.stepLine}>2. Prepare your PDF or DOC file</Text>
+                        <Text style={styles.stepLine}>
+                          3. Tap the button below to choose file and submit
+                        </Text>
                         <FormField
-                          label="Notes (optional)"
+                          label="Notes for trainer (optional)"
                           value={submitNotes[item.id] || ''}
                           onChangeText={(v) =>
                             setSubmitNotes((prev) => ({ ...prev, [item.id]: v }))
                           }
-                          placeholder="Anything the trainer should know"
+                          placeholder="Optional message"
                         />
                         <PrimaryButton
                           title={
                             saving
                               ? 'Uploading…'
                               : mine
-                                ? 'Resubmit file'
-                                : 'Upload & submit'
+                                ? 'Choose file & resubmit'
+                                : 'Choose file & submit'
                           }
                           onPress={() => submitWork(item.id)}
                           disabled={saving}
                         />
                       </View>
                     ) : null}
+                  </DataCard>
+                );
+              })
+            )}
+          </>
+        ) : null}
+
+        {tab === 'results' ? (
+          <>
+            <Text style={styles.sectionLead}>
+              Assessment scores after the trainer accepts your work (out of 20).
+            </Text>
+            {submissions.filter((s) => s.status === 'accepted' || s.score !== undefined)
+              .length === 0 ? (
+              <EmptyState
+                title="No scores yet"
+                body="When your trainer accepts an assignment, the score and remark show here."
+              />
+            ) : (
+              assignments.map((item) => {
+                const mine = submissionByAssignment[item.id];
+                if (!mine || (mine.status !== 'accepted' && mine.score === undefined)) {
+                  return null;
+                }
+                const pct =
+                  mine.score !== undefined && mine.maxScore
+                    ? Math.round((mine.score / mine.maxScore) * 100)
+                    : null;
+                return (
+                  <DataCard key={item.id} accent>
+                    <View style={styles.row}>
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <StatusBadge status={mine.status} />
+                    </View>
+                    {mine.score !== undefined && mine.maxScore !== undefined ? (
+                      <View style={styles.scoreHero}>
+                        <Text style={styles.scoreHeroValue}>
+                          {mine.score}
+                          <Text style={styles.scoreHeroMax}> / {mine.maxScore}</Text>
+                        </Text>
+                        {pct !== null ? (
+                          <Text style={styles.scoreHeroPct}>{pct}%</Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Text style={styles.meta}>Accepted — score not entered by trainer</Text>
+                    )}
+                    {mine.trainerRemark ? (
+                      <Text style={styles.remark}>Remark: {mine.trainerRemark}</Text>
+                    ) : null}
+                    <Text style={styles.meta}>
+                      Reviewed{' '}
+                      {mine.reviewedAt
+                        ? new Date(mine.reviewedAt).toLocaleDateString('en-IN')
+                        : '—'}
+                    </Text>
                   </DataCard>
                 );
               })
@@ -601,7 +685,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tab: {
-    width: '32%',
+    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -610,7 +694,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
     borderRadius: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 11,
   },
   tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
@@ -656,19 +740,81 @@ const styles = StyleSheet.create({
   },
   itemTitle: { flex: 1, fontWeight: '700', color: colors.text, fontSize: 15 },
   meta: { color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 17 },
-  dueInline: {
-    color: colors.primaryDark,
-    fontWeight: '700',
-    fontSize: 12,
-    marginBottom: 4,
+  sectionLead: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
   },
-  dueInlineUrgent: { color: colors.warning },
-  statusHint: { color: colors.textMuted, fontSize: 12, marginTop: 6, lineHeight: 17 },
-  submitBox: {
+  dueChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  dueChipUrgent: { backgroundColor: colors.warningSoft },
+  dueChipText: { color: colors.primaryDark, fontWeight: '700', fontSize: 11 },
+  dueChipTextUrgent: { color: colors.warning },
+  templateBtn: {
+    marginTop: 10,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  templateBtnText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
+  statusPanel: {
     marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+  },
+  statusPanelLabel: { fontWeight: '800', color: colors.text, fontSize: 13, marginBottom: 2 },
+  statusHint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  remark: { marginTop: 8, color: colors.warning, fontWeight: '600', fontSize: 12, lineHeight: 17 },
+  scoreLine: {
+    marginTop: 8,
+    color: colors.success,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  submitPanel: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#BFDCDC',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    padding: 12,
+  },
+  submitTitle: {
+    fontWeight: '800',
+    color: colors.primaryDark,
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  stepLine: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 2 },
+  scoreHero: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  scoreHeroValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  scoreHeroMax: { fontSize: 18, fontWeight: '600', color: colors.textMuted },
+  scoreHeroPct: {
+    marginBottom: 6,
+    color: colors.success,
+    fontWeight: '800',
+    fontSize: 14,
   },
   body: { color: colors.text, marginTop: 6, lineHeight: 20, fontSize: 13 },
   ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 12, lineHeight: 18 },

@@ -273,6 +273,8 @@ export const sessionContentApi = {
       status: 'submitted',
       submittedAt: new Date().toISOString(),
       trainerRemark: undefined,
+      score: undefined,
+      maxScore: undefined,
       reviewedAt: undefined,
     };
     if (existing >= 0) items[existing] = entry;
@@ -286,6 +288,8 @@ export const sessionContentApi = {
     trainerId: string;
     status: Extract<SubmissionStatus, 'accepted' | 'needs_revision'>;
     remark?: string;
+    score?: number;
+    maxScore?: number;
   }): Promise<AssignmentSubmission> {
     await delay(300);
     const items = await readJson<AssignmentSubmission[]>(SUBMISSIONS_KEY, []);
@@ -293,10 +297,27 @@ export const sessionContentApi = {
     if (index < 0) throw new Error('Submission not found.');
     const session = await getRequest(items[index].requestId);
     assertCanManage(session, input.trainerId);
+
+    let score: number | undefined = input.score;
+    let maxScore: number | undefined = input.maxScore ?? 20;
+    if (input.status === 'needs_revision') {
+      score = undefined;
+      maxScore = undefined;
+    } else if (score !== undefined) {
+      if (Number.isNaN(score) || score < 0) throw new Error('Enter a valid score.');
+      if (maxScore !== undefined && score > maxScore) {
+        throw new Error(`Score cannot exceed ${maxScore}.`);
+      }
+    } else {
+      maxScore = undefined;
+    }
+
     items[index] = {
       ...items[index],
       status: input.status,
       trainerRemark: input.remark?.trim() || undefined,
+      score,
+      maxScore: score === undefined ? undefined : maxScore,
       reviewedAt: new Date().toISOString(),
     };
     await writeJson(SUBMISSIONS_KEY, items);

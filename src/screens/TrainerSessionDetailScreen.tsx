@@ -78,6 +78,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [asgDue, setAsgDue] = useState('');
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
+  const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
   const [selectedCerts, setSelectedCerts] = useState<Record<string, boolean>>({});
@@ -325,13 +326,21 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   ) => {
     if (!user?.trainerId) return;
     try {
+      const scoreRaw = scoreDrafts[submissionId]?.trim();
+      const score =
+        status === 'accepted' && scoreRaw !== undefined && scoreRaw !== ''
+          ? Number(scoreRaw)
+          : undefined;
       await sessionContentApi.reviewSubmission({
         submissionId,
         trainerId: user.trainerId,
         status,
         remark: reviewDrafts[submissionId],
+        score,
+        maxScore: 20,
       });
       setReviewDrafts((prev) => ({ ...prev, [submissionId]: '' }));
+      setScoreDrafts((prev) => ({ ...prev, [submissionId]: '' }));
       await load();
     } catch (e) {
       Alert.alert('Review failed', e instanceof Error ? e.message : 'Try again');
@@ -530,6 +539,11 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                           {sub.trainerRemark ? (
                             <Text style={styles.ok}>Remark: {sub.trainerRemark}</Text>
                           ) : null}
+                          {sub.score !== undefined && sub.maxScore !== undefined ? (
+                            <Text style={styles.ok}>
+                              Score: {sub.score} / {sub.maxScore}
+                            </Text>
+                          ) : null}
                           {sub.status === 'submitted' ? (
                             <>
                               <TextInput
@@ -540,6 +554,15 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                                 onChangeText={(v) =>
                                   setReviewDrafts((prev) => ({ ...prev, [sub.id]: v }))
                                 }
+                              />
+                              <FormField
+                                label="Score out of 20 (optional, on Accept)"
+                                value={scoreDrafts[sub.id] || ''}
+                                onChangeText={(v) =>
+                                  setScoreDrafts((prev) => ({ ...prev, [sub.id]: v }))
+                                }
+                                keyboardType="decimal-pad"
+                                placeholder="e.g. 16"
                               />
                               <View style={styles.rowBtns}>
                                 <PrimaryButton

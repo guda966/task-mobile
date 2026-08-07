@@ -17,7 +17,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v8';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v9';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -33,7 +33,9 @@ const IDS = {
   material: 'mat_demo_1',
   assignment: 'asg_demo_1',
   assignment2: 'asg_demo_2',
+  assignment3: 'asg_demo_3',
   submission: 'sub_demo_1',
+  submissionQuiz: 'sub_demo_quiz',
 };
 
 function isoDay(offsetDays: number): string {
@@ -626,6 +628,21 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
       dueDate: isoDay(5),
       createdAt: now,
     },
+    {
+      id: IDS.assignment3,
+      requestId: IDS.batch,
+      trainerId: trainer.id,
+      title: 'Soft skills self-check',
+      instructions:
+        'Complete the short self-assessment worksheet and upload it. Trainer will mark out of 20.',
+      dueDate: isoDay(-1),
+      file: {
+        fileName: 'SoftSkills_SelfCheck.pdf',
+        sizeLabel: '110 KB',
+        uploadedAt: now,
+      },
+      createdAt: now,
+    },
   ];
 
   const attendance: SessionAttendance[] = [
@@ -666,6 +683,24 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
       notes: 'Submitted for demo review.',
       status: 'needs_revision',
       trainerRemark: 'Add one real workplace example and resubmit.',
+      submittedAt: now,
+      reviewedAt: now,
+    },
+    {
+      id: IDS.submissionQuiz,
+      assignmentId: IDS.assignment3,
+      requestId: IDS.batch,
+      studentId: student.id,
+      studentName: `${student.firstName} ${student.lastName}`,
+      file: {
+        fileName: 'Ananya_SoftSkills_Check.pdf',
+        sizeLabel: '180 KB',
+        uploadedAt: now,
+      },
+      status: 'accepted',
+      score: 16,
+      maxScore: 20,
+      trainerRemark: 'Good self-awareness. Keep practising examples.',
       submittedAt: now,
       reviewedAt: now,
     },
