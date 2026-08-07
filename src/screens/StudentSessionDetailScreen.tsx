@@ -270,15 +270,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
           </DataCard>
         ) : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabRow}
-          style={styles.tabScroll}
-        >
+        <View style={styles.tabGrid}>
           {TABS.map((item) => {
             const active = tab === item.key;
-            const count = tabCounts[item.key];
+            const count = tabCounts[item.key] ?? 0;
             return (
               <Pressable
                 key={item.key}
@@ -287,16 +282,17 @@ export function StudentSessionDetailScreen({ route }: Props) {
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
-                {typeof count === 'number' ? (
-                  <View style={[styles.countPill, active && styles.countPillActive]}>
-                    <Text style={[styles.countText, active && styles.countTextActive]}>{count}</Text>
-                  </View>
-                ) : null}
+                <Text
+                  style={[styles.tabText, active && styles.tabTextActive]}
+                  numberOfLines={1}
+                >
+                  {item.label}
+                </Text>
+                <Text style={[styles.countText, active && styles.countTextActive]}>{count}</Text>
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
 
         {tab === 'materials' ? (
           <>
@@ -575,33 +571,30 @@ export function StudentSessionDetailScreen({ route }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 48 },
-  tabScroll: { marginBottom: 8, marginHorizontal: -4 },
-  tabRow: { paddingHorizontal: 4, gap: 8, paddingBottom: 4 },
+  tabGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 8,
+    marginBottom: 12,
+  },
   tab: {
+    width: '32%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 4,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 11,
   },
   tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  tabText: { flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' },
   tabTextActive: { color: colors.white },
-  countPill: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countPillActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
-  countText: { color: colors.primaryDark, fontSize: 11, fontWeight: '700' },
+  countText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
   countTextActive: { color: colors.white },
   cardTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   cardMain: { flex: 1 },
