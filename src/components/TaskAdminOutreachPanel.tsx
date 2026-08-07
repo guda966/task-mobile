@@ -347,12 +347,16 @@ export function TaskAdminOutreachPanel({
             <FormField label="Start time" value={startTime} onChangeText={setStartTime} />
             <FormField label="End time" value={endTime} onChangeText={setEndTime} />
             <FormField
-              label={mode === 'online' ? 'Meeting / join link' : 'Venue address'}
-              required
+              label={
+                mode === 'online' ? 'Meeting / join link' : 'Venue address (optional)'
+              }
+              required={mode === 'online'}
               value={venueOrLink}
               onChangeText={setVenueOrLink}
               placeholder={
-                mode === 'online' ? 'https://meet.example.com/…' : 'TASK Regional Centre, Hyderabad'
+                mode === 'online'
+                  ? 'https://meet.example.com/…'
+                  : 'Optional — e.g. TASK Regional Centre, Hyderabad'
               }
             />
             <FormField
@@ -397,9 +401,13 @@ export function TaskAdminOutreachPanel({
                 </Text>
                 <Text style={styles.meta}>{s.scope.label}</Text>
                 <Text style={styles.body}>{s.description}</Text>
-                <Text style={styles.meta}>
-                  {s.mode === 'online' ? 'Link' : 'Venue'}: {s.venueOrLink}
-                </Text>
+                {s.venueOrLink ? (
+                  <Text style={styles.meta}>
+                    {s.mode === 'online' ? 'Link' : 'Venue'}: {s.venueOrLink}
+                  </Text>
+                ) : (
+                  <Text style={styles.meta}>Venue: to be confirmed</Text>
+                )}
                 {s.instructorName ? (
                   <Text style={styles.meta}>Facilitator: {s.instructorName}</Text>
                 ) : null}

@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavIconButton } from '../components/NavIconButton';
 import { useAuth } from '../context/AuthContext';
 import { AdminSignInScreen } from '../screens/AdminSignInScreen';
 import { CollegeHomeScreen } from '../screens/CollegeHomeScreen';
@@ -33,19 +34,10 @@ import { TrainerHomeScreen } from '../screens/TrainerHomeScreen';
 import { TrainerSessionDetailScreen } from '../screens/TrainerSessionDetailScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { colors } from '../theme/colors';
+import { homeRouteForRole } from './homeRoute';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-function homeForRole(role: string) {
-  if (role === 'super_admin') return 'SuperAdminHome';
-  if (role === 'task_admin') return 'TaskAdminHome';
-  if (role === 'placement_coordinator') return 'PlacementCoordinatorHome';
-  if (role === 'student') return 'StudentHome';
-  if (role === 'trainer') return 'TrainerHome';
-  if (role === 'corporate') return 'CorporateHome';
-  return 'CollegeHome';
-}
 
 export function RootNavigator() {
   const { user, loading } = useAuth();
@@ -61,13 +53,40 @@ export function RootNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName={user ? homeForRole(user.role) : 'Welcome'}
-        screenOptions={{
+        initialRouteName={user ? homeRouteForRole(user.role) : 'Welcome'}
+        screenOptions={({ navigation }) => ({
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: colors.white,
           headerTitleStyle: { fontWeight: '700' },
           contentStyle: { backgroundColor: colors.background },
-        }}
+          headerBackVisible: false,
+          headerLeft: () =>
+            navigation.canGoBack() ? (
+              <NavIconButton
+                symbol="←"
+                label="Back"
+                tone="onPrimary"
+                onPress={() => navigation.goBack()}
+              />
+            ) : null,
+          headerRight: () => (
+            <NavIconButton
+              symbol="⌂"
+              label="Home"
+              tone="onPrimary"
+              onPress={() => {
+                if (user) {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: homeRouteForRole(user.role) }],
+                  });
+                } else {
+                  navigation.navigate('Welcome');
+                }
+              }}
+            />
+          ),
+        })}
       >
         <Stack.Screen
           name="Welcome"
@@ -163,7 +182,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="CorporateHome"
           component={CorporateHomeScreen}
-          options={{ title: 'Corporate', headerBackVisible: false }}
+          options={{ title: 'Corporate' }}
         />
         <Stack.Screen
           name="TrainerSessionDetail"
@@ -173,10 +192,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="TaskAdminHome"
           component={TaskAdminHomeScreen}
-          options={({ navigation }) => ({
-            headerShown: false,
-            headerBackVisible: navigation.canGoBack(),
-          })}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="PlacementCoordinatorHome"

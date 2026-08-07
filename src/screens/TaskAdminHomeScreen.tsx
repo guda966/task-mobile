@@ -17,6 +17,7 @@ import {
 import { TaskAdminOutreachPanel } from '../components/TaskAdminOutreachPanel';
 import { PrimaryButton, StatusBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { homeRouteForRole } from '../navigation/homeRoute';
 import type { RootStackParamList } from '../navigation/types';
 import { collegePortalApi } from '../services/collegePortalApi';
 import { mockApi } from '../services/mockApi';
@@ -102,6 +103,15 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
       active={tab}
       onChange={(key) => setTab(key as AdminTab)}
       onSignOut={onSignOut}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      onHome={() => {
+        if (user) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: homeRouteForRole(user.role) }],
+          });
+        }
+      }}
       menu={[
         { key: 'actions', label: 'Home', badge: actionCount || undefined },
         { key: 'outreach', label: 'Announce' },

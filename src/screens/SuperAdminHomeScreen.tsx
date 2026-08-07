@@ -289,6 +289,8 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
       active={menu}
       onChange={(key) => setMenu(key as MenuKey)}
       onSignOut={onSignOut}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      onHome={() => setMenu('home')}
       menu={[
         { key: 'home', label: 'Dashboard' },
         { key: 'admins', label: 'Create users' },

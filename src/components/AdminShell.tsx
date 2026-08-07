@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { TaskLogo } from './ui';
+import { ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
 
 export type AdminShellItem = {
@@ -24,6 +25,8 @@ export function AdminShell({
   active,
   onChange,
   onSignOut,
+  onBack,
+  onHome,
   children,
 }: {
   brandTitle: string;
@@ -32,6 +35,8 @@ export function AdminShell({
   active: string;
   onChange: (key: string) => void;
   onSignOut: () => void;
+  onBack?: () => void;
+  onHome?: () => void;
   children: React.ReactNode;
 }) {
   const { width } = useWindowDimensions();
@@ -89,6 +94,7 @@ export function AdminShell({
         </View>
         <View style={styles.main}>
           <View style={styles.topBar}>
+            <ShellNavCluster onBack={onBack} onHome={onHome} />
             <Text style={styles.userName} numberOfLines={1}>
               {userName}
             </Text>
@@ -125,6 +131,7 @@ export function AdminShell({
             </Text>
           </View>
         </View>
+        <ShellNavCluster onBack={onBack} onHome={onHome} />
       </View>
 
       <View style={styles.content}>{children}</View>
@@ -226,9 +233,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    gap: 10,
   },
-  userName: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  userName: { color: colors.text, fontWeight: '700', fontSize: 14, flex: 1, textAlign: 'right' },
   content: { flex: 1 },
   mobileHeader: {
     backgroundColor: colors.surface,

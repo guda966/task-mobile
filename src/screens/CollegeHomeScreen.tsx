@@ -167,6 +167,8 @@ export function CollegeHomeScreen({ navigation }: Props) {
       onChange={setMenu}
       onSignOut={onSignOut}
       unreadCount={unreadCount}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      onHome={() => setMenu('overview')}
     >
       {menu === 'overview' ? (
         <ScrollView

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { TaskLogo } from './ui';
+import { ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
 
 export type CollegeMenuKey =
@@ -65,6 +66,8 @@ export function CollegeShell({
   active,
   onChange,
   onSignOut,
+  onBack,
+  onHome,
   unreadCount = 0,
   children,
 }: {
@@ -72,6 +75,8 @@ export function CollegeShell({
   active: CollegeMenuKey;
   onChange: (key: CollegeMenuKey) => void;
   onSignOut: () => void;
+  onBack?: () => void;
+  onHome?: () => void;
   unreadCount?: number;
   children: React.ReactNode;
 }) {
@@ -130,6 +135,7 @@ export function CollegeShell({
         </View>
         <View style={styles.main}>
           <View style={styles.topBar}>
+            <ShellNavCluster onBack={onBack} onHome={onHome} />
             <Text style={styles.collegeName} numberOfLines={1}>
               {collegeName}
             </Text>
@@ -171,6 +177,7 @@ export function CollegeShell({
         </View>
 
         <BellButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
+        <ShellNavCluster onBack={onBack} onHome={onHome} />
       </View>
 
       <View style={styles.collegeBanner}>

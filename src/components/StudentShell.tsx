@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { TaskLogo } from './ui';
+import { ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
 
 export type StudentMenuKey = 'home' | 'alerts' | 'trainings' | 'profile';
@@ -51,6 +52,8 @@ export function StudentShell({
   active,
   onChange,
   onSignOut,
+  onBack,
+  onHome,
   unreadCount = 0,
   children,
 }: {
@@ -58,6 +61,8 @@ export function StudentShell({
   active: StudentMenuKey;
   onChange: (key: StudentMenuKey) => void;
   onSignOut: () => void;
+  onBack?: () => void;
+  onHome?: () => void;
   unreadCount?: number;
   children: React.ReactNode;
 }) {
@@ -116,6 +121,7 @@ export function StudentShell({
         </View>
         <View style={styles.main}>
           <View style={styles.topBar}>
+            <ShellNavCluster onBack={onBack} onHome={onHome} />
             <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
             <Text style={styles.studentName} numberOfLines={1}>
               {studentName}
@@ -157,6 +163,7 @@ export function StudentShell({
         </View>
 
         <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
+        <ShellNavCluster onBack={onBack} onHome={onHome} />
       </View>
 
       <View style={styles.content}>{children}</View>
@@ -258,10 +265,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 12,
+    gap: 10,
   },
-  studentName: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  studentName: { color: colors.text, fontWeight: '700', fontSize: 14, flex: 1, textAlign: 'right' },
   content: { flex: 1 },
   mobileHeader: {
     backgroundColor: colors.surface,

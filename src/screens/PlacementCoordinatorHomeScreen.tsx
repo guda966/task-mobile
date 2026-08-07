@@ -108,6 +108,8 @@ export function PlacementCoordinatorHomeScreen({ navigation }: Props) {
       active={menu}
       onChange={(key) => setMenu(key as MenuKey)}
       onSignOut={onSignOut}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      onHome={() => setMenu('home')}
       menu={[
         { key: 'home', label: 'Home' },
         { key: 'colleges', label: 'Colleges' },

@@ -198,7 +198,7 @@ export function StudentHomeScreen({ navigation }: Props) {
     if (session) {
       Alert.alert(
         session.title,
-        `${session.mode === 'online' ? 'Online' : 'Offline'} · ${session.startDate} ${session.startTime}\n${session.venueOrLink}\n\n${session.description}`,
+        `${session.mode === 'online' ? 'Online' : 'Offline'} · ${session.startDate} ${session.startTime}\n${session.venueOrLink || 'Venue: to be confirmed'}\n\n${session.description}`,
         taskEnrolled.some((s) => s.id === sessionId)
           ? [{ text: 'OK' }]
           : [
@@ -230,6 +230,8 @@ export function StudentHomeScreen({ navigation }: Props) {
       onChange={setMenu}
       onSignOut={onSignOut}
       unreadCount={unreadCount}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      onHome={() => setMenu('home')}
     >
       {menu === 'home' ? (
         <ScrollView
@@ -634,7 +636,8 @@ export function StudentHomeScreen({ navigation }: Props) {
                       </Text>
                       <Text style={styles.meta}>{item.scope.label}</Text>
                       <Text style={styles.meta}>
-                        {item.mode === 'online' ? 'Link' : 'Venue'}: {item.venueOrLink}
+                        {item.mode === 'online' ? 'Link' : 'Venue'}:{' '}
+                        {item.venueOrLink || 'to be confirmed'}
                       </Text>
                       <Text style={styles.alertBody}>{item.description}</Text>
                       <Text style={styles.meta}>
@@ -667,7 +670,8 @@ export function StudentHomeScreen({ navigation }: Props) {
                       </Text>
                       <Text style={styles.meta}>{item.scope.label}</Text>
                       <Text style={styles.meta}>
-                        {item.mode === 'online' ? 'Link' : 'Venue'}: {item.venueOrLink}
+                        {item.mode === 'online' ? 'Link' : 'Venue'}:{' '}
+                        {item.venueOrLink || 'to be confirmed'}
                       </Text>
                       {item.instructorName ? (
                         <Text style={styles.meta}>Facilitator: {item.instructorName}</Text>

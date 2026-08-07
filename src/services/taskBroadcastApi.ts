@@ -163,10 +163,8 @@ export const taskBroadcastApi = {
     if (input.endDate < input.startDate) {
       throw new Error('End date cannot be before start date.');
     }
-    if (!input.venueOrLink.trim()) {
-      throw new Error(
-        input.mode === 'online' ? 'Meeting / join link is required.' : 'Venue address is required.',
-      );
+    if (input.mode === 'online' && !input.venueOrLink.trim()) {
+      throw new Error('Meeting / join link is required for online sessions.');
     }
     validateScope(input.scope);
 
@@ -197,10 +195,11 @@ export const taskBroadcastApi = {
 
     const modeLabel = record.mode === 'online' ? 'Online' : 'Offline';
     const when = `${record.startDate} ${record.startTime} → ${record.endDate} ${record.endTime}`;
-    const place =
-      record.mode === 'online'
+    const place = record.venueOrLink
+      ? record.mode === 'online'
         ? `Join link: ${record.venueOrLink}`
-        : `Venue: ${record.venueOrLink}`;
+        : `Venue: ${record.venueOrLink}`
+      : 'Venue: to be confirmed';
 
     const notified = await notifyStudents(targets, {
       title: `TASK session scheduled: ${record.title}`,
