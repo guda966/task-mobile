@@ -108,8 +108,8 @@ export function WelcomeScreen({ navigation }: Props) {
     void Linking.openURL('https://task.telangana.gov.in/');
   };
 
-  const portraitSize = compact ? 64 : 88;
-  const logoSize = compact ? 56 : 72;
+  const portraitSize = compact ? 70 : 92;
+  const logoSize = compact ? 78 : 108;
 
   return (
     <View style={styles.page}>
@@ -123,7 +123,7 @@ export function WelcomeScreen({ navigation }: Props) {
         <View style={styles.brandLeft}>
           <Image
             source={require('../../assets/brand/ts-logo.png')}
-            style={{ width: logoSize * 0.9, height: logoSize * 0.9 }}
+            style={{ width: logoSize * 0.85, height: logoSize * 0.85 }}
             resizeMode="contain"
             accessibilityLabel="Government of Telangana"
           />
@@ -203,13 +203,18 @@ export function WelcomeScreen({ navigation }: Props) {
             onChange={(v) => setRegType(v as RegistrationType | '')}
           />
 
-          <PrimaryButton title="Create account / Register" onPress={startRegistration} />
-          <View style={styles.btnGap} />
-          <PrimaryButton
-            title="Sign In"
-            variant="secondary"
-            onPress={() => navigation.navigate('SignIn')}
-          />
+          <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
+            <View style={styles.accessBtn}>
+              <PrimaryButton title="Create account / Register" onPress={startRegistration} />
+            </View>
+            <View style={styles.accessBtn}>
+              <PrimaryButton
+                title="Sign In"
+                variant="secondary"
+                onPress={() => navigation.navigate('SignIn')}
+              />
+            </View>
+          </View>
         </View>
 
         <View style={styles.noteBox}>
@@ -451,8 +456,16 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 12,
   },
-  btnGap: {
-    height: 10,
+  accessActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  accessActionsCompact: {
+    flexDirection: 'column',
+  },
+  accessBtn: {
+    flex: 1,
   },
   noteBox: {
     backgroundColor: '#FFF8F3',
