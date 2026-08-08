@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,41 +14,35 @@ import {
   EmptyState,
   PanelHeader,
   SectionLabel,
-  SegmentedTabs,
   StatTiles,
 } from '../components/college/PanelChrome';
 import { RcShell, type RcMenuKey } from '../components/RcShell';
-import { DropdownField, FormField, PrimaryButton, StatusBadge } from '../components/ui';
+import { PrimaryButton, StatusBadge } from '../components/ui';
 import { RC_MEMBERSHIP_FEE, RC_MEMBERSHIP_MONTHS } from '../constants/lookups';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
+import { collegePortalApi } from '../services/collegePortalApi';
 import { regionalCentreApi } from '../services/regionalCentreApi';
 import { colors } from '../theme/colors';
-import type { RcMembership, RcSession } from '../types/regionalCentre';
+import type { CourseRequest } from '../types/collegePortal';
+import type { AppNotification } from '../types/enrollment';
+import type { RcMembership } from '../types/regionalCentre';
 import { isMembershipActive } from '../types/regionalCentre';
+import { CalendarPanel } from './college/CalendarPanel';
+import { CourseRequestsPanel } from './college/CourseRequestsPanel';
+import { CoursesPanel } from './college/CoursesPanel';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RegionalCentreHome'>;
-type SessionTab = 'list' | 'create';
 
 export function RegionalCentreHomeScreen({ navigation }: Props) {
   const { user, signOut } = useAuth();
   const [menu, setMenu] = useState<RcMenuKey>('home');
   const [members, setMembers] = useState<RcMembership[]>([]);
-  const [sessions, setSessions] = useState<RcSession[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [sessionTab, setSessionTab] = useState<SessionTab>('list');
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [upcomingSessions, setUpcomingSessions] = useState<CourseRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [mode, setMode] = useState<'online' | 'offline'>('offline');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [startTime, setStartTime] = useState('10:00');
-  const [endTime, setEndTime] = useState('13:00');
-  const [venueOrLink, setVenueOrLink] = useState('');
-  const [maxSeats, setMaxSeats] = useState('40');
 
   const centerId = user?.regionalCenterId || '';
   const center = useMemo(
@@ -60,13 +54,18 @@ export function RegionalCentreHomeScreen({ navigation }: Props) {
     if (!centerId) return;
     const list = await regionalCentreApi.listMembershipsForCenter(centerId);
     setMembers(list);
-    const sess = await regionalCentreApi.listSessionsForCenter(centerId);
-    setSessions(sess);
-    const next: Record<string, number> = {};
-    for (const s of sess) {
-      next[s.id] = await regionalCentreApi.getSessionEnrollmentCount(s.id);
-    }
-    setCounts(next);
+    const notes = await collegePortalApi.listRcNotifications(centerId);
+    setNotifications(notes);
+    const requests = await collegePortalApi.listCourseRequests({
+      regionalCenterId: centerId,
+      requesterType: 'regional_center',
+    });
+    setPendingCount(requests.filter((r) => r.status === 'pending').length);
+    const calendar = await collegePortalApi.listRcCalendarEvents(centerId);
+    const today = new Date().toISOString().slice(0, 10);
+    const upcoming = calendar.filter((s) => s.endDate >= today);
+    setUpcomingCount(upcoming.length);
+    setUpcomingSessions(upcoming.slice(0, 3));
   }, [centerId]);
 
   useFocusEffect(
@@ -75,43 +74,32 @@ export function RegionalCentreHomeScreen({ navigation }: Props) {
     }, [load]),
   );
 
+  React.useEffect(() => {
+    if (menu === 'home' || menu === 'messages') {
+      load();
+    }
+  }, [menu, load]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
   const onSignOut = async () => {
     await signOut();
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
 
-  const activeMembers = members.filter((m) => isMembershipActive(m));
-  const openSessions = sessions.filter((s) => s.status === 'open');
-
-  const createSession = async () => {
-    if (!centerId || !user) return;
-    try {
-      setSaving(true);
-      const seats = maxSeats.trim() ? Number(maxSeats) : undefined;
-      await regionalCentreApi.createSession({
-        regionalCenterId: centerId,
-        title,
-        description,
-        mode,
-        startDate,
-        endDate,
-        startTime,
-        endTime,
-        venueOrLink,
-        maxSeats: seats && !Number.isNaN(seats) ? seats : undefined,
-        createdBy: user.name,
-      });
-      setTitle('');
-      setDescription('');
-      setVenueOrLink('');
-      Alert.alert('Session published', 'Active RC students were notified.');
-      await load();
-      setSessionTab('list');
-    } catch (e) {
-      Alert.alert('Unable to create', e instanceof Error ? e.message : 'Try again');
-    } finally {
-      setSaving(false);
-    }
+  const markAlertsRead = async () => {
+    if (!centerId) return;
+    await collegePortalApi.markRcNotificationsRead(centerId);
+    await load();
   };
 
   if (!user?.regionalCenterId || !center) {
@@ -123,228 +111,213 @@ export function RegionalCentreHomeScreen({ navigation }: Props) {
     );
   }
 
+  const activeMembers = members.filter((m) => isMembershipActive(m));
+  const latestMessages = notifications.slice(0, 3);
+
   return (
     <RcShell
       centreName={center.name}
       active={menu}
       onChange={setMenu}
       onSignOut={onSignOut}
+      unreadCount={unreadCount}
       onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       onHome={() => setMenu('home')}
     >
-      <ScrollView
-        contentContainerStyle={styles.pad}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={async () => {
-              setRefreshing(true);
-              await load();
-              setRefreshing(false);
-            }}
+      {menu === 'home' ? (
+        <ScrollView
+          contentContainerStyle={styles.pad}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <PanelHeader
+            title="Home"
+            subtitle={`Welcome to ${center.name}. Request courses from the catalogue; TASK Admin approval unlocks your calendar — same flow as colleges.`}
           />
-        }
-      >
-        {menu === 'home' ? (
-          <>
-            <PanelHeader
-              title={center.name}
-              subtitle={`${center.district} · ${center.place}`}
-            />
-            <StatTiles
-              items={[
-                { label: 'Active members', value: String(activeMembers.length) },
-                { label: 'Total registrations', value: String(members.length) },
-                { label: 'Open sessions', value: String(openSessions.length) },
-                { label: 'Membership fee', value: `₹${RC_MEMBERSHIP_FEE}` },
-              ]}
-            />
-            <DataCard>
-              <Text style={styles.lead}>
-                Students pay ₹{RC_MEMBERSHIP_FEE} (valid {RC_MEMBERSHIP_MONTHS} months) to join this
-                centre. Publish sessions so active members can enrol and attend.
-              </Text>
-              <PrimaryButton title="Manage students" onPress={() => setMenu('members')} />
-              <View style={{ height: 8 }} />
-              <PrimaryButton
-                title="Schedule a session"
-                variant="secondary"
-                onPress={() => {
-                  setSessionTab('create');
-                  setMenu('sessions');
-                }}
-              />
-            </DataCard>
-          </>
-        ) : null}
 
-        {menu === 'members' ? (
-          <>
-            <PanelHeader
-              title="RC students"
-              subtitle={`Active memberships · fee ₹${RC_MEMBERSHIP_FEE} / ${RC_MEMBERSHIP_MONTHS} months`}
-            />
-            {members.length === 0 ? (
-              <EmptyState
-                title="No students yet"
-                body="When students register for this Regional Centre and pay ₹599, they appear here."
-              />
-            ) : (
-              members.map((m) => (
-                <DataCard key={m.id} accent={isMembershipActive(m)}>
-                  <View style={styles.row}>
-                    <Text style={styles.name}>{m.studentName}</Text>
-                    <StatusBadge status={isMembershipActive(m) ? 'active' : 'inactive'} />
-                  </View>
-                  <Text style={styles.meta}>{m.studentEmail}</Text>
-                  <Text style={styles.meta}>{m.collegeName}</Text>
-                  <Text style={styles.meta}>
-                    Valid {new Date(m.startedAt).toLocaleDateString('en-IN')} →{' '}
-                    {new Date(m.expiresAt).toLocaleDateString('en-IN')} · Fee ₹{m.feePaid}
-                  </Text>
-                </DataCard>
-              ))
-            )}
-          </>
-        ) : null}
+          <StatTiles
+            items={[
+              { label: 'Active students', value: activeMembers.length },
+              { label: 'Open requests', value: pendingCount },
+              { label: 'Upcoming', value: upcomingCount },
+              { label: 'New alerts', value: unreadCount },
+            ]}
+          />
 
-        {menu === 'sessions' ? (
-          <>
-            <PanelHeader title="RC sessions" subtitle="Conduct programmes for your members" />
-            <SegmentedTabs
-              value={sessionTab}
-              onChange={setSessionTab}
-              options={[
-                { value: 'list', label: `Published (${sessions.length})` },
-                { value: 'create', label: 'Schedule' },
-              ]}
-            />
-            {sessionTab === 'create' ? (
-              <DataCard>
-                <FormField label="Title" required value={title} onChangeText={setTitle} />
-                <FormField
-                  label="Details / agenda"
-                  required
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  style={{ minHeight: 80, textAlignVertical: 'top' }}
-                />
-                <DropdownField
-                  label="Mode"
-                  required
-                  value={mode}
-                  onChange={(v) => setMode(v as 'online' | 'offline')}
-                  options={[
-                    { value: 'offline', label: 'Offline (at centre)' },
-                    { value: 'online', label: 'Online' },
-                  ]}
-                />
-                <FormField
-                  label="Start date (YYYY-MM-DD)"
-                  required
-                  value={startDate}
-                  onChangeText={setStartDate}
-                  placeholder="2026-08-20"
-                />
-                <FormField
-                  label="End date (YYYY-MM-DD)"
-                  required
-                  value={endDate}
-                  onChangeText={setEndDate}
-                />
-                <FormField label="Start time" value={startTime} onChangeText={setStartTime} />
-                <FormField label="End time" value={endTime} onChangeText={setEndTime} />
-                <FormField
-                  label={mode === 'online' ? 'Meeting / join link' : 'Venue (optional)'}
-                  required={mode === 'online'}
-                  value={venueOrLink}
-                  onChangeText={setVenueOrLink}
-                  placeholder={mode === 'online' ? 'https://…' : center.place}
-                />
-                <FormField
-                  label="Max seats (optional)"
-                  value={maxSeats}
-                  onChangeText={setMaxSeats}
-                  keyboardType="number-pad"
-                />
-                <PrimaryButton
-                  title={saving ? 'Publishing…' : 'Publish session'}
-                  onPress={createSession}
-                  disabled={saving}
-                />
+          <View style={styles.sectionHead}>
+            <SectionLabel>Alerts from TASK</SectionLabel>
+            <Pressable onPress={() => setMenu('messages')}>
+              <Text style={styles.link}>View all</Text>
+            </Pressable>
+          </View>
+          {latestMessages.length === 0 ? (
+            <EmptyState title="No alerts" body="Approvals and trainer updates appear here." />
+          ) : (
+            latestMessages.map((n) => (
+              <DataCard key={n.id}>
+                <Text style={styles.cardTitle}>{n.title}</Text>
+                <Text style={styles.meta}>{n.body}</Text>
               </DataCard>
-            ) : sessions.length === 0 ? (
-              <EmptyState title="No sessions yet" body="Use Schedule to create your first session." />
-            ) : (
-              sessions.map((s) => (
-                <DataCard key={s.id}>
-                  <View style={styles.row}>
-                    <Text style={styles.name}>{s.title}</Text>
-                    <StatusBadge status={s.status === 'open' ? 'open' : 'inactive'} />
-                  </View>
-                  <Text style={styles.meta}>
-                    {s.mode === 'online' ? 'Online' : 'Offline'} · {s.startDate} {s.startTime} →{' '}
-                    {s.endDate} {s.endTime}
-                  </Text>
-                  {s.venueOrLink ? (
-                    <Text style={styles.meta}>
-                      {s.mode === 'online' ? 'Link' : 'Venue'}: {s.venueOrLink}
-                    </Text>
-                  ) : null}
-                  <Text style={styles.meta}>{s.description}</Text>
-                  <Text style={styles.enroll}>
-                    Students enrolled: {counts[s.id] ?? 0}
-                    {s.maxSeats ? ` / ${s.maxSeats}` : ''}
-                  </Text>
-                  {s.status === 'open' ? (
-                    <PrimaryButton
-                      title="Close enrolment"
-                      variant="secondary"
-                      onPress={async () => {
-                        await regionalCentreApi.closeSession(s.id);
-                        await load();
-                      }}
-                    />
-                  ) : null}
-                </DataCard>
-              ))
-            )}
-          </>
-        ) : null}
+            ))
+          )}
 
-        {menu === 'profile' ? (
-          <>
-            <PanelHeader title="Centre profile" subtitle="Preassigned RC login" />
-            <DataCard>
-              <SectionLabel>Centre</SectionLabel>
-              <Text style={styles.name}>{center.name}</Text>
-              <Text style={styles.meta}>{center.place}</Text>
-              <Text style={styles.meta}>District: {center.district}</Text>
-              <SectionLabel>Login</SectionLabel>
-              <Text style={styles.meta}>Email: {center.email}</Text>
-              <Text style={styles.meta}>Demo password: {center.password}</Text>
-            </DataCard>
-          </>
-        ) : null}
-      </ScrollView>
+          <View style={styles.sectionHead}>
+            <SectionLabel>Next approved trainings</SectionLabel>
+            <Pressable onPress={() => setMenu('calendar')}>
+              <Text style={styles.link}>Calendar</Text>
+            </Pressable>
+          </View>
+          {upcomingSessions.length === 0 ? (
+            <EmptyState
+              title="No approved sessions yet"
+              body="Browse Courses, submit a request with dates, and wait for TASK Admin approval."
+            />
+          ) : (
+            upcomingSessions.map((s) => (
+              <DataCard key={s.id} accent>
+                <Text style={styles.cardTitle}>{s.courseName}</Text>
+                <Text style={styles.meta}>
+                  {s.startDate} → {s.endDate} · {s.branch} · Batch {s.batchSize}
+                </Text>
+                {s.trainerName ? (
+                  <Text style={styles.meta}>Trainer: {s.trainerName}</Text>
+                ) : (
+                  <Text style={styles.meta}>Trainer not assigned yet</Text>
+                )}
+              </DataCard>
+            ))
+          )}
+
+          <PrimaryButton title="Browse courses" onPress={() => setMenu('courses')} />
+          <PrimaryButton
+            title="New course request"
+            variant="secondary"
+            onPress={() => navigation.navigate('RequestCourse', {})}
+          />
+        </ScrollView>
+      ) : null}
+
+      {menu === 'messages' ? (
+        <ScrollView contentContainerStyle={styles.pad}>
+          <PanelHeader
+            title="Alerts"
+            subtitle="Updates from TASK Admin on your course requests and trainers."
+            action={
+              unreadCount > 0 ? (
+                <PrimaryButton title="Mark all read" variant="secondary" onPress={markAlertsRead} />
+              ) : undefined
+            }
+          />
+          {notifications.length === 0 ? (
+            <EmptyState title="No alerts" body="When TASK reviews a request, it shows here." />
+          ) : (
+            notifications.map((n) => (
+              <DataCard key={n.id}>
+                <View style={styles.row}>
+                  <Text style={styles.cardTitle}>{n.title}</Text>
+                  {!n.read ? <StatusBadge status="pending" /> : null}
+                </View>
+                <Text style={styles.meta}>{n.body}</Text>
+                <Text style={styles.time}>{new Date(n.createdAt).toLocaleString('en-IN')}</Text>
+              </DataCard>
+            ))
+          )}
+        </ScrollView>
+      ) : null}
+
+      {menu === 'members' ? (
+        <ScrollView contentContainerStyle={styles.pad}>
+          <PanelHeader
+            title="Students"
+            subtitle={`RC members who paid ₹${RC_MEMBERSHIP_FEE} (valid ${RC_MEMBERSHIP_MONTHS} months). They can enrol in approved calendar sessions.`}
+          />
+          <StatTiles
+            items={[
+              { label: 'Active', value: activeMembers.length },
+              { label: 'Total', value: members.length },
+            ]}
+          />
+          {members.length === 0 ? (
+            <EmptyState
+              title="No members yet"
+              body="When students register for this Regional Centre and pay ₹599, they appear here."
+            />
+          ) : (
+            members.map((m) => (
+              <DataCard key={m.id}>
+                <View style={styles.row}>
+                  <Text style={styles.cardTitle}>{m.studentName}</Text>
+                  <StatusBadge status={isMembershipActive(m) ? 'approved' : 'rejected'} />
+                </View>
+                <Text style={styles.meta}>{m.studentEmail}</Text>
+                <Text style={styles.meta}>{m.collegeName}</Text>
+                <Text style={styles.meta}>
+                  ₹{m.feePaid} · {m.startedAt.slice(0, 10)} → {m.expiresAt.slice(0, 10)}
+                </Text>
+              </DataCard>
+            ))
+          )}
+        </ScrollView>
+      ) : null}
+
+      {menu === 'courses' ? (
+        <CoursesPanel
+          subtitle="Browse the TASK catalogue and request a course for your Regional Centre. TASK Admin must approve before students can enrol."
+          onRequestCourse={(course) =>
+            navigation.navigate('RequestCourse', {
+              courseId: course.id,
+              category: course.category,
+            })
+          }
+        />
+      ) : null}
+
+      {menu === 'requests' ? (
+        <CourseRequestsPanel
+          regionalCenterId={centerId}
+          onOpenForm={() => navigation.navigate('RequestCourse', {})}
+          onView={(id) => navigation.navigate('CourseRequestDetail', { requestId: id })}
+        />
+      ) : null}
+
+      {menu === 'calendar' ? <CalendarPanel regionalCenterId={centerId} /> : null}
+
+      {menu === 'profile' ? (
+        <ScrollView contentContainerStyle={styles.pad}>
+          <PanelHeader title="Profile" subtitle="Regional Centre desk details for this demo login." />
+          <DataCard>
+            <Text style={styles.cardTitle}>{center.name}</Text>
+            <Text style={styles.meta}>
+              {center.place}, {center.district}
+            </Text>
+            <Text style={styles.meta}>{center.email}</Text>
+            <Text style={styles.meta}>
+              Membership fee ₹{RC_MEMBERSHIP_FEE} · {RC_MEMBERSHIP_MONTHS} months
+            </Text>
+          </DataCard>
+          <Text style={styles.hint}>
+            Course flow: Courses → Request (with schedule dates) → TASK Admin approves → Calendar →
+            RC students enrol.
+          </Text>
+        </ScrollView>
+      ) : null}
     </RcShell>
   );
 }
 
 const styles = StyleSheet.create({
-  pad: { padding: 16, paddingBottom: 40, gap: 10 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-  muted: { color: colors.textMuted },
-  lead: { color: colors.text, fontSize: 14, lineHeight: 21, marginBottom: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { fontWeight: '800', color: colors.text, fontSize: 15, flex: 1 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 17 },
-  enroll: {
+  pad: { padding: 16, paddingBottom: 40, gap: 12 },
+  muted: { color: colors.textMuted, textAlign: 'center' },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 8,
-    marginBottom: 6,
-    fontWeight: '800',
-    color: colors.primaryDark,
-    fontSize: 14,
   },
+  link: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
+  cardTitle: { fontWeight: '700', color: colors.text, fontSize: 15 },
+  meta: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  time: { color: colors.textMuted, fontSize: 11, marginTop: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  hint: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
 });

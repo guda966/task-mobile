@@ -13,14 +13,14 @@ import type {
   SessionAttendance,
   SessionMaterial,
 } from '../types/sessionContent';
-import type { RcMembership, RcSession } from '../types/regionalCentre';
+import type { RcMembership } from '../types/regionalCentre';
 import { addMonthsIso } from '../types/regionalCentre';
 import type { StudentRecord } from '../types/student';
 import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v13';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v14';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -32,6 +32,8 @@ const IDS = {
   studentRohan: 'stu_demo_rohan',
   batch: 'req_demo_cse_2027',
   pendingBatch: 'req_demo_pending_ece',
+  rcApprovedBatch: 'req_demo_rc_approved',
+  rcPendingBatch: 'req_demo_rc_pending',
   material: 'mat_demo_1',
   assignment: 'asg_demo_1',
   assignment2: 'asg_demo_2',
@@ -432,6 +434,7 @@ function buildBatches(college: CollegeEnrollment, trainer: TrainerRecord): Cours
     id: IDS.batch,
     enrollmentId: college.id,
     collegeName: college.institutionName,
+    requesterType: 'college',
     courseId: course.id,
     courseName: course.title,
     category: course.category,
@@ -457,6 +460,7 @@ function buildBatches(college: CollegeEnrollment, trainer: TrainerRecord): Cours
     id: IDS.pendingBatch,
     enrollmentId: college.id,
     collegeName: college.institutionName,
+    requesterType: 'college',
     courseId: tech.id,
     courseName: tech.title,
     category: tech.category,
@@ -470,6 +474,66 @@ function buildBatches(college: CollegeEnrollment, trainer: TrainerRecord): Cours
   };
 
   return [active, pending];
+}
+
+function buildRcBatches(
+  center: (typeof REGIONAL_CENTERS)[number],
+  trainer: TrainerRecord,
+): CourseRequest[] {
+  const course =
+    SEED_COURSES.find((c) => c.title.includes('21st Century')) ?? SEED_COURSES[0];
+  const tech =
+    SEED_COURSES.find((c) => c.category === 'Technology' && c.enabled) ?? SEED_COURSES[1];
+  const now = nowIso();
+
+  const approved: CourseRequest = {
+    id: IDS.rcApprovedBatch,
+    enrollmentId: '',
+    collegeName: center.name,
+    requesterType: 'regional_center',
+    regionalCenterId: center.id,
+    regionalCenterName: center.name,
+    courseId: course.id,
+    courseName: course.title,
+    category: course.category,
+    yearOfGraduation: 'All',
+    branch: 'All RC members',
+    startDate: isoDay(3),
+    endDate: isoDay(8),
+    batchSize: 50,
+    status: 'approved',
+    requestedOn: now,
+    reviewedAt: now,
+    adminRemark: 'Demo approved RC batch open to all members',
+    trainerId: trainer.id,
+    trainerName: `${trainer.firstName} ${trainer.lastName}`,
+    trainerEmail: trainer.email,
+    trainerMobile: trainer.mobile,
+    trainerSkills: trainer.skills.join(', '),
+    trainerCity: trainer.city,
+    trainerExperienceYears: trainer.experienceYears,
+  };
+
+  const pending: CourseRequest = {
+    id: IDS.rcPendingBatch,
+    enrollmentId: '',
+    collegeName: center.name,
+    requesterType: 'regional_center',
+    regionalCenterId: center.id,
+    regionalCenterName: center.name,
+    courseId: tech.id,
+    courseName: tech.title,
+    category: tech.category,
+    yearOfGraduation: 'All',
+    branch: 'All RC members',
+    startDate: isoDay(20),
+    endDate: isoDay(25),
+    batchSize: 40,
+    status: 'pending',
+    requestedOn: now,
+  };
+
+  return [approved, pending];
 }
 
 function buildTrainingRegistration(
@@ -786,6 +850,9 @@ export async function ensureDemoData(options?: {
   const student = buildDemoStudent(college);
   const rohan = buildRohanStudent(college);
   const batches = buildBatches(college, trainer);
+  const rcCenter =
+    REGIONAL_CENTERS.find((c) => c.id === 'rc-hyd-masabtank') ?? REGIONAL_CENTERS[0];
+  const rcBatches = buildRcBatches(rcCenter, trainer);
   const activeBatch = batches[0];
   const training = buildTrainingRegistration(student, activeBatch);
   const trainingRohan: TrainingRegistration = {
@@ -799,7 +866,7 @@ export async function ensureDemoData(options?: {
   await write('task.students.v1', buildCollegeStudents());
   await write('task.trainers.v2', [trainer]);
   await write('task.studentRegistrations.v1', [student, rohan]);
-  await write('task.courseRequests.v1', batches);
+  await write('task.courseRequests.v1', [...batches, ...rcBatches]);
   await write('task.trainingRegistrations.v1', [training, trainingRohan]);
   await write('task.sessionMaterials.v1', session.materials);
   await write('task.sessionAssignments.v1', session.assignments);
@@ -815,8 +882,6 @@ export async function ensureDemoData(options?: {
   await write('task.adminProgramSessions.v1', [broadcast.session]);
   await write('task.adminProgramEnrollments.v1', []);
 
-  const rcCenter =
-    REGIONAL_CENTERS.find((c) => c.id === 'rc-hyd-masabtank') ?? REGIONAL_CENTERS[0];
   const rcStarted = nowIso();
   const rcMembership: RcMembership = {
     id: 'rcm_demo_1',
@@ -832,26 +897,23 @@ export async function ensureDemoData(options?: {
     status: 'active',
     createdAt: rcStarted,
   };
-  const rcSession: RcSession = {
-    id: 'rcs_demo_1',
-    regionalCenterId: rcCenter.id,
-    title: 'RC employability workshop',
-    description:
-      'Hands-on workshop at the Regional Centre covering interview skills and local industry readiness.',
-    mode: 'offline',
-    startDate: '2026-08-25',
-    endDate: '2026-08-25',
-    startTime: '10:00',
-    endTime: '13:00',
-    venueOrLink: rcCenter.place,
-    maxSeats: 50,
-    status: 'open',
-    createdAt: rcStarted,
-    createdBy: rcCenter.name,
-  };
   await write('task.rcMemberships.v1', [rcMembership]);
-  await write('task.rcSessions.v1', [rcSession]);
+  await write('task.rcSessions.v1', []);
   await write('task.rcSessionEnrollments.v1', []);
+  await write('task.rcNotifications.v1', {
+    [rcCenter.id]: [
+      {
+        id: 'ntf_rc_demo_1',
+        audience: 'regional_center',
+        enrollmentId: '',
+        regionalCenterId: rcCenter.id,
+        title: 'Course request update',
+        body: `${rcBatches[0].courseName} is approved for All RC members (${rcBatches[0].startDate} to ${rcBatches[0].endDate}). Check Calendar for dates.`,
+        createdAt: rcStarted,
+        read: false,
+      },
+    ],
+  });
 
   await write('task.corporateRegistrations.v1', [
     {

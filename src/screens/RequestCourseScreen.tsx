@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { collegePortalApi } from '../services/collegePortalApi';
 import { mockApi } from '../services/mockApi';
+import { regionalCentreApi } from '../services/regionalCentreApi';
 import { colors } from '../theme/colors';
 import type { Course } from '../types/collegePortal';
 import type { CollegeEnrollment } from '../types/enrollment';
@@ -21,12 +22,14 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RequestCourse'>;
 
 export function RequestCourseScreen({ navigation, route }: Props) {
   const { user } = useAuth();
+  const isRc = user?.role === 'regional_center';
   const [enrollment, setEnrollment] = useState<CollegeEnrollment | null>(null);
+  const [rcName, setRcName] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
   const [category, setCategory] = useState(route.params?.category ?? '');
   const [courseId, setCourseId] = useState(route.params?.courseId ?? '');
-  const [yearOfGraduation, setYearOfGraduation] = useState('');
-  const [branch, setBranch] = useState('');
+  const [yearOfGraduation, setYearOfGraduation] = useState(isRc ? 'All' : '');
+  const [branch, setBranch] = useState(isRc ? 'All RC members' : '');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [batchSize, setBatchSize] = useState('');
@@ -34,10 +37,15 @@ export function RequestCourseScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!user?.enrollmentId) return;
-      setEnrollment(await mockApi.getEnrollment(user.enrollmentId));
       const list = await collegePortalApi.listCourses();
       setCourses(list);
+
+      if (isRc && user?.regionalCenterId) {
+        const center = regionalCentreApi.getCenter(user.regionalCenterId);
+        setRcName(center?.name || user.name);
+      } else if (user?.enrollmentId) {
+        setEnrollment(await mockApi.getEnrollment(user.enrollmentId));
+      }
 
       const prefId = route.params?.courseId;
       if (prefId) {
@@ -50,7 +58,7 @@ export function RequestCourseScreen({ navigation, route }: Props) {
         setCategory(route.params.category);
       }
     })();
-  }, [user?.enrollmentId, route.params?.courseId, route.params?.category]);
+  }, [user?.enrollmentId, user?.regionalCenterId, user?.name, isRc, route.params?.courseId, route.params?.category]);
 
   const categories = useMemo(
     () => Array.from(new Set(courses.map((c) => c.category))),
@@ -68,35 +76,67 @@ export function RequestCourseScreen({ navigation, route }: Props) {
   );
 
   const yearOptions = useMemo(() => {
+    if (isRc) {
+      return [
+        { value: 'All', label: 'All RC members' },
+        ...(selectedCourse?.graduationYears?.length
+          ? selectedCourse.graduationYears
+          : ['2026', '2027', '2028', '2029', '2030']
+        ).map((y) => ({ value: y, label: y })),
+      ];
+    }
     const years = selectedCourse?.graduationYears?.length
       ? selectedCourse.graduationYears
       : ['2026', '2027', '2028', '2029', '2030', '2031', '2032'];
     return years.map((y) => ({ value: y, label: y }));
-  }, [selectedCourse]);
+  }, [selectedCourse, isRc]);
+
+  const branchOptions = useMemo(() => {
+    if (isRc) {
+      return [
+        { value: 'All RC members', label: 'All RC members' },
+        ...BRANCHES.map((b) => ({ value: b, label: b })),
+      ];
+    }
+    return BRANCHES.map((b) => ({ value: b, label: b }));
+  }, [isRc]);
 
   const onCategoryChange = useCallback((value: string) => {
     setCategory(value);
     setCourseId('');
-    setYearOfGraduation('');
-  }, []);
+    if (!isRc) setYearOfGraduation('');
+  }, [isRc]);
 
-  const onCourseChange = useCallback((value: string) => {
-    setCourseId(value);
-    setYearOfGraduation('');
-  }, []);
+  const onCourseChange = useCallback(
+    (value: string) => {
+      setCourseId(value);
+      if (!isRc) setYearOfGraduation('');
+    },
+    [isRc],
+  );
 
   const submit = async () => {
-    if (!enrollment) return;
     try {
       setLoading(true);
-      await collegePortalApi.submitCourseRequest(enrollment, {
+      const draft = {
         courseId,
         yearOfGraduation,
         branch,
         startDate,
         endDate,
         batchSize,
-      });
+      };
+      if (isRc) {
+        if (!user?.regionalCenterId) throw new Error('Regional Centre session missing.');
+        await collegePortalApi.submitRcCourseRequest(
+          user.regionalCenterId,
+          rcName || user.name,
+          draft,
+        );
+      } else {
+        if (!enrollment) throw new Error('College enrollment missing.');
+        await collegePortalApi.submitCourseRequest(enrollment, draft);
+      }
       Alert.alert(
         'Request submitted',
         'Course request is pending TASK Admin approval. Approved sessions will appear on your calendar.',
@@ -112,10 +152,20 @@ export function RequestCourseScreen({ navigation, route }: Props) {
   return (
     <Screen
       title="Request for course"
-      subtitle="Home | Courses | Request Course"
+      subtitle={
+        isRc
+          ? 'Regional Centre | Courses | Request (pending TASK approval)'
+          : 'Home | Courses | Request Course'
+      }
       showLogo={false}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {isRc ? (
+          <Text style={styles.banner}>
+            Schedule a TASK catalogue course for {rcName || 'your Regional Centre'}. TASK Admin must
+            approve before RC students can enrol.
+          </Text>
+        ) : null}
         <DropdownField
           label="Course Category"
           required
@@ -133,7 +183,7 @@ export function RequestCourseScreen({ navigation, route }: Props) {
           options={filteredCourses.map((c) => ({ value: c.id, label: c.title }))}
         />
         <DropdownField
-          label="Year of Graduation"
+          label={isRc ? 'Audience / Year of Graduation' : 'Year of Graduation'}
           required
           placeholder="Select Year of Graduation"
           value={yearOfGraduation}
@@ -146,7 +196,7 @@ export function RequestCourseScreen({ navigation, route }: Props) {
           placeholder="Select Branch"
           value={branch}
           onChange={setBranch}
-          options={BRANCHES.map((b) => ({ value: b, label: b }))}
+          options={branchOptions}
         />
         <DateField
           label="Start Date"
@@ -174,8 +224,9 @@ export function RequestCourseScreen({ navigation, route }: Props) {
           onChangeText={setBatchSize}
         />
         <Text style={styles.hint}>
-          TASK policy: trainings at college require a minimum batch of {MIN_BATCH_SIZE} students
-          of the same year of study.
+          {isRc
+            ? `Same TASK policy as colleges: minimum batch of ${MIN_BATCH_SIZE}. Use “All RC members” to open the batch to every active member at this centre.`
+            : `TASK policy: trainings at college require a minimum batch of ${MIN_BATCH_SIZE} students of the same year of study.`}
         </Text>
 
         <View style={styles.actions}>
@@ -193,6 +244,17 @@ export function RequestCourseScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 40 },
+  banner: {
+    backgroundColor: '#FFF8E8',
+    borderWidth: 1,
+    borderColor: '#E8D4A8',
+    borderRadius: 10,
+    padding: 12,
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 },
   actions: { gap: 10 },
 });

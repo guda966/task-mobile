@@ -83,7 +83,7 @@ export function CourseRequestDetailScreen({ navigation, route }: Props) {
     try {
       setLoading(true);
       await collegePortalApi.rejectCourseRequest(route.params.requestId, reason);
-      Alert.alert('Rejected', 'College Admin can view the rejection reason.');
+      Alert.alert('Rejected', 'Requester can view the rejection reason.');
       navigation.goBack();
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Rejection failed');
@@ -99,7 +99,7 @@ export function CourseRequestDetailScreen({ navigation, route }: Props) {
         !backupId || backupId === NO_BACKUP ? undefined : backupId;
       await trainerApi.assignTrainers(route.params.requestId, primaryId, backup);
       setEditingAssignment(false);
-      Alert.alert('Assigned', 'Trainer assignment saved. It will show on the college calendar.');
+      Alert.alert('Assigned', 'Trainer assignment saved. It will show on the requester calendar.');
       await load();
     } catch (e) {
       Alert.alert('Assignment failed', e instanceof Error ? e.message : 'Try again');
@@ -117,6 +117,11 @@ export function CourseRequestDetailScreen({ navigation, route }: Props) {
   }
 
   const isAdmin = user?.role === 'task_admin' || user?.role === 'super_admin';
+  const isRcRequest = item.requesterType === 'regional_center';
+  const orgLabel = isRcRequest ? 'Regional Centre' : 'College';
+  const orgName = isRcRequest
+    ? item.regionalCenterName || item.collegeName
+    : item.collegeName;
 
   return (
     <Screen title="Course Request" subtitle={item.courseName} showLogo={false}>
@@ -126,7 +131,8 @@ export function CourseRequestDetailScreen({ navigation, route }: Props) {
             <Text style={styles.label}>Status</Text>
             <StatusBadge status={item.status} />
           </View>
-          <Detail label="College" value={item.collegeName} />
+          <Detail label="Requester" value={isRcRequest ? 'Regional Centre' : 'College'} />
+          <Detail label={orgLabel} value={orgName} />
           <Detail label="Course" value={item.courseName} />
           <Detail label="Category" value={item.category} />
           <Detail label="Year of Graduation" value={item.yearOfGraduation} />

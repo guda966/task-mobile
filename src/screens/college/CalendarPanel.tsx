@@ -29,7 +29,13 @@ function formatRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-IN', opts)} – ${e.toLocaleDateString('en-IN', opts)}`;
 }
 
-export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
+export function CalendarPanel({
+  enrollmentId,
+  regionalCenterId,
+}: {
+  enrollmentId?: string;
+  regionalCenterId?: string;
+}) {
   const [items, setItems] = useState<CourseRequest[]>([]);
   const [month, setMonth] = useState('All');
   const [branch, setBranch] = useState('');
@@ -39,11 +45,17 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await collegePortalApi.listCalendarEvents(enrollmentId));
+      if (regionalCenterId) {
+        setItems(await collegePortalApi.listRcCalendarEvents(regionalCenterId));
+      } else if (enrollmentId) {
+        setItems(await collegePortalApi.listCalendarEvents(enrollmentId));
+      } else {
+        setItems([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [enrollmentId]);
+  }, [enrollmentId, regionalCenterId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -85,7 +97,11 @@ export function CalendarPanel({ enrollmentId }: { enrollmentId: string }) {
     <PanelPage>
       <PanelHeader
         title="Calendar"
-        subtitle="Approved trainings for your college, grouped by month."
+        subtitle={
+          regionalCenterId
+            ? 'Approved trainings for your Regional Centre, after TASK Admin approval.'
+            : 'Approved trainings for your college, grouped by month.'
+        }
       />
 
       <SearchInput

@@ -18,10 +18,16 @@ export interface Course {
 
 export type CourseRequestStatus = 'pending' | 'approved' | 'rejected';
 
+export type CourseRequesterType = 'college' | 'regional_center';
+
 export interface CourseRequest {
   id: string;
+  /** College enrollment id; empty string for Regional Centre requests. */
   enrollmentId: string;
   collegeName: string;
+  requesterType?: CourseRequesterType;
+  regionalCenterId?: string;
+  regionalCenterName?: string;
   courseId: string;
   courseName: string;
   category: CourseCategory;

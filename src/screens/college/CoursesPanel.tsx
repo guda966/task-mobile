@@ -18,8 +18,10 @@ import type { Course } from '../../types/collegePortal';
 
 export function CoursesPanel({
   onRequestCourse,
+  subtitle,
 }: {
   onRequestCourse: (course: Course) => void;
+  subtitle?: string;
 }) {
   const [category, setCategory] = useState('All Categories');
   const [query, setQuery] = useState('');
@@ -51,7 +53,10 @@ export function CoursesPanel({
     <PanelPage>
       <PanelHeader
         title="Courses"
-        subtitle="Browse the TASK catalogue and request a course for your college batch."
+        subtitle={
+          subtitle ||
+          'Browse the TASK catalogue and request a course for your college batch.'
+        }
       />
 
       <SearchInput

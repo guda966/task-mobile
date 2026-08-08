@@ -39,6 +39,7 @@ async function notifyCollege(
   title: string,
   body: string,
 ): Promise<void> {
+  if (!enrollmentId) return;
   const enrollments = await readJson<CollegeEnrollment[]>(ENROLLMENTS_KEY, []);
   const index = enrollments.findIndex((e) => e.id === enrollmentId);
   if (index < 0) return;
@@ -57,6 +58,37 @@ async function notifyCollege(
     updatedAt: new Date().toISOString(),
   };
   await writeJson(ENROLLMENTS_KEY, enrollments);
+}
+
+const RC_NOTES_KEY = 'task.rcNotifications.v1';
+
+async function notifyRegionalCenter(
+  regionalCenterId: string,
+  title: string,
+  body: string,
+): Promise<void> {
+  if (!regionalCenterId) return;
+  const all = await readJson<Record<string, AppNotification[]>>(RC_NOTES_KEY, {});
+  const note: AppNotification = {
+    id: uid('ntf'),
+    audience: 'regional_center',
+    enrollmentId: '',
+    regionalCenterId,
+    title,
+    body,
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+  all[regionalCenterId] = [note, ...(all[regionalCenterId] || [])];
+  await writeJson(RC_NOTES_KEY, all);
+}
+
+async function notifyCourseRequester(request: CourseRequest, title: string, body: string) {
+  if (request.requesterType === 'regional_center' && request.regionalCenterId) {
+    await notifyRegionalCenter(request.regionalCenterId, title, body);
+    return;
+  }
+  await notifyCollege(request.enrollmentId, title, body);
 }
 
 function seedStudents(enrollmentId: string): CollegeStudent[] {
@@ -87,6 +119,14 @@ function seedStudents(enrollmentId: string): CollegeStudent[] {
 export const collegePortalApi = {
   async notifyCollegeAdmin(enrollmentId: string, title: string, body: string): Promise<void> {
     await notifyCollege(enrollmentId, title, body);
+  },
+
+  async notifyCourseRequesterAdmin(
+    request: CourseRequest,
+    title: string,
+    body: string,
+  ): Promise<void> {
+    await notifyCourseRequester(request, title, body);
   },
 
   async ensureSeedData(enrollmentId?: string): Promise<void> {
@@ -468,6 +508,8 @@ export const collegePortalApi = {
 
   async listCourseRequests(params?: {
     enrollmentId?: string;
+    regionalCenterId?: string;
+    requesterType?: 'college' | 'regional_center' | 'all';
     status?: string;
     query?: string;
     branch?: string;
@@ -477,6 +519,14 @@ export const collegePortalApi = {
     let items = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
     if (params?.enrollmentId) {
       items = items.filter((r) => r.enrollmentId === params.enrollmentId);
+    }
+    if (params?.regionalCenterId) {
+      items = items.filter((r) => r.regionalCenterId === params.regionalCenterId);
+    }
+    if (params?.requesterType === 'college') {
+      items = items.filter((r) => (r.requesterType || 'college') === 'college');
+    } else if (params?.requesterType === 'regional_center') {
+      items = items.filter((r) => r.requesterType === 'regional_center');
     }
     if (params?.status && params.status !== 'All') {
       items = items.filter((r) => r.status === params.status!.toLowerCase());
@@ -493,6 +543,7 @@ export const collegePortalApi = {
         (r) =>
           r.courseName.toLowerCase().includes(q) ||
           r.collegeName.toLowerCase().includes(q) ||
+          (r.regionalCenterName || '').toLowerCase().includes(q) ||
           r.branch.toLowerCase().includes(q) ||
           (r.trainerName || '').toLowerCase().includes(q),
       );
@@ -527,6 +578,51 @@ export const collegePortalApi = {
       id: uid('req'),
       enrollmentId: enrollment.id,
       collegeName: enrollment.institutionName,
+      requesterType: 'college',
+      courseId: course.id,
+      courseName: course.title,
+      category: course.category,
+      yearOfGraduation: draft.yearOfGraduation,
+      branch: draft.branch,
+      startDate: draft.startDate,
+      endDate: draft.endDate,
+      batchSize,
+      status: 'pending',
+      requestedOn: new Date().toISOString(),
+    };
+
+    const items = await readJson<CourseRequest[]>(REQUESTS_KEY, []);
+    items.unshift(request);
+    await writeJson(REQUESTS_KEY, items);
+    return request;
+  },
+
+  async submitRcCourseRequest(
+    regionalCenterId: string,
+    regionalCenterName: string,
+    draft: CourseRequestDraft,
+  ): Promise<CourseRequest> {
+    await delay(400);
+    const course = await this.getCourse(draft.courseId);
+    if (!course) throw new Error('Select a valid course.');
+    if (!draft.yearOfGraduation) throw new Error('Year of graduation is required.');
+    if (!draft.branch) throw new Error('Branch is required.');
+    if (!draft.startDate || !draft.endDate) throw new Error('Start and end dates are required.');
+    if (draft.endDate < draft.startDate) throw new Error('End date must be after start date.');
+
+    const batchSize = Number(draft.batchSize);
+    if (!batchSize || batchSize < 1) throw new Error('Enter a valid batch size.');
+    if (batchSize < MIN_BATCH_SIZE) {
+      throw new Error(`Minimum batch size is ${MIN_BATCH_SIZE} students (TASK policy).`);
+    }
+
+    const request: CourseRequest = {
+      id: uid('req'),
+      enrollmentId: '',
+      collegeName: regionalCenterName,
+      requesterType: 'regional_center',
+      regionalCenterId,
+      regionalCenterName,
       courseId: course.id,
       courseName: course.title,
       category: course.category,
@@ -559,10 +655,14 @@ export const collegePortalApi = {
     };
     items[index] = updated;
     await writeJson(REQUESTS_KEY, items);
-    await notifyCollege(
-      updated.enrollmentId,
+    const who =
+      updated.requesterType === 'regional_center'
+        ? 'Regional Centre members'
+        : updated.branch;
+    await notifyCourseRequester(
+      updated,
       'Course request update',
-      `${updated.courseName} is approved for ${updated.branch} (${updated.startDate} to ${updated.endDate}). You can check Calendar for dates.`,
+      `${updated.courseName} is approved for ${who} (${updated.startDate} to ${updated.endDate}). Check Calendar for dates.`,
     );
     return updated;
   },
@@ -581,8 +681,8 @@ export const collegePortalApi = {
     };
     items[index] = updated;
     await writeJson(REQUESTS_KEY, items);
-    await notifyCollege(
-      updated.enrollmentId,
+    await notifyCourseRequester(
+      updated,
       'Course request update',
       `${updated.courseName} needs a small change before it can move ahead. Note from TASK: ${reason.trim()}`,
     );
@@ -594,5 +694,27 @@ export const collegePortalApi = {
       enrollmentId ? { enrollmentId, status: 'approved' } : { status: 'approved' },
     );
     return items.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  },
+
+  async listRcCalendarEvents(regionalCenterId: string): Promise<CourseRequest[]> {
+    const items = await this.listCourseRequests({
+      regionalCenterId,
+      status: 'approved',
+      requesterType: 'regional_center',
+    });
+    return items.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  },
+
+  async listRcNotifications(regionalCenterId: string): Promise<AppNotification[]> {
+    const all = await readJson<Record<string, AppNotification[]>>(RC_NOTES_KEY, {});
+    return (all[regionalCenterId] || []).sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
+  },
+
+  async markRcNotificationsRead(regionalCenterId: string): Promise<void> {
+    const all = await readJson<Record<string, AppNotification[]>>(RC_NOTES_KEY, {});
+    all[regionalCenterId] = (all[regionalCenterId] || []).map((n) => ({ ...n, read: true }));
+    await writeJson(RC_NOTES_KEY, all);
   },
 };

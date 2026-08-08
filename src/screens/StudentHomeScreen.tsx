@@ -40,7 +40,7 @@ import type { CourseRequest } from '../types/collegePortal';
 import type { SchoolExamDetails, StudentRecord } from '../types/student';
 import type { StudentNotification } from '../types/studentNotification';
 import type { TaskProgramSession } from '../types/taskBroadcast';
-import type { RcMembership, RcSession } from '../types/regionalCentre';
+import type { RcMembership } from '../types/regionalCentre';
 import type { TrainingRegistration } from '../types/training';
 import { RC_MEMBERSHIP_FEE, RC_MEMBERSHIP_MONTHS, REGIONAL_CENTERS, regionalCenterLabel } from '../constants/lookups';
 
@@ -61,8 +61,8 @@ export function StudentHomeScreen({ navigation }: Props) {
   const [taskEnrolled, setTaskEnrolled] = useState<TaskProgramSession[]>([]);
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [rcMembership, setRcMembership] = useState<RcMembership | null>(null);
-  const [rcSessions, setRcSessions] = useState<RcSession[]>([]);
-  const [rcEnrolledIds, setRcEnrolledIds] = useState<string[]>([]);
+  const [rcSessions, setRcSessions] = useState<CourseRequest[]>([]);
+  const [rcCounts, setRcCounts] = useState<Record<string, number>>({});
   const [rcJoinId, setRcJoinId] = useState('rc-hyd-masabtank');
   const [alerts, setAlerts] = useState<StudentNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -92,10 +92,15 @@ export function StudentHomeScreen({ navigation }: Props) {
       nextTaskCounts[s.id] = await taskBroadcastApi.getEnrollmentCount(s.id);
     }
     setTaskCounts(nextTaskCounts);
-    const rc = await regionalCentreApi.listOpenSessionsForStudent(profile.id);
-    setRcMembership(rc.membership);
-    setRcSessions(rc.sessions);
-    setRcEnrolledIds(rc.enrolledIds);
+    const membership = await regionalCentreApi.getActiveMembership(profile.id);
+    setRcMembership(membership);
+    const rcAvailable = await trainingApi.listAvailableRcSessions(profile);
+    setRcSessions(rcAvailable);
+    const nextRcCounts: Record<string, number> = {};
+    for (const s of rcAvailable) {
+      nextRcCounts[s.id] = await trainingApi.getRegistrationCount(s.id);
+    }
+    setRcCounts(nextRcCounts);
     await studentNotificationApi.refreshDeadlineAlerts(profile.id);
     const notes = await studentNotificationApi.listForStudent(profile.id);
     setAlerts(notes);
@@ -219,17 +224,15 @@ export function StudentHomeScreen({ navigation }: Props) {
     }
   };
 
-  const enrollRcSession = async (session: RcSession) => {
+  const enrollRcSession = async (session: CourseRequest) => {
     if (!student) return;
     try {
       setLoadingId(session.id);
-      await regionalCentreApi.enrollStudentInSession({
-        sessionId: session.id,
-        studentId: student.id,
-        studentName: `${student.firstName} ${student.lastName}`,
-      });
-      Alert.alert('Enrolled', `You are enrolled in ${session.title}.`);
+      await trainingApi.registerForSession(student, session);
+      Alert.alert('Registered', `You are registered for ${session.courseName}.`);
       await load();
+      setTrainingTab('enrolled');
+      setMenu('trainings');
     } catch (e) {
       Alert.alert('Unable to enrol', e instanceof Error ? e.message : 'Failed');
     } finally {
@@ -799,7 +802,7 @@ export function StudentHomeScreen({ navigation }: Props) {
                     ₹{rcMembership.feePaid}
                   </Text>
                   <Text style={styles.alertBody}>
-                    You can enrol in sessions published by this Regional Centre.
+                    You can enrol in TASK-approved RC course batches scheduled by this centre.
                   </Text>
                 </DataCard>
               ) : (
@@ -807,8 +810,8 @@ export function StudentHomeScreen({ navigation }: Props) {
                   <Text style={styles.name}>Join a Regional Centre</Text>
                   <Text style={styles.alertBody}>
                     Pay ₹{RC_MEMBERSHIP_FEE} (valid {RC_MEMBERSHIP_MONTHS} months) to access RC
-                    courses and services at one of 16 centres across Telangana. After joining, your
-                    centre will publish sessions you can enrol in here.
+                    courses at one of 16 centres. After TASK Admin approves an RC course request, it
+                    appears here for enrolment.
                   </Text>
                   <DropdownField
                     label="Regional Centre"
@@ -832,7 +835,7 @@ export function StudentHomeScreen({ navigation }: Props) {
                 </DataCard>
               )}
 
-              <SectionLabel>RC sessions</SectionLabel>
+              <SectionLabel>Approved RC sessions</SectionLabel>
               {!rcMembership ? (
                 <EmptyState
                   title="Membership required"
@@ -840,36 +843,49 @@ export function StudentHomeScreen({ navigation }: Props) {
                 />
               ) : rcSessions.length === 0 ? (
                 <EmptyState
-                  title="No open RC sessions"
-                  body="When your Regional Centre publishes a session, it appears here."
+                  title="No approved RC sessions"
+                  body="When your Regional Centre’s course request is approved by TASK Admin, it appears here."
                 />
               ) : (
                 rcSessions.map((item) => {
-                  const enrolled = rcEnrolledIds.includes(item.id);
+                  const seated = rcCounts[item.id] ?? 0;
+                  const full = seated >= item.batchSize;
+                  const already = registrations.some(
+                    (r) => r.courseRequestId === item.id && r.status === 'registered',
+                  );
                   return (
                     <DataCard key={item.id} accent>
                       <View style={styles.row}>
-                        <Text style={styles.name}>{item.title}</Text>
-                        <StatusBadge status={enrolled ? 'registered' : item.mode} />
+                        <Text style={styles.name}>{item.courseName}</Text>
+                        <StatusBadge status={already ? 'registered' : item.status} />
                       </View>
                       <Text style={styles.meta}>
-                        {item.mode === 'online' ? 'Online' : 'Offline'} · {item.startDate}{' '}
-                        {item.startTime} → {item.endDate} {item.endTime}
+                        {item.startDate} → {item.endDate} · {item.branch} · Grad{' '}
+                        {item.yearOfGraduation}
                       </Text>
-                      {item.venueOrLink ? (
-                        <Text style={styles.meta}>
-                          {item.mode === 'online' ? 'Link' : 'Venue'}: {item.venueOrLink}
-                        </Text>
-                      ) : null}
-                      <Text style={styles.alertBody}>{item.description}</Text>
+                      <Text style={styles.meta}>
+                        Seats {seated}/{item.batchSize}
+                        {item.trainerName ? ` · Trainer ${item.trainerName}` : ''}
+                      </Text>
                       <View style={styles.gap} />
-                      {enrolled ? (
-                        <Text style={styles.meta}>You are enrolled</Text>
+                      {already ? (
+                        <PrimaryButton
+                          title="Open session"
+                          onPress={() =>
+                            navigation.navigate('StudentSessionDetail', { requestId: item.id })
+                          }
+                        />
                       ) : (
                         <PrimaryButton
-                          title={loadingId === item.id ? 'Enrolling…' : 'Enrol'}
+                          title={
+                            loadingId === item.id
+                              ? 'Enrolling…'
+                              : full
+                                ? 'Batch full'
+                                : 'Enrol'
+                          }
                           onPress={() => enrollRcSession(item)}
-                          disabled={loadingId === item.id}
+                          disabled={loadingId === item.id || full}
                         />
                       )}
                     </DataCard>

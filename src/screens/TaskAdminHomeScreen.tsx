@@ -212,7 +212,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                   <ActionRow
                     key={item.id}
                     title={item.courseName}
-                    meta={`${item.collegeName} · ${item.startDate} → ${item.endDate}`}
+                    meta={`${item.requesterType === 'regional_center' ? 'RC · ' : ''}${item.collegeName} · ${item.startDate} → ${item.endDate}`}
                     badge="pending"
                     cta="Review"
                     onPress={() =>
@@ -233,7 +233,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                   <ActionRow
                     key={item.id}
                     title={item.courseName}
-                    meta={`${item.collegeName} · ${item.branch} · Batch ${item.batchSize}`}
+                    meta={`${item.requesterType === 'regional_center' ? 'RC · ' : ''}${item.collegeName} · ${item.branch} · Batch ${item.batchSize}`}
                     badge="approved"
                     cta="Assign trainer"
                     onPress={() =>
@@ -314,7 +314,10 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                     <Text style={styles.name}>{item.courseName}</Text>
                     <StatusBadge status={item.status} />
                   </View>
-                  <Text style={styles.meta}>{item.collegeName}</Text>
+                  <Text style={styles.meta}>
+                    {item.requesterType === 'regional_center' ? 'RC · ' : 'College · '}
+                    {item.collegeName}
+                  </Text>
                   <Text style={styles.meta}>
                     {item.startDate} → {item.endDate} · Batch {item.batchSize}
                   </Text>
@@ -334,8 +337,8 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
           <>
             <Text style={styles.section}>Course catalogue</Text>
             <Text style={styles.lead}>
-              Manage workshop titles available to colleges. Disabled courses are hidden from
-              college request forms.
+              Manage workshop titles available to colleges and Regional Centres. Disabled courses
+              are hidden from request forms.
             </Text>
             <PrimaryButton
               title="Open course catalogue"

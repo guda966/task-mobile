@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collegePortalApi } from './collegePortalApi';
+import { regionalCentreApi } from './regionalCentreApi';
 import type { CourseRequest } from '../types/collegePortal';
 import type { StudentRecord } from '../types/student';
 import type { TrainingRegistration } from '../types/training';
@@ -71,12 +72,28 @@ async function ensureDemoSessionForStudent(student: StudentRecord): Promise<void
 }
 
 function isEligibleForSession(student: StudentRecord, session: CourseRequest): boolean {
+  if (session.status !== 'approved') return false;
+  if (session.requesterType === 'regional_center') return false;
   return (
     session.enrollmentId === student.enrollmentId &&
-    session.status === 'approved' &&
     session.branch === student.branch &&
     session.yearOfGraduation === student.yearOfGraduation
   );
+}
+
+function isEligibleForRcSession(
+  student: StudentRecord,
+  session: CourseRequest,
+  regionalCenterId: string,
+): boolean {
+  if (session.status !== 'approved') return false;
+  if (session.requesterType !== 'regional_center') return false;
+  if (session.regionalCenterId !== regionalCenterId) return false;
+  const openBranch = session.branch === 'All RC members' || session.branch === 'All';
+  const openYear = session.yearOfGraduation === 'All';
+  if (!openBranch && session.branch !== student.branch) return false;
+  if (!openYear && session.yearOfGraduation !== student.yearOfGraduation) return false;
+  return true;
 }
 
 export const trainingApi = {
@@ -88,6 +105,16 @@ export const trainingApi = {
     // Strict: only batches requested for this student's department + graduation year
     return sessions
       .filter((s) => isEligibleForSession(student, s))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  },
+
+  async listAvailableRcSessions(student: StudentRecord): Promise<CourseRequest[]> {
+    await delay();
+    const membership = await regionalCentreApi.getActiveMembership(student.id);
+    if (!membership) return [];
+    const sessions = await collegePortalApi.listRcCalendarEvents(membership.regionalCenterId);
+    return sessions
+      .filter((s) => isEligibleForRcSession(student, s, membership.regionalCenterId))
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   },
 
@@ -114,18 +141,29 @@ export const trainingApi = {
     if (session.status !== 'approved') {
       throw new Error('This training session is not open for registration.');
     }
-    if (session.enrollmentId !== student.enrollmentId) {
-      throw new Error('You can only register for sessions at your TASK-registered college.');
-    }
-    if (session.branch !== student.branch) {
-      throw new Error(
-        `This batch is only for ${session.branch} students. Your branch is ${student.branch}.`,
-      );
-    }
-    if (session.yearOfGraduation !== student.yearOfGraduation) {
-      throw new Error(
-        `This batch is only for graduation year ${session.yearOfGraduation}. Yours is ${student.yearOfGraduation}.`,
-      );
+
+    if (session.requesterType === 'regional_center') {
+      const membership = await regionalCentreApi.getActiveMembership(student.id);
+      if (!membership || membership.regionalCenterId !== session.regionalCenterId) {
+        throw new Error('Join this Regional Centre first to register for RC sessions.');
+      }
+      if (!isEligibleForRcSession(student, session, membership.regionalCenterId)) {
+        throw new Error('This RC batch is not open for your branch or graduation year.');
+      }
+    } else {
+      if (session.enrollmentId !== student.enrollmentId) {
+        throw new Error('You can only register for sessions at your TASK-registered college.');
+      }
+      if (session.branch !== student.branch) {
+        throw new Error(
+          `This batch is only for ${session.branch} students. Your branch is ${student.branch}.`,
+        );
+      }
+      if (session.yearOfGraduation !== student.yearOfGraduation) {
+        throw new Error(
+          `This batch is only for graduation year ${session.yearOfGraduation}. Yours is ${student.yearOfGraduation}.`,
+        );
+      }
     }
 
     const items = await readJson<TrainingRegistration[]>(TRAINING_KEY, []);
@@ -153,7 +191,7 @@ export const trainingApi = {
       courseName: session.courseName,
       category: session.category,
       collegeName: session.collegeName,
-      enrollmentId: session.enrollmentId,
+      enrollmentId: session.enrollmentId || session.regionalCenterId || '',
       branch: session.branch,
       yearOfGraduation: session.yearOfGraduation,
       startDate: session.startDate,

@@ -8,17 +8,27 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { ShellNavCluster } from './NavIconButton';
+import { BellIconButton, ShellNavCluster } from './NavIconButton';
 import { TaskLogo } from './ui';
 import { colors } from '../theme/colors';
 import { scrollToTop } from '../utils/scrollToTop';
 
-export type RcMenuKey = 'home' | 'members' | 'sessions' | 'profile';
+export type RcMenuKey =
+  | 'home'
+  | 'messages'
+  | 'members'
+  | 'courses'
+  | 'requests'
+  | 'calendar'
+  | 'profile';
 
 const MENU: { key: RcMenuKey; label: string }[] = [
   { key: 'home', label: 'Home' },
+  { key: 'messages', label: 'Alerts' },
   { key: 'members', label: 'Students' },
-  { key: 'sessions', label: 'Sessions' },
+  { key: 'courses', label: 'Courses' },
+  { key: 'requests', label: 'My requests' },
+  { key: 'calendar', label: 'Calendar' },
   { key: 'profile', label: 'Profile' },
 ];
 
@@ -29,6 +39,7 @@ export function RcShell({
   onSignOut,
   onBack,
   onHome,
+  unreadCount = 0,
   children,
 }: {
   centreName: string;
@@ -37,6 +48,7 @@ export function RcShell({
   onSignOut: () => void;
   onBack?: () => void;
   onHome?: () => void;
+  unreadCount?: number;
   children: React.ReactNode;
 }) {
   const { width } = useWindowDimensions();
@@ -60,6 +72,7 @@ export function RcShell({
   const menuItems = (inDrawer: boolean) =>
     MENU.map((item) => {
       const isActive = item.key === active;
+      const showBadge = item.key === 'messages' && unreadCount > 0;
       return (
         <Pressable
           key={item.key}
@@ -69,6 +82,11 @@ export function RcShell({
           accessibilityState={{ selected: isActive }}
         >
           <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{item.label}</Text>
+          {showBadge ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          ) : null}
         </Pressable>
       );
     });
@@ -94,6 +112,7 @@ export function RcShell({
             <Text style={styles.centreName} numberOfLines={1}>
               {centreName}
             </Text>
+            <BellIconButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
           </View>
           <View style={styles.content}>{children}</View>
         </View>
@@ -127,6 +146,7 @@ export function RcShell({
             </Text>
           </View>
         </View>
+        <BellIconButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
         <ShellNavCluster onBack={onBack} onHome={onHome} />
       </View>
 
@@ -200,10 +220,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   menuItemActive: { backgroundColor: colors.primary },
-  menuText: { color: colors.text, fontWeight: '600', fontSize: 13 },
+  menuText: { color: colors.text, fontWeight: '600', fontSize: 13, flex: 1 },
   menuTextActive: { color: colors.white },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   signOut: { marginTop: 8, padding: 10 },
   signOutText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
   main: { flex: 1 },

@@ -50,12 +50,13 @@ export interface CollegeEnrollment {
 
 export interface AppNotification {
   id: string;
-  audience: 'task_admin' | 'college_admin';
+  audience: 'task_admin' | 'college_admin' | 'regional_center';
   title: string;
   body: string;
   createdAt: string;
   read: boolean;
   enrollmentId: string;
+  regionalCenterId?: string;
 }
 
 export interface SessionUser {

@@ -19,10 +19,12 @@ import type { CollegeEnrollment } from '../../types/enrollment';
 
 export function CourseRequestsPanel({
   enrollment,
+  regionalCenterId,
   onOpenForm,
   onView,
 }: {
-  enrollment: CollegeEnrollment;
+  enrollment?: CollegeEnrollment;
+  regionalCenterId?: string;
   onOpenForm: () => void;
   onView: (id: string) => void;
 }) {
@@ -38,7 +40,9 @@ export function CourseRequestsPanel({
     try {
       setItems(
         await collegePortalApi.listCourseRequests({
-          enrollmentId: enrollment.id,
+          enrollmentId: enrollment?.id,
+          regionalCenterId,
+          requesterType: regionalCenterId ? 'regional_center' : undefined,
           status,
           query,
           branch: branch || undefined,
@@ -48,7 +52,7 @@ export function CourseRequestsPanel({
     } finally {
       setLoading(false);
     }
-  }, [enrollment.id, status, query, branch, yearOfGraduation]);
+  }, [enrollment?.id, regionalCenterId, status, query, branch, yearOfGraduation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,7 +64,11 @@ export function CourseRequestsPanel({
     <PanelPage>
       <PanelHeader
         title="My requests"
-        subtitle="Track course batches you asked TASK to run for your college."
+        subtitle={
+          regionalCenterId
+            ? 'Track course batches you asked TASK to run for your Regional Centre. Approved sessions appear on Calendar.'
+            : 'Track course batches you asked TASK to run for your college.'
+        }
         action={<PrimaryButton title="New request" onPress={onOpenForm} />}
       />
 
