@@ -245,9 +245,9 @@ export function WelcomeScreen({ navigation }: Props) {
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Regional Centres</Text>
               <Text style={styles.detailText}>
-                Optional Step 4 during student registration: join a Regional Centre for ₹599
-                (6 months). College TASK fee is a separate required fee in Step 5. You can also skip
-                RC and join later from Trainings → RC.
+                Optional: join one of 16 Regional Centres for local courses and services — ₹599,
+                valid 6 months. This is separate from the required college TASK registration fee.
+                Join during student registration, or skip and join later from Trainings → RC.
               </Text>
             </View>
             <View style={styles.detailItem}>
