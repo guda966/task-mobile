@@ -27,7 +27,21 @@ import { studentFeeLabel, validateStudentDraft } from '../utils/studentValidatio
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentRegistration'>;
 
-const STEP_LABELS = ['Personal', 'College', '10th & 12th', 'Regional Centre', 'Login & fee'];
+const STEP_LABELS = [
+  'Personal',
+  'College',
+  '10th & 12th',
+  'RC (optional)',
+  'College fee & login',
+];
+
+const STEP_HINTS = [
+  'Your personal details',
+  'Your TASK-approved college',
+  '10th and 12th marks',
+  'Optional — Regional Centre membership (separate from college fee)',
+  'Required — TASK college registration fee, then create your login',
+];
 
 export function StudentRegistrationScreen({ navigation, route }: Props) {
   const { setUser } = useAuth();
@@ -258,7 +272,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
   };
 
   return (
-    <Screen showLogo={false} subtitle={`Step ${step + 1} of ${STEP_LABELS.length}`}>
+    <Screen showLogo={false} subtitle={`Step ${step + 1} of ${STEP_LABELS.length} · ${STEP_HINTS[step]}`}>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
@@ -526,11 +540,19 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
         {step === 3 && (
           <>
-            <Text style={styles.section}>TASK Regional Centre</Text>
+            <Text style={styles.section}>Step 4 — Regional Centre (optional)</Text>
+            <View style={styles.callout}>
+              <Text style={styles.calloutTitle}>Two different things</Text>
+              <Text style={styles.calloutText}>
+                • This step is only for joining a local TASK Regional Centre (RC).{'\n'}
+                • Your college TASK registration fee comes in the next step — it is separate.
+                {'\n'}
+                • You can skip RC now and join later from Trainings → RC.
+              </Text>
+            </View>
             <Text style={styles.rcIntro}>
-              Optional but recommended. Join one of 16 Regional Centres for local courses and
-              services. Membership is ₹{RC_MEMBERSHIP_FEE} and stays valid for{' '}
-              {RC_MEMBERSHIP_MONTHS} months.
+              RC membership gives access to local RC courses and services at 16 centres across
+              Telangana. Fee: ₹{RC_MEMBERSHIP_FEE} for {RC_MEMBERSHIP_MONTHS} months (non-refundable).
             </Text>
             <CheckboxRow
               checked={draft.joinRegionalCenter}
@@ -542,7 +564,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
                   update('rcFeeAcknowledged', false);
                 }
               }}
-              label="Yes, I want to register with a Regional Centre"
+              label={`Yes — join an RC now (₹${RC_MEMBERSHIP_FEE} membership)`}
             />
             <CheckboxRow
               checked={!draft.joinRegionalCenter}
@@ -551,12 +573,12 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
                 update('regionalCenterId', '');
                 update('rcFeeAcknowledged', false);
               }}
-              label="Skip for now — I will join later from Trainings → RC"
+              label="No — skip RC for now (college registration continues next)"
             />
             {draft.joinRegionalCenter ? (
               <>
                 <DropdownField
-                  label="Select Regional Centre"
+                  label="Select your nearest Regional Centre"
                   required
                   value={draft.regionalCenterId}
                   onChange={(v) => update('regionalCenterId', v)}
@@ -564,32 +586,46 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
                     value: c.id,
                     label: regionalCenterLabel(c),
                   }))}
-                  placeholder="Choose your nearest centre"
+                  placeholder="Choose Regional Centre"
                   error={errors.regionalCenterId}
                 />
-                <View style={styles.feeBox}>
-                  <Text style={styles.feeLabel}>RC membership fee</Text>
+                <View style={styles.feeBoxAlt}>
+                  <Text style={styles.feeLabel}>RC membership only (not college fee)</Text>
                   <Text style={styles.feeValue}>₹ {RC_MEMBERSHIP_FEE}</Text>
                   <Text style={styles.feeHint}>
-                    Mandatory for RC courses and services. Valid for {RC_MEMBERSHIP_MONTHS}{' '}
-                    months from payment. Non-refundable.
+                    Valid {RC_MEMBERSHIP_MONTHS} months from payment. Required only if you join RC
+                    courses/services. College registration fee is still due in Step 5.
                   </Text>
                 </View>
                 <CheckboxRow
                   checked={draft.rcFeeAcknowledged}
                   onToggle={() => update('rcFeeAcknowledged', !draft.rcFeeAcknowledged)}
-                  label={`I acknowledge the ₹${RC_MEMBERSHIP_FEE} Regional Centre membership fee.`}
+                  label={`I understand this ₹${RC_MEMBERSHIP_FEE} is for Regional Centre membership, not the college TASK fee.`}
                   error={errors.rcFeeAcknowledged}
                 />
               </>
-            ) : null}
+            ) : (
+              <Text style={styles.hint}>
+                You chose to skip RC. Next you will pay only the college TASK registration fee and
+                create your login.
+              </Text>
+            )}
           </>
         )}
 
         {step === 4 && (
           <>
+            <Text style={styles.section}>Step 5 — College TASK fee & login</Text>
+            <View style={styles.callout}>
+              <Text style={styles.calloutTitle}>Required for student registration</Text>
+              <Text style={styles.calloutText}>
+                This is your college TASK registration fee (based on institution type and category).
+                It is not the Regional Centre membership fee from the previous step.
+              </Text>
+            </View>
+
             <View style={styles.feeBox}>
-              <Text style={styles.feeLabel}>Registration Fee</Text>
+              <Text style={styles.feeLabel}>College TASK registration fee</Text>
               <Text style={styles.feeValue}>
                 {fee > 0 ? `₹ ${fee.toLocaleString('en-IN')}` : '—'}
               </Text>
@@ -598,14 +634,35 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
                 and non-refundable.
               </Text>
             </View>
+
+            {draft.joinRegionalCenter ? (
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryTitle}>Your fee summary</Text>
+                <Text style={styles.summaryRow}>
+                  College TASK fee — ₹{fee > 0 ? fee.toLocaleString('en-IN') : '—'} (this step)
+                </Text>
+                <Text style={styles.summaryRow}>
+                  RC membership — ₹{RC_MEMBERSHIP_FEE} (chosen in Step 4, separate)
+                </Text>
+                <Text style={styles.summaryTotal}>
+                  Total to acknowledge — ₹
+                  {(fee + RC_MEMBERSHIP_FEE).toLocaleString('en-IN')}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.hint}>
+                You skipped Regional Centre. Only the college TASK fee above applies now.
+              </Text>
+            )}
+
             <CheckboxRow
               checked={draft.feeAcknowledged}
               onToggle={() => update('feeAcknowledged', !draft.feeAcknowledged)}
-              label="I acknowledge the student registration fee."
+              label="I acknowledge the college TASK registration fee for this step."
               error={errors.feeAcknowledged}
             />
 
-            <Text style={styles.section}>Login details</Text>
+            <Text style={[styles.section, styles.sectionGap]}>Create your login</Text>
             <FormField
               label="Password"
               required
@@ -643,11 +700,11 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
                 • Contact details may be used for TASK programmes and eligible hiring outreach.
               </Text>
               <Text style={styles.termsItem}>
-                • Student registration fee payments are final and will not be refunded.
+                • College TASK registration fee payments are final and will not be refunded.
               </Text>
               <Text style={styles.termsItem}>
-                • Regional Centre membership (if chosen) is ₹{RC_MEMBERSHIP_FEE} for{' '}
-                {RC_MEMBERSHIP_MONTHS} months and is non-refundable.
+                • Regional Centre membership (if chosen in Step 4) is ₹{RC_MEMBERSHIP_FEE} for{' '}
+                {RC_MEMBERSHIP_MONTHS} months and is a separate, non-refundable fee.
               </Text>
             </View>
           </>
@@ -659,7 +716,15 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
           ) : null}
           {step < STEP_LABELS.length - 1 ? (
             <PrimaryButton
-              title="Continue"
+              title={
+                step === 3
+                  ? draft.joinRegionalCenter
+                    ? 'Continue to college fee'
+                    : 'Skip RC — continue to college fee'
+                  : step === 2
+                    ? 'Continue to Regional Centre'
+                    : 'Continue'
+              }
               onPress={() => {
                 if (validateStep()) setStep((s) => s + 1);
               }}
@@ -698,6 +763,42 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 12,
   },
+  callout: {
+    backgroundColor: '#FFF8E8',
+    borderWidth: 1,
+    borderColor: '#E8D4A8',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  calloutTitle: {
+    fontWeight: '700',
+    color: colors.text,
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  calloutText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  summaryBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    gap: 4,
+  },
+  summaryTitle: { fontWeight: '700', color: colors.text, fontSize: 13, marginBottom: 4 },
+  summaryRow: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
+  summaryTotal: {
+    marginTop: 6,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    fontSize: 14,
+  },
   sectionGap: { marginTop: 16 },
   hint: { color: colors.textMuted, fontSize: 12, marginBottom: 10, lineHeight: 18 },
   warn: { color: colors.danger, marginBottom: 12, lineHeight: 18 },
@@ -708,6 +809,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#BFDCDC',
+  },
+  feeBoxAlt: {
+    backgroundColor: '#F3F6F8',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   feeLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   feeValue: {
