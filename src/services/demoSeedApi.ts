@@ -21,7 +21,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v16';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v17';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -480,7 +480,7 @@ function buildBatches(college: CollegeEnrollment, trainer: TrainerRecord): Cours
 
 function buildRcBatches(
   center: (typeof REGIONAL_CENTERS)[number],
-  trainer: TrainerRecord,
+  _trainer: TrainerRecord,
 ): CourseRequest[] {
   const tech =
     SEED_COURSES.find((c) => c.category === 'Technology' && c.enabled) ?? SEED_COURSES[1];
@@ -500,21 +500,15 @@ function buildRcBatches(
     category: tech.category,
     yearOfGraduation: 'All',
     branch: 'All RC members',
-    // Starts after the college demo batch ends so the trainer calendar does not clash.
-    startDate: isoDay(12),
-    endDate: isoDay(17),
+    // After the college demo batch so calendars stay clear; left unassigned so the
+    // demo trainer is not double-booked (TASK Admin assigns a trainer in the walkthrough).
+    startDate: isoDay(14),
+    endDate: isoDay(19),
     batchSize: 35,
     status: 'approved',
     requestedOn: now,
     reviewedAt: now,
-    adminRemark: 'Demo approved RC batch open to all members',
-    trainerId: trainer.id,
-    trainerName: `${trainer.firstName} ${trainer.lastName}`,
-    trainerEmail: trainer.email,
-    trainerMobile: trainer.mobile,
-    trainerSkills: trainer.skills.join(', '),
-    trainerCity: trainer.city,
-    trainerExperienceYears: trainer.experienceYears,
+    adminRemark: 'Demo approved RC batch — assign a trainer before delivery',
   };
 
   const pending: CourseRequest = {
