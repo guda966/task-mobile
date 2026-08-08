@@ -235,15 +235,23 @@ export function WelcomeScreen({ navigation }: Props) {
                   Engineering, Degree, Pharmacy, Polytechnic, and MBA / MCA / PG programmes.
                 </Text>
               </View>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Who can join</Text>
-                <Text style={styles.detailText}>
-                  Colleges, students, and corporates can register on this portal for TASK
-                  programmes and partnerships.
-                </Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Focus areas</Text>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Who can join</Text>
+              <Text style={styles.detailText}>
+                Colleges, students, and corporates can register on this portal for TASK
+                programmes and partnerships.
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Regional Centres</Text>
+              <Text style={styles.detailText}>
+                Students may also join one of 16 TASK Regional Centres for ₹599 (valid 6 months)
+                to attend local RC courses and services. Choose RC during student registration or
+                later from Trainings → RC.
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Focus areas</Text>
                 <Text style={styles.detailText}>
                   Technology skills, soft skills, finishing school, jobs & internships, and training
                   calendar programmes.

@@ -309,6 +309,23 @@ export function StudentHomeScreen({ navigation }: Props) {
 
           <StudentAnnouncementScroller />
 
+          <DataCard accent>
+            <Text style={styles.name}>Regional Centre membership</Text>
+            <Text style={styles.alertBody}>
+              {rcMembership
+                ? `You are active at ${rcMembership.regionalCenterName} until ${new Date(rcMembership.expiresAt).toLocaleDateString('en-IN')}. Open Trainings → RC to enrol in centre sessions.`
+                : `TASK has 16 Regional Centres across Telangana. Pay ₹${RC_MEMBERSHIP_FEE} (valid ${RC_MEMBERSHIP_MONTHS} months) to access RC courses and services near you.`}
+            </Text>
+            <View style={styles.gap} />
+            <PrimaryButton
+              title={rcMembership ? 'Open RC sessions' : 'Learn & join RC'}
+              onPress={() => {
+                setTrainingTab('rc');
+                setMenu('trainings');
+              }}
+            />
+          </DataCard>
+
           <View style={styles.shortcuts}>
             <Pressable
               style={styles.shortcut}
@@ -327,6 +344,25 @@ export function StudentHomeScreen({ navigation }: Props) {
                   {active.length
                     ? 'Batches you already joined · Tap to open'
                     : 'None yet · Tap to browse available'}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={styles.shortcut}
+              onPress={() => {
+                setTrainingTab('rc');
+                setMenu('trainings');
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.shortcutValue}>{rcSessions.length}</Text>
+              <View style={styles.shortcutText}>
+                <Text style={styles.shortcutTitle}>Regional Centre</Text>
+                <Text style={styles.shortcutHint}>
+                  {rcMembership
+                    ? `${rcSessions.length} RC session(s) · Tap to open`
+                    : `₹${RC_MEMBERSHIP_FEE} / ${RC_MEMBERSHIP_MONTHS} months · Tap to join`}
                 </Text>
               </View>
             </Pressable>
@@ -771,7 +807,8 @@ export function StudentHomeScreen({ navigation }: Props) {
                   <Text style={styles.name}>Join a Regional Centre</Text>
                   <Text style={styles.alertBody}>
                     Pay ₹{RC_MEMBERSHIP_FEE} (valid {RC_MEMBERSHIP_MONTHS} months) to access RC
-                    courses and services.
+                    courses and services at one of 16 centres across Telangana. After joining, your
+                    centre will publish sessions you can enrol in here.
                   </Text>
                   <DropdownField
                     label="Regional Centre"

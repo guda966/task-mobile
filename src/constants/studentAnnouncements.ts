@@ -1,6 +1,11 @@
 /** Latest TASK programme updates shown to students on Home. */
 export const STUDENT_ANNOUNCEMENTS = [
   {
+    id: 'ann_rc_membership_2026',
+    title: 'Join a TASK Regional Centre',
+    body: 'Pay ₹599 (valid 6 months) to access RC courses and services near you. Open Trainings → RC to join or view sessions.',
+  },
+  {
     id: 'ann_skills_2026',
     title: 'New soft-skills batches open',
     body: '21st Century Transferrable Skills workshops are open for CSE and allied branches this month.',

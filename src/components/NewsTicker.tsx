@@ -3,9 +3,10 @@ import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native
 import { colors } from '../theme/colors';
 
 export const NEWS_ITEMS = [
+  'Students can join any of 16 TASK Regional Centres for ₹599 (valid 6 months) to attend RC courses and services.',
   'College registrations are open for the current academic cycle.',
   'Students from TASK-approved colleges can browse and join training batches.',
-  'Trainers may apply online; TASK Admin approval is required before assignment.',
+  'Regional Centre sessions appear under Student → Trainings → RC after membership is active.',
   'Certificates require minimum 75% attendance and completed assignments.',
   'Skill offerings cover Engineering, Degree, Pharmacy, Polytechnic, and PG programmes.',
 ];
