@@ -45,7 +45,7 @@ import { TRAINER_ATTENDANCE_PHOTO_SLOTS } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 import { requesterLabel } from '../utils/courseRequestLabels';
-import { getCurrentPosition, mapsUrl, pickImageWithPreview } from '../utils/geoPhoto';
+import { getCurrentPosition, mapsUrl, pickImageWithPreview, type GeoPosition, type PickImageMode, type PickedImage } from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
@@ -58,6 +58,12 @@ type Tab =
   | 'certificates'
   | 'feedback'
   | 'queries';
+
+type SlotDraft = { photo: PickedImage; geo: GeoPosition };
+
+function emptyDraftMap(): Partial<Record<TrainerAttendancePhotoKind, SlotDraft>> {
+  return {};
+}
 
 type Eligibility = {
   eligible: boolean;
@@ -139,6 +145,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
   const [evidenceDate, setEvidenceDate] = useState(todayIso());
+  const [slotDrafts, setSlotDrafts] = useState(emptyDraftMap);
   const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
@@ -290,6 +297,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const setEvidenceDateWithinSession = (next: string) => {
     if (!session) {
       setEvidenceDate(next);
+      setSlotDrafts(emptyDraftMap());
       return;
     }
     if (!DATE_RE.test(next)) {
@@ -297,6 +305,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       return;
     }
     setEvidenceDate(clampDate(next, session.startDate, session.endDate));
+    setSlotDrafts(emptyDraftMap());
   };
 
   const addMaterial = async () => {
@@ -565,12 +574,43 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     [evidenceByKind],
   );
 
-  const postGeoPhoto = async (kind: TrainerAttendancePhotoKind) => {
-    if (!user?.trainerId || !user.name) return;
+  const captureSlotDraft = async (
+    kind: TrainerAttendancePhotoKind,
+    mode: PickImageMode,
+  ) => {
     try {
       setSaving(true);
       const geo = await getCurrentPosition();
-      const photo = await pickImageWithPreview();
+      const photo = await pickImageWithPreview(mode);
+      setSlotDrafts((prev) => ({
+        ...prev,
+        [kind]: { photo, geo },
+      }));
+    } catch (e) {
+      if (e instanceof Error && e.message === 'Cancelled') return;
+      Alert.alert(
+        'Photo not accepted',
+        e instanceof Error
+          ? e.message
+          : 'Only geo-tagged photos are considered. Allow location and try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmSlotDraft = async (kind: TrainerAttendancePhotoKind) => {
+    if (!user?.trainerId || !user.name) return;
+    const draft = slotDrafts[kind];
+    if (!draft?.photo || !draft?.geo) {
+      Alert.alert(
+        'Photo required',
+        'Only geo-tagged photos are considered. Add a class photo first.',
+      );
+      return;
+    }
+    try {
+      setSaving(true);
       await sessionContentApi.addEvidence({
         requestId,
         trainerId: user.trainerId,
@@ -578,16 +618,20 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         sessionDate: evidenceDate,
         kind,
         photo: {
-          fileName: photo.fileName,
-          sizeLabel: photo.sizeLabel,
+          fileName: draft.photo.fileName,
+          sizeLabel: draft.photo.sizeLabel,
           uploadedAt: new Date().toISOString(),
-          dataUrl: photo.dataUrl,
+          dataUrl: draft.photo.dataUrl,
         },
-        geo,
+        geo: draft.geo,
+      });
+      setSlotDrafts((prev) => {
+        const next = { ...prev };
+        delete next[kind];
+        return next;
       });
       await loadCore();
     } catch (e) {
-      if (e instanceof Error && e.message === 'Cancelled') return;
       Alert.alert(
         'Unable to post',
         e instanceof Error ? e.message : `Could not save ${slotLabel(kind).toLowerCase()}.`,
@@ -595,6 +639,14 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const clearSlotDraft = (kind: TrainerAttendancePhotoKind) => {
+    setSlotDrafts((prev) => {
+      const next = { ...prev };
+      delete next[kind];
+      return next;
+    });
   };
 
   const tabOptions: { value: Tab; label: string }[] = [
@@ -1149,6 +1201,14 @@ export function TrainerSessionDetailScreen({ route }: Props) {
             />
 
             <DataCard>
+              <View style={styles.evNoteBox}>
+                <Text style={styles.evNoteTitle}>Only geo-tagged photos are considered</Text>
+                <Text style={styles.evNoteBody}>
+                  Location is captured when you add the photo. Without GPS, the photo cannot be
+                  posted.
+                </Text>
+              </View>
+
               <DateField
                 label="Session day"
                 required
@@ -1206,17 +1266,76 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                 <SectionLabel>{moment}</SectionLabel>
                 {TRAINER_ATTENDANCE_PHOTO_SLOTS.filter((s) => s.moment === moment).map((slot) => {
                   const posted = evidenceByKind[slot.kind];
+                  const draft = slotDrafts[slot.kind];
                   return (
                     <DataCard key={slot.kind}>
                       <View style={styles.evSlotHeader}>
                         <Text style={styles.cardTitle}>{slot.title}</Text>
-                        <Text style={posted ? styles.evBadgeOk : styles.evBadgePending}>
-                          {posted ? 'Posted' : 'Required'}
+                        <Text
+                          style={
+                            draft
+                              ? styles.evBadgePending
+                              : posted
+                                ? styles.evBadgeOk
+                                : styles.evBadgePending
+                          }
+                        >
+                          {draft ? 'Review' : posted ? 'Posted' : 'Required'}
                         </Text>
                       </View>
                       <Text style={styles.meta}>{slot.hint}</Text>
 
-                      {posted ? (
+                      {draft ? (
+                        <View style={styles.evDraftBlock}>
+                          <Image
+                            source={{ uri: draft.photo.dataUrl }}
+                            style={styles.evPreview}
+                            resizeMode="cover"
+                          />
+                          <Text style={styles.meta}>
+                            {draft.photo.fileName} · {draft.photo.sizeLabel}
+                          </Text>
+                          <Text style={styles.meta}>
+                            Geo-tagged · {draft.geo.latitude}, {draft.geo.longitude}
+                            {draft.geo.accuracyMeters
+                              ? ` · ±${draft.geo.accuracyMeters} m`
+                              : ''}
+                          </Text>
+                          <Pressable
+                            onPress={() =>
+                              Linking.openURL(
+                                mapsUrl(draft.geo.latitude, draft.geo.longitude),
+                              )
+                            }
+                          >
+                            <Text style={styles.link}>Open in Maps</Text>
+                          </Pressable>
+
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title={saving ? 'Posting…' : 'Confirm & post'}
+                            onPress={() => confirmSlotDraft(slot.kind)}
+                            disabled={saving}
+                          />
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title="Retake"
+                            variant="secondary"
+                            onPress={() => captureSlotDraft(slot.kind, 'camera')}
+                            disabled={saving}
+                          />
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title="Reupload"
+                            variant="secondary"
+                            onPress={() => captureSlotDraft(slot.kind, 'gallery')}
+                            disabled={saving}
+                          />
+                          <Pressable onPress={() => clearSlotDraft(slot.kind)}>
+                            <Text style={styles.linkDanger}>Cancel</Text>
+                          </Pressable>
+                        </View>
+                      ) : posted ? (
                         <View style={styles.evPostedBlock}>
                           {posted.photo.dataUrl ? (
                             <Image
@@ -1226,7 +1345,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                             />
                           ) : null}
                           <Text style={styles.meta}>
-                            {posted.geo.latitude}, {posted.geo.longitude}
+                            Geo-tagged · {posted.geo.latitude}, {posted.geo.longitude}
                             {posted.geo.accuracyMeters
                               ? ` · ±${posted.geo.accuracyMeters} m`
                               : ''}
@@ -1242,17 +1361,24 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                           </Pressable>
                           <View style={styles.gap} />
                           <PrimaryButton
-                            title={saving ? 'Updating…' : 'Retake'}
+                            title={saving ? 'Opening…' : 'Retake'}
                             variant="secondary"
-                            onPress={() => postGeoPhoto(slot.kind)}
+                            onPress={() => captureSlotDraft(slot.kind, 'camera')}
+                            disabled={saving}
+                          />
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title="Reupload"
+                            variant="secondary"
+                            onPress={() => captureSlotDraft(slot.kind, 'gallery')}
                             disabled={saving}
                           />
                         </View>
                       ) : (
                         <View style={styles.evDraftBlock}>
                           <PrimaryButton
-                            title={saving ? 'Posting…' : 'Add class photo'}
-                            onPress={() => postGeoPhoto(slot.kind)}
+                            title={saving ? 'Opening…' : 'Add class photo'}
+                            onPress={() => captureSlotDraft(slot.kind, 'camera')}
                             disabled={saving}
                           />
                         </View>
@@ -1504,6 +1630,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   evDayChipText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
+  evNoteBox: {
+    backgroundColor: '#FFF6E5',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  evNoteTitle: {
+    fontWeight: '800',
+    color: colors.primaryDark,
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  evNoteBody: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   evStatusBanner: {
     borderRadius: 10,
     paddingHorizontal: 12,

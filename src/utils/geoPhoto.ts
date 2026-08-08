@@ -13,14 +13,18 @@ export type GeoPosition = {
   capturedAt: string;
 };
 
+export type PickImageMode = 'camera' | 'gallery';
+
 /** Pick a photo and return a preview data URL (web) or mock preview (native demo). */
-export function pickImageWithPreview(): Promise<PickedImage> {
+export function pickImageWithPreview(mode: PickImageMode = 'camera'): Promise<PickedImage> {
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/jpeg,image/png,image/webp,image/*';
-      input.capture = 'environment';
+      if (mode === 'camera') {
+        input.capture = 'environment';
+      }
       input.onchange = () => {
         const file = input.files?.[0];
         if (!file) {
@@ -52,22 +56,24 @@ export function pickImageWithPreview(): Promise<PickedImage> {
   }
 
   const stamp = Date.now().toString().slice(-5);
-  // Simple SVG placeholder as data URL for native demo builds.
+  const label = mode === 'camera' ? 'Retake' : 'Reupload';
   const svg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">
       <rect fill="#0F6E6E" width="100%" height="100%"/>
-      <text x="50%" y="48%" fill="#fff" font-size="28" text-anchor="middle" font-family="sans-serif">Session evidence</text>
-      <text x="50%" y="58%" fill="#D7EEEE" font-size="16" text-anchor="middle" font-family="sans-serif">Demo photo ${stamp}</text>
+      <text x="50%" y="48%" fill="#fff" font-size="28" text-anchor="middle" font-family="sans-serif">Class photo</text>
+      <text x="50%" y="58%" fill="#D7EEEE" font-size="16" text-anchor="middle" font-family="sans-serif">${label} demo ${stamp}</text>
     </svg>`,
   );
   return Promise.resolve({
-    fileName: `session_evidence_${stamp}.jpg`,
+    fileName: `class_photo_${stamp}.jpg`,
     sizeLabel: '180 KB',
     dataUrl: `data:image/svg+xml;charset=utf-8,${svg}`,
   });
 }
 
-/** Capture device GPS coordinates for geo-tagged evidence. */
+/**
+ * Capture device GPS. Required for My attendance — only geo-tagged photos are accepted.
+ */
 export function getCurrentPosition(): Promise<GeoPosition> {
   if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
     return new Promise((resolve, reject) => {
@@ -86,8 +92,8 @@ export function getCurrentPosition(): Promise<GeoPosition> {
           reject(
             new Error(
               err.code === 1
-                ? 'Location permission denied. Allow location access to geo-tag the photo.'
-                : 'Unable to read GPS location. Try again outdoors or check browser permissions.',
+                ? 'Location permission denied. Only geo-tagged photos are considered — allow location access.'
+                : 'Unable to read GPS. Only geo-tagged photos are considered — try again outdoors or check permissions.',
             ),
           );
         },
