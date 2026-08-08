@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 
@@ -8,6 +8,8 @@ function toIsoDate(date: Date) {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+const DATE_FIELD_STYLE_ID = 'task-date-field-calendar-icon';
 
 export function DateField({
   label,
@@ -24,6 +26,29 @@ export function DateField({
   error?: string;
   minimumDate?: Date;
 }) {
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(DATE_FIELD_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = DATE_FIELD_STYLE_ID;
+    style.textContent = `
+      input[data-task-date="1"] {
+        box-sizing: border-box;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      input[data-task-date="1"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.85;
+        padding: 6px;
+        margin-right: 2px;
+        width: 18px;
+        height: 18px;
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>
@@ -36,15 +61,22 @@ export function DateField({
           value: value || '',
           min: minimumDate ? toIsoDate(minimumDate) : undefined,
           onChange: (e: { target: { value: string } }) => onChange(e.target.value),
+          'data-task-date': '1',
           style: {
             width: '100%',
             border: 'none',
             outline: 'none',
             background: 'transparent',
-            padding: 12,
+            paddingTop: 12,
+            paddingBottom: 12,
+            paddingLeft: 12,
+            // Keep clear space so the native calendar icon is not clipped.
+            paddingRight: 40,
             fontSize: 15,
             color: colors.text,
             fontFamily: 'inherit',
+            lineHeight: '20px',
+            minHeight: 46,
           },
         })}
       </View>
@@ -62,7 +94,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
     borderRadius: 8,
-    overflow: 'hidden',
+    // Do not use overflow:hidden — it clips the native calendar icon.
   },
   inputError: { borderColor: colors.danger },
   error: { color: colors.danger, marginTop: 4, fontSize: 12 },
