@@ -23,7 +23,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v19';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v20';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -45,8 +45,6 @@ const IDS = {
   submissionQuiz: 'sub_demo_quiz',
   evidence: 'evd_demo_1',
   evidence2: 'evd_demo_2',
-  evidence3: 'evd_demo_3',
-  evidence4: 'evd_demo_4',
 };
 
 function isoDay(offsetDays: number): string {
@@ -749,10 +747,8 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
     );
 
   const evidenceIds: Record<TrainerAttendancePhotoKind, string> = {
-    start_selfie: IDS.evidence,
-    start_class: IDS.evidence2,
-    end_selfie: IDS.evidence3,
-    end_class: IDS.evidence4,
+    start_class: IDS.evidence,
+    end_class: IDS.evidence2,
   };
 
   const evidence: SessionEvidence[] = TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => ({

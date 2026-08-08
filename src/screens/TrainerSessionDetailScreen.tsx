@@ -612,7 +612,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     },
     {
       value: 'evidence',
-      label: `My attendance (${myAttendancePostedCount}/4)`,
+      label: `My attendance (${myAttendancePostedCount}/2)`,
     },
     {
       value: 'certificates',
@@ -684,7 +684,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                 },
                 {
                   label: 'My attendance',
-                  value: `${myAttendancePostedCount}/4`,
+                  value: `${myAttendancePostedCount}/2`,
                   hint: myAttendanceComplete ? 'Complete today' : 'Photos required',
                   onPress: () => setTab('evidence'),
                 },
@@ -699,8 +699,8 @@ export function TrainerSessionDetailScreen({ route }: Props) {
             <DataCard>
               <Text style={styles.body}>
                 1. Upload materials → 2. Post assignments → 3. Mark student attendance → 4. Post your
-                My attendance photos (start & close selfie + class photo) → 5. Review submissions →
-                6. Issue certificates when eligible.
+                My attendance class photos (start & close) → 5. Review submissions → 6. Issue
+                certificates when eligible.
               </Text>
             </DataCard>
             {pendingSubs.length > 0 ? (
@@ -1145,7 +1145,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="My attendance"
-              subtitle="Mandatory geo-tagged selfie and class photo at session start and close"
+              subtitle="Mandatory geo-tagged class photo at session start and close"
             />
 
             <DataCard>
@@ -1195,8 +1195,8 @@ export function TrainerSessionDetailScreen({ route }: Props) {
               >
                 <Text style={styles.evStatusText}>
                   {myAttendanceComplete
-                    ? 'All 4 mandatory photos posted for this day'
-                    : `${myAttendancePostedCount} of 4 mandatory photos posted`}
+                    ? 'Both mandatory class photos posted for this day'
+                    : `${myAttendancePostedCount} of 2 mandatory class photos posted`}
                 </Text>
               </View>
             </DataCard>

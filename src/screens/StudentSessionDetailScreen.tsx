@@ -683,25 +683,21 @@ export function StudentSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="Trainer attendance photos"
-              subtitle="Geo-tagged selfie and class photos at session start and close"
+              subtitle="Geo-tagged class photos at session start and close"
             />
             {evidence.length === 0 ? (
               <EmptyState
                 title="No trainer photos yet"
-                body="When your trainer posts start/close selfie and class photos, they appear here."
+                body="When your trainer posts start/close class photos, they appear here."
               />
             ) : (
               evidence.map((item) => {
                 const kindLabel =
-                  item.kind === 'start_selfie'
-                    ? 'Session start · Selfie'
-                    : item.kind === 'start_class'
-                      ? 'Session start · Class photo'
-                      : item.kind === 'end_selfie'
-                        ? 'Session close · Selfie'
-                        : item.kind === 'end_class'
-                          ? 'Session close · Class photo'
-                          : 'Attendance photo';
+                  item.kind === 'start_class'
+                    ? 'Session start · Class photo'
+                    : item.kind === 'end_class'
+                      ? 'Session close · Class photo'
+                      : 'Attendance photo';
                 return (
                   <DataCard key={item.id}>
                     <View style={styles.evCardRow}>

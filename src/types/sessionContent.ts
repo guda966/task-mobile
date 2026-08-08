@@ -71,11 +71,7 @@ export interface SessionCertificate {
 }
 
 /** Trainer own-attendance photo slots for a session day (all mandatory). */
-export type TrainerAttendancePhotoKind =
-  | 'start_selfie'
-  | 'start_class'
-  | 'end_selfie'
-  | 'end_class';
+export type TrainerAttendancePhotoKind = 'start_class' | 'end_class';
 
 export const TRAINER_ATTENDANCE_PHOTO_SLOTS: {
   kind: TrainerAttendancePhotoKind;
@@ -84,22 +80,10 @@ export const TRAINER_ATTENDANCE_PHOTO_SLOTS: {
   hint: string;
 }[] = [
   {
-    kind: 'start_selfie',
-    moment: 'Session start',
-    title: 'Selfie',
-    hint: 'Your selfie at session start (auto geo-tagged)',
-  },
-  {
     kind: 'start_class',
     moment: 'Session start',
     title: 'Class photo',
     hint: 'Classroom / batch photo at start (auto geo-tagged)',
-  },
-  {
-    kind: 'end_selfie',
-    moment: 'Session close',
-    title: 'Selfie',
-    hint: 'Your selfie at closing time (auto geo-tagged)',
   },
   {
     kind: 'end_class',
