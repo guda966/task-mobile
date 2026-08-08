@@ -6,6 +6,7 @@ import type {
   SessionAssignment,
   SessionAttendance,
   SessionCertificate,
+  SessionEvidence,
   SessionFileRef,
   SessionMaterial,
   SubmissionStatus,
@@ -17,6 +18,7 @@ const ASSIGNMENTS_KEY = 'task.sessionAssignments.v1';
 const ATTENDANCE_KEY = 'task.sessionAttendance.v1';
 const SUBMISSIONS_KEY = 'task.assignmentSubmissions.v1';
 const CERTIFICATES_KEY = 'task.sessionCertificates.v1';
+const EVIDENCE_KEY = 'task.sessionEvidence.v1';
 const REQUESTS_KEY = 'task.courseRequests.v1';
 
 function uid(prefix: string): string {
@@ -477,5 +479,81 @@ export const sessionContentApi = {
       }
     }
     return count;
+  },
+
+  async listEvidence(requestId: string): Promise<SessionEvidence[]> {
+    await delay();
+    const items = await readJson<SessionEvidence[]>(EVIDENCE_KEY, []);
+    return items
+      .filter((e) => e.requestId === requestId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  async addEvidence(input: {
+    requestId: string;
+    trainerId: string;
+    trainerName: string;
+    sessionDate: string;
+    caption?: string;
+    photo: SessionFileRef & { dataUrl?: string };
+    geo: SessionEvidence['geo'];
+  }): Promise<SessionEvidence> {
+    await delay(400);
+    const session = await getRequest(input.requestId);
+    assertCanManage(session, input.trainerId);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)) {
+      throw new Error('Choose a valid session date for this evidence.');
+    }
+    if (input.sessionDate < session.startDate || input.sessionDate > session.endDate) {
+      throw new Error('Evidence date must fall within the batch start and end dates.');
+    }
+    if (!input.photo?.fileName || !input.photo?.dataUrl) {
+      throw new Error('Attach a session photo before posting evidence.');
+    }
+    if (
+      typeof input.geo.latitude !== 'number' ||
+      typeof input.geo.longitude !== 'number' ||
+      Number.isNaN(input.geo.latitude) ||
+      Number.isNaN(input.geo.longitude)
+    ) {
+      throw new Error('Capture GPS location to geo-tag this photo.');
+    }
+
+    const entry: SessionEvidence = {
+      id: uid('evd'),
+      requestId: input.requestId,
+      trainerId: input.trainerId,
+      trainerName: input.trainerName,
+      sessionDate: input.sessionDate,
+      caption: input.caption?.trim() || undefined,
+      photo: {
+        fileName: input.photo.fileName,
+        sizeLabel: input.photo.sizeLabel,
+        uploadedAt: input.photo.uploadedAt || new Date().toISOString(),
+        dataUrl: input.photo.dataUrl,
+      },
+      geo: {
+        latitude: input.geo.latitude,
+        longitude: input.geo.longitude,
+        accuracyMeters: input.geo.accuracyMeters,
+        capturedAt: input.geo.capturedAt || new Date().toISOString(),
+      },
+      createdAt: new Date().toISOString(),
+    };
+    const items = await readJson<SessionEvidence[]>(EVIDENCE_KEY, []);
+    items.unshift(entry);
+    await writeJson(EVIDENCE_KEY, items);
+    return entry;
+  },
+
+  async removeEvidence(id: string, trainerId: string): Promise<void> {
+    await delay(250);
+    const items = await readJson<SessionEvidence[]>(EVIDENCE_KEY, []);
+    const index = items.findIndex((e) => e.id === id);
+    if (index < 0) throw new Error('Evidence not found.');
+    const session = await getRequest(items[index].requestId);
+    assertCanManage(session, trainerId);
+    items.splice(index, 1);
+    await writeJson(EVIDENCE_KEY, items);
   },
 };

@@ -69,3 +69,22 @@ export interface SessionCertificate {
   certificateCode: string;
   issuedAt: string;
 }
+
+/** Geo-tagged photo evidence posted by the trainer for a session day. */
+export interface SessionEvidence {
+  id: string;
+  requestId: string;
+  trainerId: string;
+  trainerName: string;
+  /** Calendar day this evidence belongs to (YYYY-MM-DD). */
+  sessionDate: string;
+  caption?: string;
+  photo: SessionFileRef & { dataUrl?: string };
+  geo: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters?: number;
+    capturedAt: string;
+  };
+  createdAt: string;
+}

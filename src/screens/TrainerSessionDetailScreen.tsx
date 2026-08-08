@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -35,11 +37,13 @@ import type {
   SessionAssignment,
   SessionAttendance,
   SessionCertificate,
+  SessionEvidence,
   SessionMaterial,
 } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 import { requesterLabel } from '../utils/courseRequestLabels';
+import { getCurrentPosition, mapsUrl, pickImageWithPreview, type GeoPosition, type PickedImage } from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
@@ -48,6 +52,7 @@ type Tab =
   | 'materials'
   | 'assignments'
   | 'attendance'
+  | 'evidence'
   | 'certificates'
   | 'feedback'
   | 'queries';
@@ -121,10 +126,15 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [roster, setRoster] = useState<TrainingRegistration[]>([]);
   const [attendance, setAttendance] = useState<SessionAttendance[]>([]);
   const [certificates, setCertificates] = useState<SessionCertificate[]>([]);
+  const [evidence, setEvidence] = useState<SessionEvidence[]>([]);
   const [eligibility, setEligibility] = useState<Record<string, Eligibility>>({});
   const [feedback, setFeedback] = useState<TrainerFeedback[]>([]);
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
+  const [evidenceDate, setEvidenceDate] = useState(todayIso());
+  const [evidenceCaption, setEvidenceCaption] = useState('');
+  const [evidencePhoto, setEvidencePhoto] = useState<PickedImage | null>(null);
+  const [evidenceGeo, setEvidenceGeo] = useState<GeoPosition | null>(null);
   const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
@@ -148,12 +158,14 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     if (item && !dateReady) {
       const preferred = clampDate(todayIso(), item.startDate, item.endDate);
       setAttendanceDate(preferred);
+      setEvidenceDate(preferred);
       setDateReady(true);
     }
     setMaterials(await sessionContentApi.listMaterials(requestId));
     setAssignments(await sessionContentApi.listAssignments(requestId));
     setSubmissions(await sessionContentApi.listSubmissions(requestId));
     setCertificates(await sessionContentApi.listCertificates(requestId));
+    setEvidence(await sessionContentApi.listEvidence(requestId));
     const regs = await trainingApi.listRegistrationsForSession(requestId);
     setRoster(regs);
     const nextElig: Record<string, Eligibility> = {};
@@ -269,6 +281,18 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     }
     setAttendanceDate(clampDate(next, session.startDate, session.endDate));
     setSelectedAttendance({});
+  };
+
+  const setEvidenceDateWithinSession = (next: string) => {
+    if (!session) {
+      setEvidenceDate(next);
+      return;
+    }
+    if (!DATE_RE.test(next)) {
+      setEvidenceDate(next);
+      return;
+    }
+    setEvidenceDate(clampDate(next, session.startDate, session.endDate));
   };
 
   const addMaterial = async () => {
@@ -517,6 +541,82 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     }
   };
 
+  const captureGeo = async () => {
+    try {
+      setSaving(true);
+      const pos = await getCurrentPosition();
+      setEvidenceGeo(pos);
+      Alert.alert(
+        'Location captured',
+        `${pos.latitude}, ${pos.longitude}${
+          pos.accuracyMeters ? ` (±${pos.accuracyMeters} m)` : ''
+        }`,
+      );
+    } catch (e) {
+      Alert.alert('Location failed', e instanceof Error ? e.message : 'Try again');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pickEvidencePhoto = async () => {
+    try {
+      const photo = await pickImageWithPreview();
+      setEvidencePhoto(photo);
+    } catch (e) {
+      if (e instanceof Error && e.message === 'Cancelled') return;
+      Alert.alert('Photo failed', e instanceof Error ? e.message : 'Try again');
+    }
+  };
+
+  const postEvidence = async () => {
+    if (!user?.trainerId || !user.name) return;
+    if (!evidencePhoto) {
+      Alert.alert('Photo required', 'Take or choose a session photo first.');
+      return;
+    }
+    if (!evidenceGeo) {
+      Alert.alert('Location required', 'Capture GPS location to geo-tag this photo.');
+      return;
+    }
+    try {
+      setSaving(true);
+      await sessionContentApi.addEvidence({
+        requestId,
+        trainerId: user.trainerId,
+        trainerName: user.name,
+        sessionDate: evidenceDate,
+        caption: evidenceCaption,
+        photo: {
+          fileName: evidencePhoto.fileName,
+          sizeLabel: evidencePhoto.sizeLabel,
+          uploadedAt: new Date().toISOString(),
+          dataUrl: evidencePhoto.dataUrl,
+        },
+        geo: evidenceGeo,
+      });
+      setEvidenceCaption('');
+      setEvidencePhoto(null);
+      setEvidenceGeo(null);
+      Alert.alert('Evidence posted', 'Geo-tagged session photo saved for this day.');
+      await loadCore();
+    } catch (e) {
+      Alert.alert('Unable to post', e instanceof Error ? e.message : 'Try again');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeEvidence = async (id: string) => {
+    if (!user?.trainerId) return;
+    try {
+      await sessionContentApi.removeEvidence(id, user.trainerId);
+      await loadCore();
+    } catch (e) {
+      Alert.alert('Unable to remove', e instanceof Error ? e.message : 'Try again');
+    }
+  };
+
   const tabOptions: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
     { value: 'materials', label: `Materials (${materials.length})` },
@@ -527,6 +627,10 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     {
       value: 'attendance',
       label: attStats.unmarked ? `Attendance (${attStats.unmarked})` : 'Attendance',
+    },
+    {
+      value: 'evidence',
+      label: evidence.length ? `Evidence (${evidence.length})` : 'Evidence',
     },
     {
       value: 'certificates',
@@ -597,6 +701,12 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('attendance'),
                 },
                 {
+                  label: 'Evidence photos',
+                  value: String(evidence.length),
+                  hint: 'Geo-tagged',
+                  onPress: () => setTab('evidence'),
+                },
+                {
                   label: 'Ready for cert',
                   value: String(eligibleForCert.length),
                   onPress: () => setTab('certificates'),
@@ -606,8 +716,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
             <SectionLabel>Suggested workflow</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Upload materials → 2. Post assignments → 3. Mark attendance each day → 4. Review
-                submissions → 5. Answer queries → 6. Issue certificates when eligible.
+                1. Upload materials → 2. Post assignments → 3. Mark attendance each day → 4. Post
+                geo-tagged session photo evidence → 5. Review submissions → 6. Issue certificates
+                when eligible.
               </Text>
             </DataCard>
             {pendingSubs.length > 0 ? (
@@ -1048,6 +1159,177 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           </>
         ) : null}
 
+        {tab === 'evidence' ? (
+          <>
+            <PanelHeader
+              title="Session evidence"
+              subtitle={
+                session
+                  ? `Geo-tagged photo proof for each day · ${session.startDate} → ${session.endDate}`
+                  : 'Capture GPS, attach a photo, then post'
+              }
+            />
+
+            <DataCard>
+              <Text style={styles.sectionHint}>Post evidence for a session day</Text>
+              <Text style={styles.meta}>
+                1. Choose the day · 2. Capture GPS · 3. Attach photo · 4. Post
+              </Text>
+              <View style={styles.gap} />
+              <View style={styles.attDayBar}>
+                <Pressable
+                  style={styles.attNavBtn}
+                  onPress={() => {
+                    if (!session || !DATE_RE.test(evidenceDate)) return;
+                    setEvidenceDateWithinSession(shiftDate(evidenceDate, -1));
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous evidence day"
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.primaryDark} />
+                </Pressable>
+                <View style={styles.attDateGrow}>
+                  <DateField
+                    label="Session day"
+                    required
+                    value={evidenceDate}
+                    onChange={setEvidenceDateWithinSession}
+                    minimumDate={
+                      session ? new Date(`${session.startDate}T00:00:00`) : undefined
+                    }
+                  />
+                </View>
+                <Pressable
+                  style={styles.attNavBtn}
+                  onPress={() => {
+                    if (!session || !DATE_RE.test(evidenceDate)) return;
+                    setEvidenceDateWithinSession(shiftDate(evidenceDate, 1));
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next evidence day"
+                >
+                  <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
+                </Pressable>
+              </View>
+
+              <View style={styles.evStepRow}>
+                <PrimaryButton
+                  title={evidenceGeo ? 'Location captured ✓' : 'Capture GPS'}
+                  variant="secondary"
+                  onPress={captureGeo}
+                  disabled={saving}
+                />
+                <PrimaryButton
+                  title={evidencePhoto ? 'Change photo' : 'Take / choose photo'}
+                  variant="secondary"
+                  onPress={pickEvidencePhoto}
+                  disabled={saving}
+                />
+              </View>
+
+              {evidenceGeo ? (
+                <View style={styles.evGeoBox}>
+                  <Text style={styles.evGeoTitle}>Geo tag ready</Text>
+                  <Text style={styles.meta}>
+                    {evidenceGeo.latitude}, {evidenceGeo.longitude}
+                    {evidenceGeo.accuracyMeters
+                      ? ` · ±${evidenceGeo.accuracyMeters} m`
+                      : ''}
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      Linking.openURL(mapsUrl(evidenceGeo.latitude, evidenceGeo.longitude))
+                    }
+                  >
+                    <Text style={styles.link}>Open in Maps</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.warnLine}>GPS not captured yet.</Text>
+              )}
+
+              {evidencePhoto ? (
+                <View style={styles.evPreviewWrap}>
+                  <Image
+                    source={{ uri: evidencePhoto.dataUrl }}
+                    style={styles.evPreview}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.meta}>
+                    {evidencePhoto.fileName} · {evidencePhoto.sizeLabel}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.warnLine}>No photo attached yet.</Text>
+              )}
+
+              <FormField
+                label="Caption (optional)"
+                value={evidenceCaption}
+                onChangeText={setEvidenceCaption}
+                placeholder="e.g. Day 2 lab session — campus lab block B"
+              />
+              <PrimaryButton
+                title={saving ? 'Posting…' : 'Post geo-tagged evidence'}
+                onPress={postEvidence}
+                disabled={saving}
+              />
+            </DataCard>
+
+            <SectionLabel>
+              {`Posted evidence${evidence.length ? ` (${evidence.length})` : ''}`}
+            </SectionLabel>
+            {evidence.length === 0 ? (
+              <EmptyState
+                title="No evidence yet"
+                body="Post a geo-tagged photo after each session day as proof of delivery."
+              />
+            ) : (
+              evidence.map((item) => (
+                <DataCard key={item.id}>
+                  <View style={styles.evCardRow}>
+                    {item.photo.dataUrl ? (
+                      <Image
+                        source={{ uri: item.photo.dataUrl }}
+                        style={styles.evThumb}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.evThumb, styles.evThumbPlaceholder]}>
+                        <Ionicons name="image-outline" size={22} color={colors.textMuted} />
+                      </View>
+                    )}
+                    <View style={styles.flex}>
+                      <Text style={styles.cardTitle}>{item.sessionDate}</Text>
+                      {item.caption ? <Text style={styles.body}>{item.caption}</Text> : null}
+                      <Text style={styles.meta}>
+                        {item.geo.latitude}, {item.geo.longitude}
+                        {item.geo.accuracyMeters
+                          ? ` · ±${item.geo.accuracyMeters} m`
+                          : ''}
+                      </Text>
+                      <Text style={styles.meta}>
+                        {item.photo.fileName} · {item.photo.sizeLabel} · posted{' '}
+                        {item.createdAt.slice(0, 10)}
+                      </Text>
+                      <Pressable
+                        onPress={() =>
+                          Linking.openURL(mapsUrl(item.geo.latitude, item.geo.longitude))
+                        }
+                      >
+                        <Text style={styles.link}>Open location in Maps</Text>
+                      </Pressable>
+                      <Pressable onPress={() => removeEvidence(item.id)}>
+                        <Text style={styles.linkDanger}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </DataCard>
+              ))
+            )}
+          </>
+        ) : null}
+
         {tab === 'certificates' ? (
           <>
             <PanelHeader
@@ -1260,7 +1542,37 @@ const styles = StyleSheet.create({
   ok: { marginTop: 8, color: colors.success, fontWeight: '600', fontSize: 13, lineHeight: 18 },
   warnLine: { color: colors.warning, fontSize: 12, marginTop: 4, fontWeight: '600' },
   linkDanger: { color: colors.danger, marginTop: 10, fontWeight: '700', fontSize: 13 },
+  link: {
+    color: colors.primaryDark,
+    marginTop: 8,
+    fontWeight: '700',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
   gap: { height: 10 },
+  evStepRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  evGeoBox: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  evGeoTitle: { fontWeight: '800', color: colors.primaryDark, fontSize: 13, marginBottom: 2 },
+  evPreviewWrap: { marginBottom: 10, gap: 6 },
+  evPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+  },
+  evCardRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  evThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+  },
+  evThumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },
   rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },

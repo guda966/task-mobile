@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -32,11 +34,13 @@ import type {
   SessionAssignment,
   SessionAttendance,
   SessionCertificate,
+  SessionEvidence,
   SessionMaterial,
 } from '../types/sessionContent';
 import type { StudentRecord } from '../types/student';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import { requesterLabel } from '../utils/courseRequestLabels';
+import { mapsUrl } from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentSessionDetail'>;
@@ -46,6 +50,7 @@ type Tab =
   | 'assignments'
   | 'results'
   | 'attendance'
+  | 'evidence'
   | 'certificates'
   | 'feedback'
   | 'queries';
@@ -122,6 +127,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
   const [submissions, setSubmissions] = useState<AssignmentSubmission[]>([]);
   const [attendance, setAttendance] = useState<SessionAttendance[]>([]);
   const [certificates, setCertificates] = useState<SessionCertificate[]>([]);
+  const [evidence, setEvidence] = useState<SessionEvidence[]>([]);
   const [myFeedback, setMyFeedback] = useState<TrainerFeedback[]>([]);
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
@@ -145,6 +151,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
     setAttendance(await sessionContentApi.listAttendanceForStudent(requestId, user.studentId));
     const allCerts = await sessionContentApi.listCertificates(requestId);
     setCertificates(allCerts.filter((c) => c.studentId === user.studentId));
+    setEvidence(await sessionContentApi.listEvidence(requestId));
     setEligibility(
       await sessionContentApi.getCertificateEligibility(requestId, user.studentId),
     );
@@ -230,6 +237,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
       label: scoredResults.length ? `Results (${scoredResults.length})` : 'Results',
     },
     { value: 'attendance', label: 'Attendance' },
+    {
+      value: 'evidence',
+      label: evidence.length ? `Evidence (${evidence.length})` : 'Evidence',
+    },
     { value: 'certificates', label: certificates.length ? 'Certificate' : 'Certificate' },
     {
       value: 'feedback',
@@ -388,6 +399,12 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('attendance'),
                 },
                 {
+                  label: 'Evidence',
+                  value: String(evidence.length),
+                  hint: 'Session photos',
+                  onPress: () => setTab('evidence'),
+                },
+                {
                   label: 'Scores',
                   value: String(scoredResults.length),
                   onPress: () => setTab('results'),
@@ -403,8 +420,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
             <SectionLabel>Suggested path</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Open Materials → 2. Submit Assignments → 3. Check Attendance → 4. View Results →
-                5. Share Feedback → 6. Collect Certificate when ready.
+                1. Open Materials → 2. Submit Assignments → 3. Check Attendance → 4. View session
+                evidence photos → 5. View Results → 6. Share Feedback → 7. Collect Certificate when
+                ready.
               </Text>
             </DataCard>
 
@@ -661,6 +679,51 @@ export function StudentSessionDetailScreen({ route }: Props) {
           </>
         ) : null}
 
+        {tab === 'evidence' ? (
+          <>
+            <PanelHeader
+              title="Session evidence"
+              subtitle="Geo-tagged photos posted by your trainer as proof of delivery"
+            />
+            {evidence.length === 0 ? (
+              <EmptyState
+                title="No evidence posted yet"
+                body="When your trainer posts a geo-tagged session photo, it will appear here."
+              />
+            ) : (
+              evidence.map((item) => (
+                <DataCard key={item.id}>
+                  <View style={styles.evCardRow}>
+                    {item.photo.dataUrl ? (
+                      <Image
+                        source={{ uri: item.photo.dataUrl }}
+                        style={styles.evThumb}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.evThumb, styles.evThumbPlaceholder]} />
+                    )}
+                    <View style={styles.flex}>
+                      <Text style={styles.cardTitle}>{item.sessionDate}</Text>
+                      {item.caption ? <Text style={styles.body}>{item.caption}</Text> : null}
+                      <Text style={styles.meta}>
+                        {item.trainerName} · {item.geo.latitude}, {item.geo.longitude}
+                      </Text>
+                      <Pressable
+                        onPress={() =>
+                          Linking.openURL(mapsUrl(item.geo.latitude, item.geo.longitude))
+                        }
+                      >
+                        <Text style={styles.link}>Open location in Maps</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </DataCard>
+              ))
+            )}
+          </>
+        ) : null}
+
         {tab === 'certificates' ? (
           <>
             <PanelHeader
@@ -881,6 +944,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   gap: { height: 10 },
+  flex: { flex: 1 },
+  link: {
+    color: colors.primaryDark,
+    marginTop: 8,
+    fontWeight: '700',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  evCardRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  evThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+  },
+  evThumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
