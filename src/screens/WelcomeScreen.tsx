@@ -27,7 +27,7 @@ export function WelcomeScreen({ navigation }: Props) {
     void ensureDemoData();
   }, []);
 
-  const emblemSize = compact ? 48 : 64;
+  const emblemSize = compact ? 64 : 96;
   const portraitSize = compact ? 56 : 76;
   const taskLogoSize = compact ? 64 : 96;
   const contactIconSize = compact ? 14 : 15;
