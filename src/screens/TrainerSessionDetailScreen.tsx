@@ -19,7 +19,9 @@ import {
   SegmentedTabs,
   StatTiles,
 } from '../components/college/PanelChrome';
+import { DateField } from '../components/DateField';
 import { FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { sessionContentApi } from '../services/sessionContentApi';
@@ -832,43 +834,46 @@ export function TrainerSessionDetailScreen({ route }: Props) {
               title="Daily attendance"
               subtitle={
                 session
-                  ? `Mark for one day between ${session.startDate} and ${session.endDate}`
+                  ? `${session.startDate} → ${session.endDate}`
                   : 'Mark Present, Late, or Absent'
               }
             />
 
-            <DataCard>
-              <Text style={styles.sectionHint}>Session day</Text>
-              <View style={styles.dateRow}>
-                <PrimaryButton
-                  title="← Prev"
-                  variant="secondary"
-                  onPress={() => {
-                    if (!session || !DATE_RE.test(attendanceDate)) return;
-                    setDateWithinSession(shiftDate(attendanceDate, -1));
-                  }}
-                />
-                <View style={styles.dateField}>
-                  <FormField
-                    label="Date (YYYY-MM-DD)"
-                    value={attendanceDate}
-                    onChangeText={setDateWithinSession}
-                    placeholder="2026-08-07"
-                  />
-                </View>
-                <PrimaryButton
-                  title="Next →"
-                  variant="secondary"
-                  onPress={() => {
-                    if (!session || !DATE_RE.test(attendanceDate)) return;
-                    setDateWithinSession(shiftDate(attendanceDate, 1));
-                  }}
+            <View style={styles.attDayBar}>
+              <Pressable
+                style={styles.attNavBtn}
+                onPress={() => {
+                  if (!session || !DATE_RE.test(attendanceDate)) return;
+                  setDateWithinSession(shiftDate(attendanceDate, -1));
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Previous day"
+              >
+                <Ionicons name="chevron-back" size={20} color={colors.primaryDark} />
+              </Pressable>
+              <View style={styles.attDateGrow}>
+                <DateField
+                  label="Session day"
+                  required
+                  value={attendanceDate}
+                  onChange={setDateWithinSession}
+                  minimumDate={
+                    session ? new Date(`${session.startDate}T00:00:00`) : undefined
+                  }
                 />
               </View>
-              <Text style={styles.meta}>
-                Roster updates automatically for this date — no separate Load step.
-              </Text>
-            </DataCard>
+              <Pressable
+                style={styles.attNavBtn}
+                onPress={() => {
+                  if (!session || !DATE_RE.test(attendanceDate)) return;
+                  setDateWithinSession(shiftDate(attendanceDate, 1));
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Next day"
+              >
+                <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
+              </Pressable>
+            </View>
 
             {roster.length === 0 ? (
               <EmptyState
@@ -877,25 +882,49 @@ export function TrainerSessionDetailScreen({ route }: Props) {
               />
             ) : (
               <>
-                <StatTiles
-                  items={[
-                    { label: 'Present', value: String(attStats.present) },
-                    { label: 'Late', value: String(attStats.late) },
-                    { label: 'Absent', value: String(attStats.absent) },
-                    { label: 'Not marked', value: String(attStats.unmarked) },
-                  ]}
-                />
+                <View style={styles.attSummary}>
+                  {(
+                    [
+                      { key: 'present', label: 'Present', value: attStats.present, tone: 'ok' },
+                      { key: 'late', label: 'Late', value: attStats.late, tone: 'warn' },
+                      { key: 'absent', label: 'Absent', value: attStats.absent, tone: 'danger' },
+                      {
+                        key: 'unmarked',
+                        label: 'Open',
+                        value: attStats.unmarked,
+                        tone: 'muted',
+                      },
+                    ] as const
+                  ).map((item) => (
+                    <View
+                      key={item.key}
+                      style={[
+                        styles.attSummaryItem,
+                        item.tone === 'ok' && styles.attToneOk,
+                        item.tone === 'warn' && styles.attToneWarn,
+                        item.tone === 'danger' && styles.attToneDanger,
+                        item.tone === 'muted' && styles.attToneMuted,
+                      ]}
+                    >
+                      <Text style={styles.attSummaryValue}>{item.value}</Text>
+                      <Text style={styles.attSummaryLabel}>{item.label}</Text>
+                    </View>
+                  ))}
+                </View>
 
-                <SectionLabel>Quick actions</SectionLabel>
-                <View style={styles.rowBtns}>
-                  <PrimaryButton
-                    title={saving ? 'Saving…' : 'Mark all Present'}
+                <View style={styles.attToolbar}>
+                  <Pressable
+                    style={styles.attToolLink}
                     onPress={() => markMany(roster, 'present')}
                     disabled={saving}
-                  />
-                  <PrimaryButton
-                    title="Mark unmarked Absent"
-                    variant="secondary"
+                  >
+                    <Text style={styles.attToolLinkText}>
+                      {saving ? 'Saving…' : 'All present'}
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.attToolDot}>·</Text>
+                  <Pressable
+                    style={styles.attToolLink}
                     onPress={() =>
                       markMany(
                         roster.filter((r) => !attendanceMap[r.studentId]),
@@ -903,97 +932,124 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                       )
                     }
                     disabled={saving || attStats.unmarked === 0}
-                  />
-                </View>
-
-                <SectionLabel>
-                  {`Selected (${selectedAttendanceList.length}) — then apply status`}
-                </SectionLabel>
-                <View style={styles.rowBtns}>
-                  <PrimaryButton
-                    title="Select all"
-                    variant="secondary"
+                  >
+                    <Text
+                      style={[
+                        styles.attToolLinkText,
+                        (saving || attStats.unmarked === 0) && styles.attToolDisabled,
+                      ]}
+                    >
+                      Unmarked → absent
+                    </Text>
+                  </Pressable>
+                  <View style={styles.attToolSpacer} />
+                  <Pressable
+                    style={styles.attToolLink}
                     onPress={() => {
                       const next: Record<string, boolean> = {};
                       for (const r of roster) next[r.studentId] = true;
                       setSelectedAttendance(next);
                     }}
-                  />
-                  <PrimaryButton
-                    title="Clear"
-                    variant="secondary"
+                  >
+                    <Text style={styles.attToolLinkText}>Select all</Text>
+                  </Pressable>
+                  <Text style={styles.attToolDot}>·</Text>
+                  <Pressable
+                    style={styles.attToolLink}
                     onPress={() => setSelectedAttendance({})}
-                  />
-                </View>
-                <View style={styles.rowBtns}>
-                  <PrimaryButton
-                    title="Present"
-                    onPress={() => markMany(selectedAttendanceList, 'present')}
-                    disabled={saving || selectedAttendanceList.length === 0}
-                  />
-                  <PrimaryButton
-                    title="Late"
-                    variant="secondary"
-                    onPress={() => markMany(selectedAttendanceList, 'late')}
-                    disabled={saving || selectedAttendanceList.length === 0}
-                  />
-                  <PrimaryButton
-                    title="Absent"
-                    variant="danger"
-                    onPress={() => markMany(selectedAttendanceList, 'absent')}
-                    disabled={saving || selectedAttendanceList.length === 0}
-                  />
+                  >
+                    <Text style={styles.attToolLinkText}>Clear</Text>
+                  </Pressable>
                 </View>
 
-                <SectionLabel>Student roster</SectionLabel>
-                {roster.map((reg) => {
-                  const status = attendanceMap[reg.studentId];
-                  const checked = !!selectedAttendance[reg.studentId];
-                  return (
-                    <DataCard key={reg.id}>
-                      <Pressable
-                        style={styles.row}
-                        onPress={() =>
-                          setSelectedAttendance((prev) => ({
-                            ...prev,
-                            [reg.studentId]: !prev[reg.studentId],
-                          }))
-                        }
+                {selectedAttendanceList.length > 0 ? (
+                  <View style={styles.attApplyBar}>
+                    <Text style={styles.attApplyLabel}>
+                      Apply to {selectedAttendanceList.length} selected
+                    </Text>
+                    <View style={styles.chipRow}>
+                      <StatusChip
+                        label="Present"
+                        tone="ok"
+                        onPress={() => markMany(selectedAttendanceList, 'present')}
+                      />
+                      <StatusChip
+                        label="Late"
+                        tone="warn"
+                        onPress={() => markMany(selectedAttendanceList, 'late')}
+                      />
+                      <StatusChip
+                        label="Absent"
+                        tone="danger"
+                        onPress={() => markMany(selectedAttendanceList, 'absent')}
+                      />
+                    </View>
+                  </View>
+                ) : null}
+
+                <Text style={styles.attRosterLabel}>
+                  Roster · {roster.length} student{roster.length === 1 ? '' : 's'}
+                </Text>
+                <View style={styles.attRoster}>
+                  {roster.map((reg, index) => {
+                    const status = attendanceMap[reg.studentId];
+                    const checked = !!selectedAttendance[reg.studentId];
+                    return (
+                      <View
+                        key={reg.id}
+                        style={[
+                          styles.attRow,
+                          index < roster.length - 1 && styles.attRowBorder,
+                        ]}
                       >
-                        <View style={[styles.check, checked && styles.checkOn]}>
-                          {checked ? <Text style={styles.checkMark}>✓</Text> : null}
+                        <Pressable
+                          style={styles.attRowMain}
+                          onPress={() =>
+                            setSelectedAttendance((prev) => ({
+                              ...prev,
+                              [reg.studentId]: !prev[reg.studentId],
+                            }))
+                          }
+                        >
+                          <View style={[styles.check, checked && styles.checkOn]}>
+                            {checked ? <Text style={styles.checkMark}>✓</Text> : null}
+                          </View>
+                          <View style={styles.flex}>
+                            <Text style={styles.attName}>{reg.studentName}</Text>
+                            <Text style={styles.attEmail} numberOfLines={1}>
+                              {reg.studentEmail}
+                            </Text>
+                          </View>
+                          {status ? (
+                            <StatusBadge status={status} />
+                          ) : (
+                            <Text style={styles.unmarked}>—</Text>
+                          )}
+                        </Pressable>
+                        <View style={styles.chipRow}>
+                          <StatusChip
+                            label="Present"
+                            tone="ok"
+                            active={status === 'present'}
+                            onPress={() => mark(reg, 'present')}
+                          />
+                          <StatusChip
+                            label="Late"
+                            tone="warn"
+                            active={status === 'late'}
+                            onPress={() => mark(reg, 'late')}
+                          />
+                          <StatusChip
+                            label="Absent"
+                            tone="danger"
+                            active={status === 'absent'}
+                            onPress={() => mark(reg, 'absent')}
+                          />
                         </View>
-                        <View style={styles.flex}>
-                          <Text style={styles.cardTitle}>{reg.studentName}</Text>
-                          <Text style={styles.meta}>{reg.studentEmail}</Text>
-                        </View>
-                        {status ? <StatusBadge status={status} /> : (
-                          <Text style={styles.unmarked}>Not marked</Text>
-                        )}
-                      </Pressable>
-                      <View style={styles.chipRow}>
-                        <StatusChip
-                          label="Present"
-                          tone="ok"
-                          active={status === 'present'}
-                          onPress={() => mark(reg, 'present')}
-                        />
-                        <StatusChip
-                          label="Late"
-                          tone="warn"
-                          active={status === 'late'}
-                          onPress={() => mark(reg, 'late')}
-                        />
-                        <StatusChip
-                          label="Absent"
-                          tone="danger"
-                          active={status === 'absent'}
-                          onPress={() => mark(reg, 'absent')}
-                        />
                       </View>
-                    </DataCard>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </>
             )}
           </>
@@ -1230,6 +1286,103 @@ const styles = StyleSheet.create({
   dateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   dateField: { flex: 1 },
   sectionHint: { fontWeight: '700', color: colors.text, marginBottom: 4 },
+  attDayBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginBottom: 4,
+  },
+  attNavBtn: {
+    width: 44,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  attDateGrow: { flex: 1 },
+  attSummary: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  attSummaryItem: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  attToneOk: { backgroundColor: '#E7F5EC' },
+  attToneWarn: { backgroundColor: '#FFF6E5' },
+  attToneDanger: { backgroundColor: '#FBECEC' },
+  attToneMuted: { backgroundColor: '#EEF2F3' },
+  attSummaryValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  attSummaryLabel: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  attToolbar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 10,
+  },
+  attToolLink: { paddingVertical: 4, paddingHorizontal: 2 },
+  attToolLinkText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
+  attToolDisabled: { color: colors.textMuted },
+  attToolDot: { color: colors.textMuted, fontWeight: '700' },
+  attToolSpacer: { flex: 1, minWidth: 8 },
+  attApplyBar: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  attApplyLabel: { fontWeight: '700', color: colors.primaryDark, fontSize: 13 },
+  attRosterLabel: {
+    fontWeight: '700',
+    color: colors.textMuted,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  attRoster: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  attRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  attRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  attRowMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  attName: { fontWeight: '700', color: colors.text, fontSize: 14 },
+  attEmail: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   chip: {
     borderWidth: 1,
@@ -1238,6 +1391,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: colors.surface,
+    minWidth: 40,
+    alignItems: 'center',
   },
   chipNeutral: {},
   chipOk: { borderColor: '#8FCB9B' },
