@@ -89,7 +89,7 @@ export function WelcomeScreen({ navigation }: Props) {
             />
           </View>
           <Text style={styles.brandTitleMobile}>
-            Telangana Academy for Skill and Knowledge
+            Telangana Academy for{'\n'}Skill and Knowledge
           </Text>
           <Text style={styles.brandSubtitleMobile}>
             Department of ITE&C, Government of Telangana
@@ -134,8 +134,8 @@ export function WelcomeScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.brandCenter}>
-            <Text style={styles.brandTitle} numberOfLines={2}>
-              Telangana Academy for Skill and Knowledge
+            <Text style={styles.brandTitle}>
+              Telangana Academy for{'\n'}Skill and Knowledge
             </Text>
             <Text style={styles.brandSubtitle} numberOfLines={2}>
               Department of ITE&C, Government of Telangana
