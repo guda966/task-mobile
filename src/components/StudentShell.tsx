@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { TaskLogo } from './ui';
-import { ShellNavCluster } from './NavIconButton';
+import { BellIconButton, ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
 
 export type StudentMenuKey = 'home' | 'alerts' | 'trainings' | 'profile';
@@ -20,32 +20,6 @@ const MENU: { key: StudentMenuKey; label: string }[] = [
   { key: 'trainings', label: 'Trainings' },
   { key: 'profile', label: 'Profile' },
 ];
-
-function BellButton({
-  unreadCount,
-  onPress,
-}: {
-  unreadCount: number;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.bellBtn}
-      accessibilityRole="button"
-      accessibilityLabel={
-        unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'
-      }
-    >
-      <Text style={styles.bellGlyph}>🔔</Text>
-      {unreadCount > 0 ? (
-        <View style={styles.bellBadge}>
-          <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
 
 export function StudentShell({
   studentName,
@@ -122,7 +96,7 @@ export function StudentShell({
         <View style={styles.main}>
           <View style={styles.topBar}>
             <ShellNavCluster onBack={onBack} onHome={onHome} />
-            <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
+            <BellIconButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
             <Text style={styles.studentName} numberOfLines={1}>
               {studentName}
             </Text>
@@ -162,7 +136,7 @@ export function StudentShell({
           </View>
         </View>
 
-        <BellButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
+        <BellIconButton unreadCount={unreadCount} onPress={() => onChange('alerts')} />
         <ShellNavCluster onBack={onBack} onHome={onHome} />
       </View>
 
@@ -316,31 +290,6 @@ const styles = StyleSheet.create({
   mobileBrandText: { flex: 1, minWidth: 0 },
   mobileTitle: { color: colors.primaryDark, fontWeight: '800', fontSize: 13 },
   mobileSection: { color: colors.textMuted, fontSize: 11, fontWeight: '600', marginTop: 1 },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  bellGlyph: { fontSize: 18, lineHeight: 22 },
-  bellBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadgeText: { color: colors.white, fontSize: 9, fontWeight: '800' },
   drawerRoot: { flex: 1, flexDirection: 'row' },
   drawerBackdrop: { flex: 1, backgroundColor: 'rgba(15, 35, 35, 0.45)' },
   drawer: {

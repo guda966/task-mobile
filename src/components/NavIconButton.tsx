@@ -1,19 +1,24 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../theme/colors';
 
-/** Compact header / shell nav control with a clear symbol. */
+type Tone = 'onPrimary' | 'muted';
+
+/** Compact header / shell nav control with a clear icon. */
 export function NavIconButton({
-  symbol,
+  name,
   label,
   onPress,
   tone = 'onPrimary',
+  size = 20,
 }: {
-  symbol: string;
+  name: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   /** onPrimary = white on green header; muted = dark on light shell chrome */
-  tone?: 'onPrimary' | 'muted';
+  tone?: Tone;
+  size?: number;
 }) {
   const onPrimary = tone === 'onPrimary';
   return (
@@ -28,9 +33,11 @@ export function NavIconButton({
       accessibilityLabel={label}
       hitSlop={8}
     >
-      <Text style={[styles.symbol, onPrimary ? styles.symbolOnPrimary : styles.symbolMuted]}>
-        {symbol}
-      </Text>
+      <Ionicons
+        name={name}
+        size={size}
+        color={onPrimary ? colors.white : colors.primaryDark}
+      />
     </Pressable>
   );
 }
@@ -46,23 +53,59 @@ export function ShellNavCluster({
   return (
     <View style={styles.cluster}>
       {onBack ? (
-        <NavIconButton symbol="←" label="Back" onPress={onBack} tone="muted" />
+        <NavIconButton
+          name="chevron-back"
+          label="Back"
+          onPress={onBack}
+          tone="muted"
+        />
       ) : null}
       {onHome ? (
-        <NavIconButton symbol="⌂" label="Home" onPress={onHome} tone="muted" />
+        <NavIconButton name="home-outline" label="Home" onPress={onHome} tone="muted" />
       ) : null}
     </View>
   );
 }
 
+/** Alerts / notifications control — matches shell nav button chrome. */
+export function BellIconButton({
+  unreadCount,
+  onPress,
+}: {
+  unreadCount: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.btn, styles.btnMuted, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={
+        unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'
+      }
+      hitSlop={8}
+    >
+      <Ionicons
+        name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
+        size={20}
+        color={colors.primaryDark}
+      />
+      {unreadCount > 0 ? (
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   btn: {
-    minWidth: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 2,
   },
   btnOnPrimary: {
     backgroundColor: 'rgba(255,255,255,0.16)',
@@ -73,12 +116,25 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   pressed: { opacity: 0.75 },
-  symbol: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
+  cluster: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  countBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.white,
   },
-  symbolOnPrimary: { color: colors.white },
-  symbolMuted: { color: colors.primaryDark },
-  cluster: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  countText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 11,
+  },
 });

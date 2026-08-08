@@ -63,7 +63,7 @@ export function RootNavigator() {
           headerLeft: () =>
             navigation.canGoBack() ? (
               <NavIconButton
-                symbol="←"
+                name="chevron-back"
                 label="Back"
                 tone="onPrimary"
                 onPress={() => navigation.goBack()}
@@ -71,7 +71,7 @@ export function RootNavigator() {
             ) : null,
           headerRight: () => (
             <NavIconButton
-              symbol="⌂"
+              name="home-outline"
               label="Home"
               tone="onPrimary"
               onPress={() => {

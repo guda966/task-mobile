@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { TaskLogo } from './ui';
-import { ShellNavCluster } from './NavIconButton';
+import { BellIconButton, ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
 
 export type CollegeMenuKey =
@@ -34,32 +34,6 @@ const MENU: { key: CollegeMenuKey; label: string }[] = [
   { key: 'reports', label: 'Reports' },
   { key: 'renewal', label: 'Renewal' },
 ];
-
-function BellButton({
-  unreadCount,
-  onPress,
-}: {
-  unreadCount: number;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.bellBtn}
-      accessibilityRole="button"
-      accessibilityLabel={
-        unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'
-      }
-    >
-      <Text style={styles.bellGlyph}>🔔</Text>
-      {unreadCount > 0 ? (
-        <View style={styles.bellBadge}>
-          <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
 
 export function CollegeShell({
   collegeName,
@@ -139,7 +113,7 @@ export function CollegeShell({
             <Text style={styles.collegeName} numberOfLines={1}>
               {collegeName}
             </Text>
-            <BellButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
+            <BellIconButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
           </View>
           <View style={styles.content}>{children}</View>
         </View>
@@ -176,7 +150,7 @@ export function CollegeShell({
           </View>
         </View>
 
-        <BellButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
+        <BellIconButton unreadCount={unreadCount} onPress={() => onChange('messages')} />
         <ShellNavCluster onBack={onBack} onHome={onHome} />
       </View>
 
@@ -299,36 +273,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     fontSize: 14,
-  },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    position: 'relative',
-  },
-  bellGlyph: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  bellBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadgeText: {
-    color: colors.white,
-    fontSize: 9,
-    fontWeight: '800',
   },
   content: { flex: 1 },
   mobileHeader: {
