@@ -26,21 +26,23 @@ export function WelcomeScreen({ navigation }: Props) {
     void ensureDemoData();
   }, []);
 
-  const emblemSize = compact ? 44 : 64;
-  const portraitSize = compact ? 52 : 76;
-  const taskLogoSize = compact ? 72 : 96;
+  const emblemSize = compact ? 48 : 64;
+  const portraitSize = compact ? 56 : 76;
+  const taskLogoSize = compact ? 64 : 96;
 
   return (
     <View style={styles.page}>
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
+      <View style={[styles.topBar, compact && styles.topBarCompact]}>
+        <View style={[styles.topBarLeft, compact && styles.topBarLeftCompact]}>
           <Text style={styles.topBarText}>040-35485290</Text>
-          <Text style={styles.topBarDot}>·</Text>
-          <Text style={styles.topBarText}>enquiry_task@telangana.gov.in</Text>
+          {!compact ? <Text style={styles.topBarDot}>·</Text> : null}
+          <Text style={[styles.topBarText, compact && styles.topBarEmail]} numberOfLines={1}>
+            enquiry_task@telangana.gov.in
+          </Text>
         </View>
-        <View style={styles.topBarRight}>
+        <View style={[styles.topBarRight, compact && styles.topBarRightCompact]}>
           <Pressable
-            style={styles.topLink}
+            style={[styles.topLink, compact && styles.topLinkCompact]}
             onPress={() => navigation.navigate('Register')}
             accessibilityRole="button"
             accessibilityLabel="Register / Sign up"
@@ -48,7 +50,7 @@ export function WelcomeScreen({ navigation }: Props) {
             <Text style={styles.topLinkText}>Register / Sign up</Text>
           </Pressable>
           <Pressable
-            style={[styles.topLink, styles.topLinkPrimary]}
+            style={[styles.topLink, styles.topLinkPrimary, compact && styles.topLinkCompact]}
             onPress={() => navigation.navigate('SignIn')}
             accessibilityRole="button"
             accessibilityLabel="Sign In"
@@ -58,37 +60,15 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={[styles.brandHeader, compact && styles.brandHeaderCompact]}>
-        <View style={styles.brandSide}>
-          <Image
-            source={require('../../assets/brand/ts-logo.png')}
-            style={{ width: emblemSize, height: emblemSize }}
-            resizeMode="contain"
-            accessibilityLabel="Government of Telangana"
-          />
-          <OfficialPortrait
-            source={require('../../assets/officials/cm-site.jpeg')}
-            size={portraitSize}
-            label="Hon’ble Chief Minister"
-          />
-        </View>
-
-        <View style={styles.brandCenter}>
-          <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]} numberOfLines={compact ? 3 : 2}>
-            Telangana Academy for Skill and Knowledge
-          </Text>
-          <Text style={styles.brandSubtitle} numberOfLines={2}>
-            Department of ITE&C, Government of Telangana
-          </Text>
-        </View>
-
-        <View style={[styles.brandSide, styles.brandSideRight]}>
-          <OfficialPortrait
-            source={require('../../assets/officials/minister-site.jpg')}
-            size={portraitSize}
-            label="Hon’ble Minister for ITE&C"
-          />
-          <View style={styles.logoWrap}>
+      {compact ? (
+        <View style={styles.brandHeaderMobile}>
+          <View style={styles.brandLogoRow}>
+            <Image
+              source={require('../../assets/brand/ts-logo.png')}
+              style={{ width: emblemSize, height: emblemSize }}
+              resizeMode="contain"
+              accessibilityLabel="Government of Telangana"
+            />
             <Image
               source={require('../../assets/brand/task-logo.png')}
               style={{ width: taskLogoSize, height: taskLogoSize }}
@@ -96,8 +76,77 @@ export function WelcomeScreen({ navigation }: Props) {
               accessibilityLabel="TASK logo"
             />
           </View>
+          <Text style={styles.brandTitleMobile}>
+            Telangana Academy for Skill and Knowledge
+          </Text>
+          <Text style={styles.brandSubtitleMobile}>
+            Department of ITE&C, Government of Telangana
+          </Text>
+          <View style={styles.officialsRow}>
+            <View style={styles.officialCell}>
+              <OfficialPortrait
+                source={require('../../assets/officials/cm-site.jpeg')}
+                size={portraitSize}
+                label="Hon’ble Chief Minister"
+              />
+              <Text style={styles.officialCaption} numberOfLines={2}>
+                Hon’ble Chief Minister
+              </Text>
+            </View>
+            <View style={styles.officialCell}>
+              <OfficialPortrait
+                source={require('../../assets/officials/minister-site.jpg')}
+                size={portraitSize}
+                label="Hon’ble Minister for ITE&C"
+              />
+              <Text style={styles.officialCaption} numberOfLines={2}>
+                Hon’ble Minister for ITE&C
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.brandHeader}>
+          <View style={styles.brandSide}>
+            <Image
+              source={require('../../assets/brand/ts-logo.png')}
+              style={{ width: emblemSize, height: emblemSize }}
+              resizeMode="contain"
+              accessibilityLabel="Government of Telangana"
+            />
+            <OfficialPortrait
+              source={require('../../assets/officials/cm-site.jpeg')}
+              size={portraitSize}
+              label="Hon’ble Chief Minister"
+            />
+          </View>
+
+          <View style={styles.brandCenter}>
+            <Text style={styles.brandTitle} numberOfLines={2}>
+              Telangana Academy for Skill and Knowledge
+            </Text>
+            <Text style={styles.brandSubtitle} numberOfLines={2}>
+              Department of ITE&C, Government of Telangana
+            </Text>
+          </View>
+
+          <View style={[styles.brandSide, styles.brandSideRight]}>
+            <OfficialPortrait
+              source={require('../../assets/officials/minister-site.jpg')}
+              size={portraitSize}
+              label="Hon’ble Minister for ITE&C"
+            />
+            <View style={styles.logoWrap}>
+              <Image
+                source={require('../../assets/brand/task-logo.png')}
+                style={{ width: taskLogoSize, height: taskLogoSize }}
+                resizeMode="contain"
+                accessibilityLabel="TASK logo"
+              />
+            </View>
+          </View>
+        </View>
+      )}
 
       <View style={styles.navStrip}>
         <Text style={styles.navActive}>Home</Text>
@@ -229,21 +278,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  topBarCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
   topBarLeft: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },
+  topBarLeftCompact: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+  },
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  topBarRightCompact: {
+    width: '100%',
+  },
   topBarText: {
     color: colors.white,
     fontSize: 12,
     fontWeight: '600',
+  },
+  topBarEmail: {
+    fontSize: 11,
+    opacity: 0.95,
   },
   topBarDot: {
     color: '#9FD0D0',
@@ -255,6 +323,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.35)',
+  },
+  topLinkCompact: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
   },
   topLinkText: {
     color: colors.white,
@@ -281,9 +354,59 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     overflow: 'visible',
   },
-  brandHeaderCompact: {
-    paddingVertical: 10,
+  brandHeaderMobile: {
+    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandLogoRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  brandTitleMobile: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 4,
+  },
+  brandSubtitleMobile: {
+    color: '#2F6F9F',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 4,
+  },
+  officialsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'flex-start',
+    marginTop: 4,
+    gap: 12,
+  },
+  officialCell: {
+    flex: 1,
+    alignItems: 'center',
+    maxWidth: 160,
     gap: 6,
+  },
+  officialCaption: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 13,
   },
   brandSide: {
     flexDirection: 'row',
@@ -310,10 +433,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
     lineHeight: 26,
-  },
-  brandTitleCompact: {
-    fontSize: 14,
-    lineHeight: 18,
   },
   brandSubtitle: {
     color: '#2F6F9F',
