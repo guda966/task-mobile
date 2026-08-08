@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import {
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,24 +50,6 @@ export function WelcomeScreen({ navigation }: Props) {
               enquiry_task@telangana.gov.in
             </Text>
           </View>
-        </View>
-        <View style={[styles.topBarRight, compact && styles.topBarRightCompact]}>
-          <Pressable
-            style={[styles.topLink, compact && styles.topLinkCompact]}
-            onPress={() => navigation.navigate('Register')}
-            accessibilityRole="button"
-            accessibilityLabel="Register / Sign up"
-          >
-            <Text style={styles.topLinkText}>Register / Sign up</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.topLink, styles.topLinkPrimary, compact && styles.topLinkCompact]}
-            onPress={() => navigation.navigate('SignIn')}
-            accessibilityRole="button"
-            accessibilityLabel="Sign In"
-          >
-            <Text style={styles.topLinkPrimaryText}>Sign In</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -160,6 +141,28 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
       )}
 
+      <View style={[styles.accessBox, styles.accessBoxTop]}>
+        <Text style={styles.accessTitle}>Portal login</Text>
+        <Text style={styles.accessSubtitle}>
+          Register a new account or sign in to continue to your dashboard.
+        </Text>
+        <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
+          <View style={styles.accessBtn}>
+            <PrimaryButton
+              title="Register / Sign up"
+              onPress={() => navigation.navigate('Register')}
+            />
+          </View>
+          <View style={styles.accessBtn}>
+            <PrimaryButton
+              title="Already have an account? Sign In"
+              variant="secondary"
+              onPress={() => navigation.navigate('SignIn')}
+            />
+          </View>
+        </View>
+      </View>
+
       <View style={styles.navStrip}>
         <Text style={styles.navActive}>Home</Text>
       </View>
@@ -218,28 +221,6 @@ export function WelcomeScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <View style={styles.accessBox}>
-          <Text style={styles.accessTitle}>Portal login</Text>
-          <Text style={styles.accessSubtitle}>
-            Register a new account or sign in to continue to your dashboard.
-          </Text>
-          <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
-            <View style={styles.accessBtn}>
-              <PrimaryButton
-                title="Register / Sign up"
-                onPress={() => navigation.navigate('Register')}
-              />
-            </View>
-            <View style={styles.accessBtn}>
-              <PrimaryButton
-                title="Already have an account? Sign In"
-                variant="secondary"
-                onPress={() => navigation.navigate('SignIn')}
-              />
-            </View>
-          </View>
-        </View>
-
         <Text style={styles.footer}>
           Telangana Academy for Skill and Knowledge · Masabtank, Hyderabad
         </Text>
@@ -286,7 +267,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: 10,
   },
   topBarContact: {
     flexDirection: 'row',
@@ -305,16 +285,6 @@ const styles = StyleSheet.create({
   contactItemEnd: {
     justifyContent: 'flex-end',
   },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  topBarRightCompact: {
-    width: '100%',
-    justifyContent: 'stretch',
-  },
   topBarText: {
     color: colors.white,
     fontSize: 12,
@@ -328,32 +298,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
     textAlign: 'right',
-  },
-  topLink: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-  topLinkCompact: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 9,
-  },
-  topLinkText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  topLinkPrimary: {
-    backgroundColor: colors.white,
-    borderColor: colors.white,
-  },
-  topLinkPrimaryText: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '800',
   },
   brandHeader: {
     backgroundColor: colors.white,
@@ -545,7 +489,11 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 14,
+  },
+  accessBoxTop: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 0,
   },
   accessTitle: {
     color: colors.primaryDark,
