@@ -747,12 +747,16 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                 },
               ]}
             />
-            <SectionLabel>Suggested workflow</SectionLabel>
+            <SectionLabel>Terms</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Upload materials → 2. Post assignments → 3. Mark student attendance → 4. Post your
-                My attendance class photos (start & close) → 5. Review submissions → 6. Issue
-                certificates when eligible.
+                1. Mark daily Student attendance and My attendance for each session day.
+              </Text>
+              <Text style={styles.body}>
+                2. Post materials and assignments for the batch.
+              </Text>
+              <Text style={styles.body}>
+                3. Issue certificates to eligible students within 72 hours of batch completion.
               </Text>
             </DataCard>
             {pendingSubs.length > 0 ? (
