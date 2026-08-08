@@ -220,7 +220,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
                 </Text>
                 {profile.status === 'active' ? (
                   <Text style={styles.ok}>
-                    Active trainer — open My sessions to run materials, student attendance, session photos, and certificates.
+                    Active trainer — open My sessions to run materials, student attendance, My attendance photos, and certificates.
                   </Text>
                 ) : profile.status === 'inactive' ? (
                   <Text style={styles.warn}>
@@ -296,7 +296,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
           <>
             <PanelHeader
               title="My sessions"
-              subtitle="Open a batch workspace for materials, assignments, student attendance, session photos, certificates, and queries"
+              subtitle="Open a batch workspace for materials, assignments, student attendance, My attendance photos, certificates, and queries"
             />
             {!isActive ? (
               <EmptyState

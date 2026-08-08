@@ -39,7 +39,9 @@ import type {
   SessionCertificate,
   SessionEvidence,
   SessionMaterial,
+  TrainerAttendancePhotoKind,
 } from '../types/sessionContent';
+import { TRAINER_ATTENDANCE_PHOTO_SLOTS } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 import { requesterLabel } from '../utils/courseRequestLabels';
@@ -56,6 +58,17 @@ type Tab =
   | 'certificates'
   | 'feedback'
   | 'queries';
+
+type SlotDraft = { photo: PickedImage | null; geo: GeoPosition | null };
+
+function emptySlotDrafts(): Record<TrainerAttendancePhotoKind, SlotDraft> {
+  return {
+    start_selfie: { photo: null, geo: null },
+    start_class: { photo: null, geo: null },
+    end_selfie: { photo: null, geo: null },
+    end_class: { photo: null, geo: null },
+  };
+}
 
 type Eligibility = {
   eligible: boolean;
@@ -83,6 +96,11 @@ function shiftDate(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00`);
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+function slotLabel(kind: TrainerAttendancePhotoKind): string {
+  const slot = TRAINER_ATTENDANCE_PHOTO_SLOTS.find((s) => s.kind === kind);
+  return slot ? `${slot.moment} · ${slot.title}` : kind;
 }
 
 function StatusChip({
@@ -132,9 +150,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
   const [evidenceDate, setEvidenceDate] = useState(todayIso());
-  const [evidenceCaption, setEvidenceCaption] = useState('');
-  const [evidencePhoto, setEvidencePhoto] = useState<PickedImage | null>(null);
-  const [evidenceGeo, setEvidenceGeo] = useState<GeoPosition | null>(null);
+  const [slotDrafts, setSlotDrafts] = useState(emptySlotDrafts);
   const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
@@ -286,6 +302,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const setEvidenceDateWithinSession = (next: string) => {
     if (!session) {
       setEvidenceDate(next);
+      setSlotDrafts(emptySlotDrafts());
       return;
     }
     if (!DATE_RE.test(next)) {
@@ -293,6 +310,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       return;
     }
     setEvidenceDate(clampDate(next, session.startDate, session.endDate));
+    setSlotDrafts(emptySlotDrafts());
   };
 
   const addMaterial = async () => {
@@ -541,17 +559,34 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     }
   };
 
-  const captureGeo = async () => {
+  const evidenceForDay = useMemo(
+    () => evidence.filter((e) => e.sessionDate === evidenceDate),
+    [evidence, evidenceDate],
+  );
+  const evidenceByKind = useMemo(() => {
+    const map: Partial<Record<TrainerAttendancePhotoKind, SessionEvidence>> = {};
+    for (const item of evidenceForDay) {
+      if (item.kind) map[item.kind] = item;
+    }
+    return map;
+  }, [evidenceForDay]);
+  const myAttendanceComplete = useMemo(
+    () => TRAINER_ATTENDANCE_PHOTO_SLOTS.every((s) => !!evidenceByKind[s.kind]),
+    [evidenceByKind],
+  );
+  const myAttendancePostedCount = useMemo(
+    () => TRAINER_ATTENDANCE_PHOTO_SLOTS.filter((s) => !!evidenceByKind[s.kind]).length,
+    [evidenceByKind],
+  );
+
+  const captureSlotGeo = async (kind: TrainerAttendancePhotoKind) => {
     try {
       setSaving(true);
       const pos = await getCurrentPosition();
-      setEvidenceGeo(pos);
-      Alert.alert(
-        'Location added',
-        `${pos.latitude}, ${pos.longitude}${
-          pos.accuracyMeters ? ` (±${pos.accuracyMeters} m)` : ''
-        }`,
-      );
+      setSlotDrafts((prev) => ({
+        ...prev,
+        [kind]: { ...prev[kind], geo: pos },
+      }));
     } catch (e) {
       Alert.alert('Location failed', e instanceof Error ? e.message : 'Try again');
     } finally {
@@ -559,24 +594,28 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     }
   };
 
-  const pickEvidencePhoto = async () => {
+  const pickSlotPhoto = async (kind: TrainerAttendancePhotoKind) => {
     try {
       const photo = await pickImageWithPreview();
-      setEvidencePhoto(photo);
+      setSlotDrafts((prev) => ({
+        ...prev,
+        [kind]: { ...prev[kind], photo },
+      }));
     } catch (e) {
       if (e instanceof Error && e.message === 'Cancelled') return;
       Alert.alert('Photo failed', e instanceof Error ? e.message : 'Try again');
     }
   };
 
-  const postEvidence = async () => {
+  const postSlot = async (kind: TrainerAttendancePhotoKind) => {
     if (!user?.trainerId || !user.name) return;
-    if (!evidencePhoto) {
-      Alert.alert('Photo required', 'Add a session photo before posting.');
+    const draft = slotDrafts[kind];
+    if (!draft.photo) {
+      Alert.alert('Photo required', `Add the ${slotLabel(kind).toLowerCase()} photo.`);
       return;
     }
-    if (!evidenceGeo) {
-      Alert.alert('Location required', 'Add your current location to tag this photo.');
+    if (!draft.geo) {
+      Alert.alert('Location required', 'Add GPS location to geo-tag this photo.');
       return;
     }
     try {
@@ -586,19 +625,19 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         trainerId: user.trainerId,
         trainerName: user.name,
         sessionDate: evidenceDate,
-        caption: evidenceCaption,
+        kind,
         photo: {
-          fileName: evidencePhoto.fileName,
-          sizeLabel: evidencePhoto.sizeLabel,
+          fileName: draft.photo.fileName,
+          sizeLabel: draft.photo.sizeLabel,
           uploadedAt: new Date().toISOString(),
-          dataUrl: evidencePhoto.dataUrl,
+          dataUrl: draft.photo.dataUrl,
         },
-        geo: evidenceGeo,
+        geo: draft.geo,
       });
-      setEvidenceCaption('');
-      setEvidencePhoto(null);
-      setEvidenceGeo(null);
-      Alert.alert('Photo posted', 'Session photo with location saved for this day.');
+      setSlotDrafts((prev) => ({
+        ...prev,
+        [kind]: { photo: null, geo: null },
+      }));
       await loadCore();
     } catch (e) {
       Alert.alert('Unable to post', e instanceof Error ? e.message : 'Try again');
@@ -632,7 +671,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     },
     {
       value: 'evidence',
-      label: evidence.length ? `Session photos (${evidence.length})` : 'Session photos',
+      label: `My attendance (${myAttendancePostedCount}/4)`,
     },
     {
       value: 'certificates',
@@ -703,9 +742,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('attendance'),
                 },
                 {
-                  label: 'Session photos',
-                  value: String(evidence.length),
-                  hint: 'With location',
+                  label: 'My attendance',
+                  value: `${myAttendancePostedCount}/4`,
+                  hint: myAttendanceComplete ? 'Complete today' : 'Photos required',
                   onPress: () => setTab('evidence'),
                 },
                 {
@@ -718,9 +757,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
             <SectionLabel>Suggested workflow</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Upload materials → 2. Post assignments → 3. Mark student attendance each day → 4.
-                Post a session photo with location → 5. Review submissions → 6. Issue certificates
-                when eligible.
+                1. Upload materials → 2. Post assignments → 3. Mark student attendance → 4. Post your
+                My attendance photos (start & close selfie + class photo, geo-tagged) → 5. Review
+                submissions → 6. Issue certificates when eligible.
               </Text>
             </DataCard>
             {pendingSubs.length > 0 ? (
@@ -1164,171 +1203,163 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         {tab === 'evidence' ? (
           <>
             <PanelHeader
-              title="Session photos"
-              subtitle={
-                session
-                  ? `Photo with location for each day · ${session.startDate} → ${session.endDate}`
-                  : 'Add location, attach a photo, then post'
-              }
+              title="My attendance"
+              subtitle="Mandatory geo-tagged selfie + class photo at session start and at closing"
             />
 
             <DataCard>
-              <Text style={styles.sectionHint}>Post a photo for a session day</Text>
-              <Text style={styles.meta}>
-                1. Choose the day · 2. Add location · 3. Add photo · 4. Post
-              </Text>
-              <View style={styles.gap} />
-              <View style={styles.attDayBar}>
-                <Pressable
-                  style={styles.attNavBtn}
-                  onPress={() => {
-                    if (!session || !DATE_RE.test(evidenceDate)) return;
-                    setEvidenceDateWithinSession(shiftDate(evidenceDate, -1));
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous photo day"
-                >
-                  <Ionicons name="chevron-back" size={20} color={colors.primaryDark} />
-                </Pressable>
-                <View style={styles.attDateGrow}>
-                  <DateField
-                    label="Session day"
-                    required
-                    value={evidenceDate}
-                    onChange={setEvidenceDateWithinSession}
-                    minimumDate={
-                      session ? new Date(`${session.startDate}T00:00:00`) : undefined
-                    }
-                  />
-                </View>
-                <Pressable
-                  style={styles.attNavBtn}
-                  onPress={() => {
-                    if (!session || !DATE_RE.test(evidenceDate)) return;
-                    setEvidenceDateWithinSession(shiftDate(evidenceDate, 1));
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Next photo day"
-                >
-                  <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
-                </Pressable>
-              </View>
-
-              <View style={styles.evStepRow}>
-                <PrimaryButton
-                  title={evidenceGeo ? 'Location added ✓' : 'Add location'}
-                  variant="secondary"
-                  onPress={captureGeo}
-                  disabled={saving}
-                />
-                <PrimaryButton
-                  title={evidencePhoto ? 'Change photo' : 'Add photo'}
-                  variant="secondary"
-                  onPress={pickEvidencePhoto}
-                  disabled={saving}
-                />
-              </View>
-
-              {evidenceGeo ? (
-                <View style={styles.evGeoBox}>
-                  <Text style={styles.evGeoTitle}>Location ready</Text>
-                  <Text style={styles.meta}>
-                    {evidenceGeo.latitude}, {evidenceGeo.longitude}
-                    {evidenceGeo.accuracyMeters
-                      ? ` · ±${evidenceGeo.accuracyMeters} m`
-                      : ''}
-                  </Text>
+              <DateField
+                label="Session day"
+                required
+                value={evidenceDate}
+                onChange={setEvidenceDateWithinSession}
+                minimumDate={
+                  session ? new Date(`${session.startDate}T00:00:00`) : undefined
+                }
+              />
+              {session ? (
+                <View style={styles.evDayNav}>
                   <Pressable
-                    onPress={() =>
-                      Linking.openURL(mapsUrl(evidenceGeo.latitude, evidenceGeo.longitude))
-                    }
+                    style={styles.evDayChip}
+                    onPress={() => {
+                      if (!DATE_RE.test(evidenceDate)) return;
+                      setEvidenceDateWithinSession(shiftDate(evidenceDate, -1));
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous day"
                   >
-                    <Text style={styles.link}>Open in Maps</Text>
+                    <Ionicons name="chevron-back" size={16} color={colors.primaryDark} />
+                    <Text style={styles.evDayChipText}>Previous day</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.evDayChip}
+                    onPress={() => {
+                      if (!DATE_RE.test(evidenceDate)) return;
+                      setEvidenceDateWithinSession(shiftDate(evidenceDate, 1));
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Next day"
+                  >
+                    <Text style={styles.evDayChipText}>Next day</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.primaryDark} />
                   </Pressable>
                 </View>
-              ) : (
-                <Text style={styles.warnLine}>Location not added yet.</Text>
-              )}
+              ) : null}
 
-              {evidencePhoto ? (
-                <View style={styles.evPreviewWrap}>
-                  <Image
-                    source={{ uri: evidencePhoto.dataUrl }}
-                    style={styles.evPreview}
-                    resizeMode="cover"
-                  />
-                  <Text style={styles.meta}>
-                    {evidencePhoto.fileName} · {evidencePhoto.sizeLabel}
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.warnLine}>No photo added yet.</Text>
-              )}
-
-              <FormField
-                label="Caption (optional)"
-                value={evidenceCaption}
-                onChangeText={setEvidenceCaption}
-                placeholder="e.g. Day 2 lab session — campus lab block B"
-              />
-              <PrimaryButton
-                title={saving ? 'Posting…' : 'Post session photo'}
-                onPress={postEvidence}
-                disabled={saving}
-              />
+              <View
+                style={[
+                  styles.evStatusBanner,
+                  myAttendanceComplete ? styles.evStatusOk : styles.evStatusWarn,
+                ]}
+              >
+                <Text style={styles.evStatusText}>
+                  {myAttendanceComplete
+                    ? 'All 4 mandatory photos posted for this day'
+                    : `${myAttendancePostedCount} of 4 mandatory photos posted`}
+                </Text>
+              </View>
             </DataCard>
 
-            <SectionLabel>
-              {`Posted photos${evidence.length ? ` (${evidence.length})` : ''}`}
-            </SectionLabel>
-            {evidence.length === 0 ? (
-              <EmptyState
-                title="No session photos yet"
-                body="Post a photo with location after each session day as proof of delivery."
-              />
-            ) : (
-              evidence.map((item) => (
-                <DataCard key={item.id}>
-                  <View style={styles.evCardRow}>
-                    {item.photo.dataUrl ? (
-                      <Image
-                        source={{ uri: item.photo.dataUrl }}
-                        style={styles.evThumb}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[styles.evThumb, styles.evThumbPlaceholder]}>
-                        <Ionicons name="image-outline" size={22} color={colors.textMuted} />
+            {(['Session start', 'Session close'] as const).map((moment) => (
+              <View key={moment}>
+                <SectionLabel>{moment}</SectionLabel>
+                {TRAINER_ATTENDANCE_PHOTO_SLOTS.filter((s) => s.moment === moment).map((slot) => {
+                  const posted = evidenceByKind[slot.kind];
+                  const draft = slotDrafts[slot.kind];
+                  return (
+                    <DataCard key={slot.kind}>
+                      <View style={styles.evSlotHeader}>
+                        <Text style={styles.cardTitle}>{slot.title}</Text>
+                        <Text
+                          style={posted ? styles.evBadgeOk : styles.evBadgePending}
+                        >
+                          {posted ? 'Posted' : 'Required'}
+                        </Text>
                       </View>
-                    )}
-                    <View style={styles.flex}>
-                      <Text style={styles.cardTitle}>{item.sessionDate}</Text>
-                      {item.caption ? <Text style={styles.body}>{item.caption}</Text> : null}
-                      <Text style={styles.meta}>
-                        {item.geo.latitude}, {item.geo.longitude}
-                        {item.geo.accuracyMeters
-                          ? ` · ±${item.geo.accuracyMeters} m`
-                          : ''}
-                      </Text>
-                      <Text style={styles.meta}>
-                        {item.photo.fileName} · {item.photo.sizeLabel} · posted{' '}
-                        {item.createdAt.slice(0, 10)}
-                      </Text>
-                      <Pressable
-                        onPress={() =>
-                          Linking.openURL(mapsUrl(item.geo.latitude, item.geo.longitude))
-                        }
-                      >
-                        <Text style={styles.link}>Open location in Maps</Text>
-                      </Pressable>
-                      <Pressable onPress={() => removeEvidence(item.id)}>
-                        <Text style={styles.linkDanger}>Remove</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                </DataCard>
-              ))
-            )}
+                      <Text style={styles.meta}>{slot.hint}</Text>
+
+                      {posted ? (
+                        <View style={styles.evPostedBlock}>
+                          {posted.photo.dataUrl ? (
+                            <Image
+                              source={{ uri: posted.photo.dataUrl }}
+                              style={styles.evPreview}
+                              resizeMode="cover"
+                            />
+                          ) : null}
+                          <Text style={styles.meta}>
+                            {posted.geo.latitude}, {posted.geo.longitude}
+                            {posted.geo.accuracyMeters
+                              ? ` · ±${posted.geo.accuracyMeters} m`
+                              : ''}
+                          </Text>
+                          <Pressable
+                            onPress={() =>
+                              Linking.openURL(
+                                mapsUrl(posted.geo.latitude, posted.geo.longitude),
+                              )
+                            }
+                          >
+                            <Text style={styles.link}>Open in Maps</Text>
+                          </Pressable>
+                          <Pressable onPress={() => removeEvidence(posted.id)}>
+                            <Text style={styles.linkDanger}>Remove & repost</Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <View style={styles.evDraftBlock}>
+                          <PrimaryButton
+                            title={draft.geo ? 'Location added ✓' : 'Add location'}
+                            variant="secondary"
+                            onPress={() => captureSlotGeo(slot.kind)}
+                            disabled={saving}
+                          />
+                          {draft.geo ? (
+                            <Text style={styles.meta}>
+                              {draft.geo.latitude}, {draft.geo.longitude}
+                              {draft.geo.accuracyMeters
+                                ? ` · ±${draft.geo.accuracyMeters} m`
+                                : ''}
+                            </Text>
+                          ) : (
+                            <Text style={styles.evHint}>Geo-tag is mandatory.</Text>
+                          )}
+
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title={draft.photo ? 'Change photo' : 'Add photo'}
+                            variant="secondary"
+                            onPress={() => pickSlotPhoto(slot.kind)}
+                            disabled={saving}
+                          />
+                          {draft.photo ? (
+                            <View style={styles.evPreviewWrap}>
+                              <Image
+                                source={{ uri: draft.photo.dataUrl }}
+                                style={styles.evPreview}
+                                resizeMode="cover"
+                              />
+                              <Text style={styles.meta}>
+                                {draft.photo.fileName} · {draft.photo.sizeLabel}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.evHint}>Photo is mandatory.</Text>
+                          )}
+
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title={saving ? 'Saving…' : `Save ${slot.title.toLowerCase()}`}
+                            onPress={() => postSlot(slot.kind)}
+                            disabled={saving}
+                          />
+                        </View>
+                      )}
+                    </DataCard>
+                  );
+                })}
+              </View>
+            ))}
           </>
         ) : null}
 
@@ -1552,20 +1583,71 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   gap: { height: 10 },
-  evStepRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  evDayNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  evDayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  evDayChipText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
+  evStatusBanner: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  evStatusOk: { backgroundColor: '#E7F5EC' },
+  evStatusWarn: { backgroundColor: '#FFF6E5' },
+  evStatusText: { fontWeight: '700', color: colors.primaryDark, fontSize: 13 },
+  evSlotHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  evBadgeOk: {
+    color: colors.success,
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  evBadgePending: {
+    color: colors.warning,
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  evPostedBlock: { marginTop: 10, gap: 4 },
+  evDraftBlock: { marginTop: 12 },
+  evHint: { color: colors.textMuted, fontSize: 12, marginTop: 6, lineHeight: 17 },
   evGeoBox: {
     backgroundColor: colors.primarySoft,
     borderRadius: 10,
     padding: 12,
-    marginBottom: 10,
+    marginTop: 8,
   },
-  evGeoTitle: { fontWeight: '800', color: colors.primaryDark, fontSize: 13, marginBottom: 2 },
-  evPreviewWrap: { marginBottom: 10, gap: 6 },
+  evPreviewWrap: { marginTop: 10, gap: 6 },
   evPreview: {
     width: '100%',
-    height: 180,
+    height: 160,
     borderRadius: 10,
     backgroundColor: colors.background,
+    marginTop: 8,
   },
   evCardRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   evThumb: {

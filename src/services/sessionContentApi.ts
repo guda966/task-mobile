@@ -486,7 +486,11 @@ export const sessionContentApi = {
     const items = await readJson<SessionEvidence[]>(EVIDENCE_KEY, []);
     return items
       .filter((e) => e.requestId === requestId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort((a, b) => {
+        const byDate = b.sessionDate.localeCompare(a.sessionDate);
+        if (byDate !== 0) return byDate;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
   },
 
   async addEvidence(input: {
@@ -494,6 +498,7 @@ export const sessionContentApi = {
     trainerId: string;
     trainerName: string;
     sessionDate: string;
+    kind: SessionEvidence['kind'];
     caption?: string;
     photo: SessionFileRef & { dataUrl?: string };
     geo: SessionEvidence['geo'];
@@ -502,13 +507,16 @@ export const sessionContentApi = {
     const session = await getRequest(input.requestId);
     assertCanManage(session, input.trainerId);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)) {
-      throw new Error('Choose a valid session date for this evidence.');
+      throw new Error('Choose a valid session date for your attendance photo.');
     }
     if (input.sessionDate < session.startDate || input.sessionDate > session.endDate) {
-      throw new Error('Evidence date must fall within the batch start and end dates.');
+      throw new Error('Date must fall within the batch start and end dates.');
+    }
+    if (!input.kind) {
+      throw new Error('Choose which attendance photo you are posting.');
     }
     if (!input.photo?.fileName || !input.photo?.dataUrl) {
-      throw new Error('Attach a session photo before posting evidence.');
+      throw new Error('Add a photo before posting.');
     }
     if (
       typeof input.geo.latitude !== 'number' ||
@@ -516,7 +524,7 @@ export const sessionContentApi = {
       Number.isNaN(input.geo.latitude) ||
       Number.isNaN(input.geo.longitude)
     ) {
-      throw new Error('Add your current location to tag this photo.');
+      throw new Error('Add your current location to geo-tag this photo.');
     }
 
     const entry: SessionEvidence = {
@@ -525,6 +533,7 @@ export const sessionContentApi = {
       trainerId: input.trainerId,
       trainerName: input.trainerName,
       sessionDate: input.sessionDate,
+      kind: input.kind,
       caption: input.caption?.trim() || undefined,
       photo: {
         fileName: input.photo.fileName,
@@ -541,6 +550,13 @@ export const sessionContentApi = {
       createdAt: new Date().toISOString(),
     };
     const items = await readJson<SessionEvidence[]>(EVIDENCE_KEY, []);
+    const existing = items.findIndex(
+      (e) =>
+        e.requestId === input.requestId &&
+        e.sessionDate === input.sessionDate &&
+        e.kind === input.kind,
+    );
+    if (existing >= 0) items.splice(existing, 1);
     items.unshift(entry);
     await writeJson(EVIDENCE_KEY, items);
     return entry;
@@ -550,7 +566,7 @@ export const sessionContentApi = {
     await delay(250);
     const items = await readJson<SessionEvidence[]>(EVIDENCE_KEY, []);
     const index = items.findIndex((e) => e.id === id);
-    if (index < 0) throw new Error('Evidence not found.');
+    if (index < 0) throw new Error('Attendance photo not found.');
     const session = await getRequest(items[index].requestId);
     assertCanManage(session, trainerId);
     items.splice(index, 1);

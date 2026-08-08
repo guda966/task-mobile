@@ -70,14 +70,54 @@ export interface SessionCertificate {
   issuedAt: string;
 }
 
-/** Geo-tagged photo evidence posted by the trainer for a session day. */
+/** Trainer own-attendance photo slots for a session day (all mandatory). */
+export type TrainerAttendancePhotoKind =
+  | 'start_selfie'
+  | 'start_class'
+  | 'end_selfie'
+  | 'end_class';
+
+export const TRAINER_ATTENDANCE_PHOTO_SLOTS: {
+  kind: TrainerAttendancePhotoKind;
+  moment: 'Session start' | 'Session close';
+  title: string;
+  hint: string;
+}[] = [
+  {
+    kind: 'start_selfie',
+    moment: 'Session start',
+    title: 'Selfie',
+    hint: 'Your selfie at session start, with location',
+  },
+  {
+    kind: 'start_class',
+    moment: 'Session start',
+    title: 'Class photo',
+    hint: 'Classroom / batch photo at start, with location',
+  },
+  {
+    kind: 'end_selfie',
+    moment: 'Session close',
+    title: 'Selfie',
+    hint: 'Your selfie at closing time, with location',
+  },
+  {
+    kind: 'end_class',
+    moment: 'Session close',
+    title: 'Class photo',
+    hint: 'Classroom / batch photo at closing time, with location',
+  },
+];
+
+/** Geo-tagged photo posted by the trainer for their own session attendance. */
 export interface SessionEvidence {
   id: string;
   requestId: string;
   trainerId: string;
   trainerName: string;
-  /** Calendar day this evidence belongs to (YYYY-MM-DD). */
+  /** Calendar day this photo belongs to (YYYY-MM-DD). */
   sessionDate: string;
+  kind: TrainerAttendancePhotoKind;
   caption?: string;
   photo: SessionFileRef & { dataUrl?: string };
   geo: {

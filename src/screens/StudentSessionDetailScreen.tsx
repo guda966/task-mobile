@@ -236,10 +236,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
       value: 'results',
       label: scoredResults.length ? `Results (${scoredResults.length})` : 'Results',
     },
-    { value: 'attendance', label: 'Student attendance' },
+    { value: 'attendance', label: 'My attendance' },
     {
       value: 'evidence',
-      label: evidence.length ? `Session photos (${evidence.length})` : 'Session photos',
+      label: evidence.length ? `Trainer photos (${evidence.length})` : 'Trainer photos',
     },
     { value: 'certificates', label: certificates.length ? 'Certificate' : 'Certificate' },
     {
@@ -393,15 +393,15 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('assignments'),
                 },
                 {
-                  label: 'Student attendance',
+                  label: 'My attendance',
                   value: `${attendanceStats.pct}%`,
                   hint: `${attendanceStats.marked} day(s) marked`,
                   onPress: () => setTab('attendance'),
                 },
                 {
-                  label: 'Session photos',
+                  label: 'Trainer photos',
                   value: String(evidence.length),
-                  hint: 'With location',
+                  hint: 'Start & close',
                   onPress: () => setTab('evidence'),
                 },
                 {
@@ -420,9 +420,9 @@ export function StudentSessionDetailScreen({ route }: Props) {
             <SectionLabel>Suggested path</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Open Materials → 2. Submit Assignments → 3. Check student attendance → 4. View
-                session photos → 5. View Results → 6. Share Feedback → 7. Collect Certificate when
-                ready.
+                1. Open Materials → 2. Submit Assignments → 3. Check your attendance → 4. View
+                trainer attendance photos → 5. View Results → 6. Share Feedback → 7. Collect
+                Certificate when ready.
               </Text>
             </DataCard>
 
@@ -682,44 +682,56 @@ export function StudentSessionDetailScreen({ route }: Props) {
         {tab === 'evidence' ? (
           <>
             <PanelHeader
-              title="Session photos"
-              subtitle="Photos with location posted by your trainer"
+              title="Trainer attendance photos"
+              subtitle="Geo-tagged selfie and class photos at session start and close"
             />
             {evidence.length === 0 ? (
               <EmptyState
-                title="No session photos yet"
-                body="When your trainer posts a session photo with location, it will appear here."
+                title="No trainer photos yet"
+                body="When your trainer posts start/close selfie and class photos, they appear here."
               />
             ) : (
-              evidence.map((item) => (
-                <DataCard key={item.id}>
-                  <View style={styles.evCardRow}>
-                    {item.photo.dataUrl ? (
-                      <Image
-                        source={{ uri: item.photo.dataUrl }}
-                        style={styles.evThumb}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[styles.evThumb, styles.evThumbPlaceholder]} />
-                    )}
-                    <View style={styles.flex}>
-                      <Text style={styles.cardTitle}>{item.sessionDate}</Text>
-                      {item.caption ? <Text style={styles.body}>{item.caption}</Text> : null}
-                      <Text style={styles.meta}>
-                        {item.trainerName} · {item.geo.latitude}, {item.geo.longitude}
-                      </Text>
-                      <Pressable
-                        onPress={() =>
-                          Linking.openURL(mapsUrl(item.geo.latitude, item.geo.longitude))
-                        }
-                      >
-                        <Text style={styles.link}>Open location in Maps</Text>
-                      </Pressable>
+              evidence.map((item) => {
+                const kindLabel =
+                  item.kind === 'start_selfie'
+                    ? 'Session start · Selfie'
+                    : item.kind === 'start_class'
+                      ? 'Session start · Class photo'
+                      : item.kind === 'end_selfie'
+                        ? 'Session close · Selfie'
+                        : item.kind === 'end_class'
+                          ? 'Session close · Class photo'
+                          : 'Attendance photo';
+                return (
+                  <DataCard key={item.id}>
+                    <View style={styles.evCardRow}>
+                      {item.photo.dataUrl ? (
+                        <Image
+                          source={{ uri: item.photo.dataUrl }}
+                          style={styles.evThumb}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.evThumb, styles.evThumbPlaceholder]} />
+                      )}
+                      <View style={styles.flex}>
+                        <Text style={styles.cardTitle}>{kindLabel}</Text>
+                        <Text style={styles.meta}>{item.sessionDate}</Text>
+                        <Text style={styles.meta}>
+                          {item.trainerName} · {item.geo.latitude}, {item.geo.longitude}
+                        </Text>
+                        <Pressable
+                          onPress={() =>
+                            Linking.openURL(mapsUrl(item.geo.latitude, item.geo.longitude))
+                          }
+                        >
+                          <Text style={styles.link}>Open location in Maps</Text>
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                </DataCard>
-              ))
+                  </DataCard>
+                );
+              })
             )}
           </>
         ) : null}

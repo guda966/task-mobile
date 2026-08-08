@@ -13,7 +13,9 @@ import type {
   SessionAttendance,
   SessionEvidence,
   SessionMaterial,
+  TrainerAttendancePhotoKind,
 } from '../types/sessionContent';
+import { TRAINER_ATTENDANCE_PHOTO_SLOTS } from '../types/sessionContent';
 import type { RcMembership } from '../types/regionalCentre';
 import { addMonthsIso } from '../types/regionalCentre';
 import type { StudentRecord } from '../types/student';
@@ -21,7 +23,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v18';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v19';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -42,6 +44,9 @@ const IDS = {
   submission: 'sub_demo_1',
   submissionQuiz: 'sub_demo_quiz',
   evidence: 'evd_demo_1',
+  evidence2: 'evd_demo_2',
+  evidence3: 'evd_demo_3',
+  evidence4: 'evd_demo_4',
 };
 
 function isoDay(offsetDays: number): string {
@@ -734,37 +739,44 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
     },
   ];
 
-  const evidenceSvg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">
+  const evidenceSvg = (label: string) =>
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">
       <rect fill="#0F6E6E" width="100%" height="100%"/>
-      <text x="50%" y="46%" fill="#fff" font-size="26" text-anchor="middle" font-family="sans-serif">Demo session photo</text>
-      <text x="50%" y="56%" fill="#D7EEEE" font-size="16" text-anchor="middle" font-family="sans-serif">Geo-tagged evidence</text>
+      <text x="50%" y="46%" fill="#fff" font-size="24" text-anchor="middle" font-family="sans-serif">${label}</text>
+      <text x="50%" y="56%" fill="#D7EEEE" font-size="16" text-anchor="middle" font-family="sans-serif">Geo-tagged demo</text>
     </svg>`,
-  );
+    );
 
-  const evidence: SessionEvidence[] = [
-    {
-      id: IDS.evidence,
-      requestId: IDS.batch,
-      trainerId: trainer.id,
-      trainerName: `${trainer.firstName} ${trainer.lastName}`,
-      sessionDate: isoDay(0),
-      caption: 'Campus lab block — transferable skills workshop (demo)',
-      photo: {
-        fileName: 'session_day1_lab.jpg',
-        sizeLabel: '210 KB',
-        uploadedAt: now,
-        dataUrl: `data:image/svg+xml;charset=utf-8,${evidenceSvg}`,
-      },
-      geo: {
-        latitude: 17.4065,
-        longitude: 78.4772,
-        accuracyMeters: 18,
-        capturedAt: now,
-      },
-      createdAt: now,
+  const evidenceIds: Record<TrainerAttendancePhotoKind, string> = {
+    start_selfie: IDS.evidence,
+    start_class: IDS.evidence2,
+    end_selfie: IDS.evidence3,
+    end_class: IDS.evidence4,
+  };
+
+  const evidence: SessionEvidence[] = TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => ({
+    id: evidenceIds[slot.kind],
+    requestId: IDS.batch,
+    trainerId: trainer.id,
+    trainerName: `${trainer.firstName} ${trainer.lastName}`,
+    sessionDate: isoDay(0),
+    kind: slot.kind,
+    caption: `${slot.moment} · ${slot.title} (demo)`,
+    photo: {
+      fileName: `${slot.kind}.jpg`,
+      sizeLabel: '200 KB',
+      uploadedAt: now,
+      dataUrl: `data:image/svg+xml;charset=utf-8,${evidenceSvg(`${slot.moment} · ${slot.title}`)}`,
     },
-  ];
+    geo: {
+      latitude: 17.4065,
+      longitude: 78.4772,
+      accuracyMeters: 18,
+      capturedAt: now,
+    },
+    createdAt: now,
+  }));
 
   return { materials, assignments, attendance, submissions, evidence };
 }
