@@ -34,9 +34,14 @@ export function WelcomeScreen({ navigation }: Props) {
     <View style={styles.page}>
       <View style={[styles.topBar, compact && styles.topBarCompact]}>
         <View style={[styles.topBarLeft, compact && styles.topBarLeftCompact]}>
-          <Text style={styles.topBarText}>040-35485290</Text>
-          {!compact ? <Text style={styles.topBarDot}>·</Text> : null}
-          <Text style={[styles.topBarText, compact && styles.topBarEmail]} numberOfLines={1}>
+          <Text style={[styles.topBarText, compact && styles.topBarTextCompact]} numberOfLines={1}>
+            040-35485290
+          </Text>
+          <Text style={styles.topBarDot}>·</Text>
+          <Text
+            style={[styles.topBarText, compact && styles.topBarTextCompact, styles.topBarEmail]}
+            numberOfLines={1}
+          >
             enquiry_task@telangana.gov.in
           </Text>
         </View>
@@ -287,14 +292,14 @@ const styles = StyleSheet.create({
   },
   topBarLeft: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   topBarLeftCompact: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 2,
+    width: '100%',
+    justifyContent: 'flex-start',
+    gap: 5,
   },
   topBarRight: {
     flexDirection: 'row',
@@ -308,14 +313,19 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  topBarTextCompact: {
+    fontSize: 11,
   },
   topBarEmail: {
-    fontSize: 11,
-    opacity: 0.95,
+    flexShrink: 1,
+    minWidth: 0,
   },
   topBarDot: {
     color: '#9FD0D0',
     fontSize: 12,
+    flexShrink: 0,
   },
   topLink: {
     paddingHorizontal: 10,
