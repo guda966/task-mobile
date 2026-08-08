@@ -35,6 +35,7 @@ import { TrainerSessionDetailScreen } from '../screens/TrainerSessionDetailScree
 import { RegionalCentreHomeScreen } from '../screens/RegionalCentreHomeScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { colors } from '../theme/colors';
+import { scrollToTop } from '../utils/scrollToTop';
 import { homeRouteForRole } from './homeRoute';
 import type { RootStackParamList } from './types';
 
@@ -52,7 +53,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer onStateChange={() => scrollToTop()}>
       <Stack.Navigator
         initialRouteName={user ? homeRouteForRole(user.role) : 'Welcome'}
         screenOptions={({ navigation }) => ({

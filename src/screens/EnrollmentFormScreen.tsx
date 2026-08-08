@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -22,6 +22,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { mockApi } from '../services/mockApi';
 import { colors } from '../theme/colors';
 import type { EnrollmentDraft } from '../types/enrollment';
+import { scrollToTop } from '../utils/scrollToTop';
 import { getFeeForDraft, validateEnrollmentDraft } from '../utils/validation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EnrollmentForm'>;
@@ -51,6 +52,7 @@ const emptyDraft = (email: string, mobile: string): EnrollmentDraft => ({
 
 export function EnrollmentFormScreen({ navigation, route }: Props) {
   const { setUser } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<EnrollmentDraft>(() =>
     route.params.useDummyCollege
@@ -59,6 +61,10 @@ export function EnrollmentFormScreen({ navigation, route }: Props) {
   );
   const [errors, setErrors] = useState<ReturnType<typeof validateEnrollmentDraft>>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    scrollToTop(scrollRef);
+  }, [step]);
 
   const fee = useMemo(() => getFeeForDraft(draft), [draft]);
 
@@ -130,7 +136,11 @@ export function EnrollmentFormScreen({ navigation, route }: Props) {
       title="College Registration"
       subtitle={`Step ${step + 1} of 3 — College details · Contact · Login & fee`}
     >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {step === 0 && (
           <>
             <PrimaryButton

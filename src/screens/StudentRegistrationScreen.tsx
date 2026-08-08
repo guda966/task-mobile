@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -22,6 +22,7 @@ import { studentApi } from '../services/studentApi';
 import { colors } from '../theme/colors';
 import type { CollegeEnrollment } from '../types/enrollment';
 import type { StudentDraft } from '../types/student';
+import { scrollToTop } from '../utils/scrollToTop';
 import { studentFeeLabel, validateStudentDraft } from '../utils/studentValidation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentRegistration'>;
@@ -30,6 +31,7 @@ const STEP_LABELS = ['Personal', 'College', '10th & 12th', 'Regional Centre', 'L
 
 export function StudentRegistrationScreen({ navigation, route }: Props) {
   const { setUser } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
   const [step, setStep] = useState(0);
   const [colleges, setColleges] = useState<CollegeEnrollment[]>([]);
   const [errors, setErrors] = useState<ReturnType<typeof validateStudentDraft>>({});
@@ -91,6 +93,10 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    scrollToTop(scrollRef);
+  }, [step]);
 
   const fee = useMemo(
     () => studentFeeLabel(draft.institutionType, draft.category),
@@ -253,7 +259,11 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
   return (
     <Screen showLogo={false} subtitle={`Step ${step + 1} of ${STEP_LABELS.length}`}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.stepper}>
           {STEP_LABELS.map((label, index) => (
             <View

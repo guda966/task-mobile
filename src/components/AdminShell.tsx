@@ -11,6 +11,7 @@ import {
 import { TaskLogo } from './ui';
 import { ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
+import { scrollToTop } from '../utils/scrollToTop';
 
 export type AdminShellItem = {
   key: string;
@@ -47,6 +48,10 @@ export function AdminShell({
   useEffect(() => {
     if (sideLayout) setMenuOpen(false);
   }, [sideLayout]);
+
+  useEffect(() => {
+    scrollToTop();
+  }, [active]);
 
   const selectMenu = (key: string) => {
     onChange(key);

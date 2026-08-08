@@ -11,6 +11,7 @@ import {
 import { ShellNavCluster } from './NavIconButton';
 import { TaskLogo } from './ui';
 import { colors } from '../theme/colors';
+import { scrollToTop } from '../utils/scrollToTop';
 
 export type RcMenuKey = 'home' | 'members' | 'sessions' | 'profile';
 
@@ -46,6 +47,10 @@ export function RcShell({
   useEffect(() => {
     if (sideLayout) setMenuOpen(false);
   }, [sideLayout]);
+
+  useEffect(() => {
+    scrollToTop();
+  }, [active]);
 
   const selectMenu = (key: RcMenuKey) => {
     onChange(key);

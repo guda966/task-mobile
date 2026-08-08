@@ -11,6 +11,7 @@ import {
 import { TaskLogo } from './ui';
 import { BellIconButton, ShellNavCluster } from './NavIconButton';
 import { colors } from '../theme/colors';
+import { scrollToTop } from '../utils/scrollToTop';
 
 export type CollegeMenuKey =
   | 'overview'
@@ -62,6 +63,10 @@ export function CollegeShell({
   useEffect(() => {
     if (sideLayout) setMenuOpen(false);
   }, [sideLayout]);
+
+  useEffect(() => {
+    scrollToTop();
+  }, [active]);
 
   const selectMenu = (key: CollegeMenuKey) => {
     onChange(key);
