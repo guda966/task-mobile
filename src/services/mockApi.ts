@@ -9,6 +9,7 @@ import type {
 } from '../types/enrollment';
 import { getFeeForDraft } from '../utils/validation';
 import { adminUsersApi } from './adminUsersApi';
+import { regionalCentreApi } from './regionalCentreApi';
 import { studentApi } from './studentApi';
 import { trainerApi } from './trainerApi';
 
@@ -193,6 +194,12 @@ export const mockApi = {
     if (trainer) {
       await this.setSession(trainer);
       return trainer;
+    }
+
+    const rc = await regionalCentreApi.signIn(normalized, password);
+    if (rc) {
+      await this.setSession(rc);
+      return rc;
     }
 
     const enrollments = await readEnrollments();

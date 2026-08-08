@@ -15,6 +15,7 @@ import {
   DUMMY_COLLEGE_CONTACTS,
   DUMMY_COLLEGE_PASSWORD,
 } from '../constants/demoData';
+import { RC_DEFAULT_PASSWORD, REGIONAL_CENTERS } from '../constants/lookups';
 import { DUMMY_STUDENT } from '../constants/student';
 import { DUMMY_TRAINER } from '../constants/trainer';
 import { useAuth } from '../context/AuthContext';
@@ -30,7 +31,10 @@ const SIGN_IN_ROLES = [
   { value: 'student', label: 'Student' },
   { value: 'trainer', label: 'Trainer' },
   { value: 'corporate', label: 'Corporate' },
+  { value: 'regional_center', label: 'Regional Centre' },
 ];
+
+const RC_DEMO = REGIONAL_CENTERS.find((c) => c.id === 'rc-hyd-masabtank') ?? REGIONAL_CENTERS[0];
 
 const CORPORATE_DEMO = {
   email: 'hr@demo-corporate.in',
@@ -70,6 +74,9 @@ export function SignInScreen({ navigation }: Props) {
     } else if (next === 'corporate') {
       setEmail(CORPORATE_DEMO.email);
       setPassword(CORPORATE_DEMO.password);
+    } else if (next === 'regional_center') {
+      setEmail(RC_DEMO.email);
+      setPassword(RC_DEMO.password || RC_DEFAULT_PASSWORD);
     } else {
       setEmail('');
       setPassword('');
@@ -83,6 +90,8 @@ export function SignInScreen({ navigation }: Props) {
       navigation.reset({ index: 0, routes: [{ name: 'TrainerHome' }] });
     } else if (signedRole === 'corporate') {
       navigation.reset({ index: 0, routes: [{ name: 'CorporateHome' }] });
+    } else if (signedRole === 'regional_center') {
+      navigation.reset({ index: 0, routes: [{ name: 'RegionalCentreHome' }] });
     } else {
       navigation.reset({ index: 0, routes: [{ name: 'CollegeHome' }] });
     }

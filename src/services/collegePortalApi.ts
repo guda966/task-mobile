@@ -128,7 +128,8 @@ export const collegePortalApi = {
       return existing;
     }
 
-    const center = REGIONAL_CENTERS[0];
+    const center =
+      REGIONAL_CENTERS.find((c) => c.id === 'rc-hyd-masabtank') ?? REGIONAL_CENTERS[0];
     const now = new Date().toISOString();
     const id = existing?.id ?? uid('enr');
     const approved: CollegeEnrollment = {

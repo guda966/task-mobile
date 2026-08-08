@@ -14,7 +14,8 @@ export type UserRole =
   | 'placement_coordinator'
   | 'student'
   | 'trainer'
-  | 'corporate';
+  | 'corporate'
+  | 'regional_center';
 
 export interface CollegeEnrollment {
   id: string;
@@ -65,6 +66,7 @@ export interface SessionUser {
   studentId?: string;
   trainerId?: string;
   adminUserId?: string;
+  regionalCenterId?: string;
 }
 
 export interface EnrollmentDraft {

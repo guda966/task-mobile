@@ -120,7 +120,10 @@ export function TaskAdminReviewScreen({ navigation, route }: Props) {
               label="Assign Regional Centre"
               required
               placeholder="Select regional centre"
-              options={REGIONAL_CENTERS.map((c) => ({ value: c.id, label: c.name }))}
+              options={REGIONAL_CENTERS.map((c) => ({
+                value: c.id,
+                label: `${c.name} · ${c.district}`,
+              }))}
               value={regionalCenterId}
               onChange={setRegionalCenterId}
             />

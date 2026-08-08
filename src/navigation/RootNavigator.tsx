@@ -32,6 +32,7 @@ import { TaskAdminTrainerFormScreen } from '../screens/TaskAdminTrainerFormScree
 import { TaskAdminTrainersScreen } from '../screens/TaskAdminTrainersScreen';
 import { TrainerHomeScreen } from '../screens/TrainerHomeScreen';
 import { TrainerSessionDetailScreen } from '../screens/TrainerSessionDetailScreen';
+import { RegionalCentreHomeScreen } from '../screens/RegionalCentreHomeScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { colors } from '../theme/colors';
 import { homeRouteForRole } from './homeRoute';
@@ -183,6 +184,11 @@ export function RootNavigator() {
           name="CorporateHome"
           component={CorporateHomeScreen}
           options={{ title: 'Corporate' }}
+        />
+        <Stack.Screen
+          name="RegionalCentreHome"
+          component={RegionalCentreHomeScreen}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="TrainerSessionDetail"

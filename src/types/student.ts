@@ -66,6 +66,10 @@ export interface StudentDraft {
   feeAcknowledged: boolean;
   termsAccepted: boolean;
   declarationAccepted: boolean;
+  /** Optional Regional Centre join at registration (₹599 / 6 months). */
+  joinRegionalCenter: boolean;
+  regionalCenterId: string;
+  rcFeeAcknowledged: boolean;
 }
 
 export function emptySchoolExam(): SchoolExamDetails {

@@ -87,6 +87,14 @@ export function validateStudentDraft(draft: StudentDraft): StudentFieldErrors {
   if (!draft.declarationAccepted) {
     errors.declarationAccepted = 'Declaration is required';
   }
+  if (draft.joinRegionalCenter) {
+    if (!draft.regionalCenterId) {
+      errors.regionalCenterId = 'Select a Regional Centre';
+    }
+    if (!draft.rcFeeAcknowledged) {
+      errors.rcFeeAcknowledged = 'Acknowledge the ₹599 RC membership fee';
+    }
+  }
 
   return errors;
 }

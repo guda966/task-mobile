@@ -33,6 +33,7 @@ export type RootStackParamList = {
     mobile: string;
   };
   CorporateHome: undefined;
+  RegionalCentreHome: undefined;
   TaskAdminHome: undefined;
   PlacementCoordinatorHome: undefined;
   TaskAdminCourses: undefined;

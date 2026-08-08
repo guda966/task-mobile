@@ -8,7 +8,7 @@ import {
   PrimaryButton,
   Screen,
 } from '../components/ui';
-import { AFFILIATED_UNIVERSITIES, DISTRICTS, INSTITUTION_TYPES } from '../constants/lookups';
+import { AFFILIATED_UNIVERSITIES, DISTRICTS, INSTITUTION_TYPES, RC_MEMBERSHIP_FEE, RC_MEMBERSHIP_MONTHS, REGIONAL_CENTERS, regionalCenterLabel } from '../constants/lookups';
 import { BRANCHES, GRADUATION_YEARS } from '../constants/courses';
 import {
   DUMMY_STUDENT,
@@ -64,6 +64,9 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
     feeAcknowledged: true,
     termsAccepted: true,
     declarationAccepted: true,
+    joinRegionalCenter: true,
+    regionalCenterId: 'rc-hyd-masabtank',
+    rcFeeAcknowledged: true,
   });
 
   useEffect(() => {
@@ -206,7 +209,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
         'twelfthPercentage',
         'twelfthHallTicketNo',
       ],
-      ['password', 'confirmPassword', 'feeAcknowledged', 'termsAccepted', 'declarationAccepted'],
+      ['password', 'confirmPassword', 'feeAcknowledged', 'termsAccepted', 'declarationAccepted', 'regionalCenterId', 'rcFeeAcknowledged'],
     ];
     const picked: typeof all = {};
     for (const key of fields[step]) {
@@ -526,6 +529,46 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
               label="I acknowledge the student registration fee."
               error={errors.feeAcknowledged}
             />
+
+            <Text style={styles.section}>Regional Centre (optional)</Text>
+            <CheckboxRow
+              checked={draft.joinRegionalCenter}
+              onToggle={() =>
+                update('joinRegionalCenter', !draft.joinRegionalCenter)
+              }
+              label={`Also register with a TASK Regional Centre (₹${RC_MEMBERSHIP_FEE}, valid ${RC_MEMBERSHIP_MONTHS} months)`}
+            />
+            {draft.joinRegionalCenter ? (
+              <>
+                <DropdownField
+                  label="Regional Centre"
+                  required
+                  value={draft.regionalCenterId}
+                  onChange={(v) => update('regionalCenterId', v)}
+                  options={REGIONAL_CENTERS.map((c) => ({
+                    value: c.id,
+                    label: regionalCenterLabel(c),
+                  }))}
+                  placeholder="Select Regional Centre"
+                  error={errors.regionalCenterId}
+                />
+                <View style={styles.feeBox}>
+                  <Text style={styles.feeLabel}>RC membership fee</Text>
+                  <Text style={styles.feeValue}>₹ {RC_MEMBERSHIP_FEE}</Text>
+                  <Text style={styles.feeHint}>
+                    Mandatory for RC courses and services. Valid for {RC_MEMBERSHIP_MONTHS}{' '}
+                    months from payment.
+                  </Text>
+                </View>
+                <CheckboxRow
+                  checked={draft.rcFeeAcknowledged}
+                  onToggle={() => update('rcFeeAcknowledged', !draft.rcFeeAcknowledged)}
+                  label={`I acknowledge the ₹${RC_MEMBERSHIP_FEE} Regional Centre membership fee.`}
+                  error={errors.rcFeeAcknowledged}
+                />
+              </>
+            ) : null}
+
             <Text style={styles.section}>Login details</Text>
             <FormField
               label="Password"

@@ -9,5 +9,6 @@ export function homeRouteForRole(role: string): AppHomeRoute {
   if (role === 'student') return 'StudentHome';
   if (role === 'trainer') return 'TrainerHome';
   if (role === 'corporate') return 'CorporateHome';
+  if (role === 'regional_center') return 'RegionalCentreHome';
   return 'CollegeHome';
 }

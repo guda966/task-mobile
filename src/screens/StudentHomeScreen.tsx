@@ -23,7 +23,7 @@ import {
 } from '../components/college/PanelChrome';
 import { StudentAnnouncementScroller } from '../components/StudentAnnouncementScroller';
 import { StudentShell, type StudentMenuKey } from '../components/StudentShell';
-import { PrimaryButton, StatusBadge } from '../components/ui';
+import { DropdownField, PrimaryButton, StatusBadge } from '../components/ui';
 import { LATEST_ANNOUNCEMENT } from '../constants/studentAnnouncements';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -33,16 +33,19 @@ import {
   studentNotificationApi,
 } from '../services/studentNotificationApi';
 import { taskBroadcastApi } from '../services/taskBroadcastApi';
+import { regionalCentreApi } from '../services/regionalCentreApi';
 import { trainingApi } from '../services/trainingApi';
 import { colors } from '../theme/colors';
 import type { CourseRequest } from '../types/collegePortal';
 import type { SchoolExamDetails, StudentRecord } from '../types/student';
 import type { StudentNotification } from '../types/studentNotification';
 import type { TaskProgramSession } from '../types/taskBroadcast';
+import type { RcMembership, RcSession } from '../types/regionalCentre';
 import type { TrainingRegistration } from '../types/training';
+import { RC_MEMBERSHIP_FEE, RC_MEMBERSHIP_MONTHS, REGIONAL_CENTERS, regionalCenterLabel } from '../constants/lookups';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
-type TrainingTab = 'enrolled' | 'available' | 'task';
+type TrainingTab = 'enrolled' | 'available' | 'task' | 'rc';
 
 const ANNOUNCEMENT_SEEN_KEY = 'task.student.announcementSeen.v1';
 
@@ -57,6 +60,10 @@ export function StudentHomeScreen({ navigation }: Props) {
   const [taskAvailable, setTaskAvailable] = useState<TaskProgramSession[]>([]);
   const [taskEnrolled, setTaskEnrolled] = useState<TaskProgramSession[]>([]);
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
+  const [rcMembership, setRcMembership] = useState<RcMembership | null>(null);
+  const [rcSessions, setRcSessions] = useState<RcSession[]>([]);
+  const [rcEnrolledIds, setRcEnrolledIds] = useState<string[]>([]);
+  const [rcJoinId, setRcJoinId] = useState('rc-hyd-masabtank');
   const [alerts, setAlerts] = useState<StudentNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [sessionQuery, setSessionQuery] = useState('');
@@ -85,6 +92,10 @@ export function StudentHomeScreen({ navigation }: Props) {
       nextTaskCounts[s.id] = await taskBroadcastApi.getEnrollmentCount(s.id);
     }
     setTaskCounts(nextTaskCounts);
+    const rc = await regionalCentreApi.listOpenSessionsForStudent(profile.id);
+    setRcMembership(rc.membership);
+    setRcSessions(rc.sessions);
+    setRcEnrolledIds(rc.enrolledIds);
     await studentNotificationApi.refreshDeadlineAlerts(profile.id);
     const notes = await studentNotificationApi.listForStudent(profile.id);
     setAlerts(notes);
@@ -179,6 +190,46 @@ export function StudentHomeScreen({ navigation }: Props) {
       await load();
       setTrainingTab('task');
       setMenu('trainings');
+    } catch (e) {
+      Alert.alert('Unable to enrol', e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const joinRc = async () => {
+    if (!student) return;
+    try {
+      setLoadingId('rc-join');
+      await regionalCentreApi.registerStudentForCenter({
+        student,
+        regionalCenterId: rcJoinId,
+      });
+      Alert.alert(
+        'RC membership active',
+        `₹${RC_MEMBERSHIP_FEE} paid. Valid for ${RC_MEMBERSHIP_MONTHS} months.`,
+      );
+      await load();
+      setTrainingTab('rc');
+      setMenu('trainings');
+    } catch (e) {
+      Alert.alert('Unable to join RC', e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const enrollRcSession = async (session: RcSession) => {
+    if (!student) return;
+    try {
+      setLoadingId(session.id);
+      await regionalCentreApi.enrollStudentInSession({
+        sessionId: session.id,
+        studentId: student.id,
+        studentName: `${student.firstName} ${student.lastName}`,
+      });
+      Alert.alert('Enrolled', `You are enrolled in ${session.title}.`);
+      await load();
     } catch (e) {
       Alert.alert('Unable to enrol', e instanceof Error ? e.message : 'Failed');
     } finally {
@@ -492,6 +543,10 @@ export function StudentHomeScreen({ navigation }: Props) {
                   value: 'task',
                   label: `TASK (${taskAvailable.length + taskEnrolled.length})`,
                 },
+                {
+                  value: 'rc',
+                  label: `RC (${rcSessions.length})`,
+                },
               ]}
             />
           </View>
@@ -616,7 +671,7 @@ export function StudentHomeScreen({ navigation }: Props) {
                 }}
               />
             </View>
-          ) : (
+          ) : trainingTab === 'task' ? (
             <ScrollView contentContainerStyle={styles.listPad}>
               <Text style={styles.resultText}>
                 Statewide / district / university / college programmes posted by TASK Admin
@@ -693,6 +748,93 @@ export function StudentHomeScreen({ navigation }: Props) {
                         onPress={() => enrollTaskSession(item)}
                         disabled={loadingId === item.id || full}
                       />
+                    </DataCard>
+                  );
+                })
+              )}
+            </ScrollView>
+          ) : (
+            <ScrollView contentContainerStyle={styles.listPad}>
+              {rcMembership ? (
+                <DataCard accent>
+                  <Text style={styles.name}>{rcMembership.regionalCenterName}</Text>
+                  <Text style={styles.meta}>
+                    Active until {new Date(rcMembership.expiresAt).toLocaleDateString('en-IN')} · Fee
+                    ₹{rcMembership.feePaid}
+                  </Text>
+                  <Text style={styles.alertBody}>
+                    You can enrol in sessions published by this Regional Centre.
+                  </Text>
+                </DataCard>
+              ) : (
+                <DataCard>
+                  <Text style={styles.name}>Join a Regional Centre</Text>
+                  <Text style={styles.alertBody}>
+                    Pay ₹{RC_MEMBERSHIP_FEE} (valid {RC_MEMBERSHIP_MONTHS} months) to access RC
+                    courses and services.
+                  </Text>
+                  <DropdownField
+                    label="Regional Centre"
+                    required
+                    value={rcJoinId}
+                    onChange={setRcJoinId}
+                    options={REGIONAL_CENTERS.map((c) => ({
+                      value: c.id,
+                      label: regionalCenterLabel(c),
+                    }))}
+                  />
+                  <PrimaryButton
+                    title={
+                      loadingId === 'rc-join'
+                        ? 'Joining…'
+                        : `Pay ₹${RC_MEMBERSHIP_FEE} & join`
+                    }
+                    onPress={joinRc}
+                    disabled={loadingId === 'rc-join'}
+                  />
+                </DataCard>
+              )}
+
+              <SectionLabel>RC sessions</SectionLabel>
+              {!rcMembership ? (
+                <EmptyState
+                  title="Membership required"
+                  body="Join a Regional Centre above to see and enrol in RC sessions."
+                />
+              ) : rcSessions.length === 0 ? (
+                <EmptyState
+                  title="No open RC sessions"
+                  body="When your Regional Centre publishes a session, it appears here."
+                />
+              ) : (
+                rcSessions.map((item) => {
+                  const enrolled = rcEnrolledIds.includes(item.id);
+                  return (
+                    <DataCard key={item.id} accent>
+                      <View style={styles.row}>
+                        <Text style={styles.name}>{item.title}</Text>
+                        <StatusBadge status={enrolled ? 'registered' : item.mode} />
+                      </View>
+                      <Text style={styles.meta}>
+                        {item.mode === 'online' ? 'Online' : 'Offline'} · {item.startDate}{' '}
+                        {item.startTime} → {item.endDate} {item.endTime}
+                      </Text>
+                      {item.venueOrLink ? (
+                        <Text style={styles.meta}>
+                          {item.mode === 'online' ? 'Link' : 'Venue'}: {item.venueOrLink}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.alertBody}>{item.description}</Text>
+                      <View style={styles.gap} />
+                      {enrolled ? (
+                        <Text style={styles.meta}>You are enrolled</Text>
+                      ) : (
+                        <PrimaryButton
+                          title={loadingId === item.id ? 'Enrolling…' : 'Enrol'}
+                          onPress={() => enrollRcSession(item)}
+                          disabled={loadingId === item.id}
+                        />
+                      )}
                     </DataCard>
                   );
                 })

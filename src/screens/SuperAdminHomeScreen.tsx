@@ -257,7 +257,10 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
         }}
         options={[
           { value: 'All', label: 'All Telangana (whole state)' },
-          ...REGIONAL_CENTERS.map((r) => ({ value: r.id, label: r.name })),
+          ...REGIONAL_CENTERS.map((r) => ({
+            value: r.id,
+            label: `${r.name} · ${r.district}`,
+          })),
         ]}
       />
       <DropdownField

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStudentRegistrationFee } from '../constants/student';
 import { buildSampleApprovedColleges } from './demoSeedApi';
 import { collegePortalApi } from './collegePortalApi';
+import { regionalCentreApi } from './regionalCentreApi';
 import type { CollegeEnrollment, SessionUser } from '../types/enrollment';
 import type { StudentDraft, StudentRecord } from '../types/student';
 import { emptySchoolExam, schoolExamFromDraft } from '../types/student';
@@ -168,6 +169,13 @@ export const studentApi = {
     });
     await writeJson(COLLEGE_STUDENTS_KEY, collegeStudents);
 
+    if (draft.joinRegionalCenter && draft.regionalCenterId) {
+      await regionalCentreApi.registerStudentForCenter({
+        student: record,
+        regionalCenterId: draft.regionalCenterId,
+      });
+    }
+
     const session: SessionUser = {
       role: 'student',
       email: record.email,
@@ -221,6 +229,9 @@ export const studentApi = {
             feeAcknowledged: true,
             termsAccepted: true,
             declarationAccepted: true,
+            joinRegionalCenter: true,
+            regionalCenterId: 'rc-hyd-masabtank',
+            rcFeeAcknowledged: true,
           });
         }
       }
