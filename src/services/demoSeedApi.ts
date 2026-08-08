@@ -21,7 +21,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v15';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v16';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -482,10 +482,10 @@ function buildRcBatches(
   center: (typeof REGIONAL_CENTERS)[number],
   trainer: TrainerRecord,
 ): CourseRequest[] {
-  const course =
-    SEED_COURSES.find((c) => c.title.includes('21st Century')) ?? SEED_COURSES[0];
   const tech =
     SEED_COURSES.find((c) => c.category === 'Technology' && c.enabled) ?? SEED_COURSES[1];
+  const soft =
+    SEED_COURSES.find((c) => c.title.includes('Campus to Corporate')) ?? SEED_COURSES[0];
   const now = nowIso();
 
   const approved: CourseRequest = {
@@ -495,14 +495,15 @@ function buildRcBatches(
     requesterType: 'regional_center',
     regionalCenterId: center.id,
     regionalCenterName: center.name,
-    courseId: course.id,
-    courseName: course.title,
-    category: course.category,
+    courseId: tech.id,
+    courseName: tech.title,
+    category: tech.category,
     yearOfGraduation: 'All',
     branch: 'All RC members',
-    startDate: isoDay(3),
-    endDate: isoDay(8),
-    batchSize: 50,
+    // Starts after the college demo batch ends so the trainer calendar does not clash.
+    startDate: isoDay(12),
+    endDate: isoDay(17),
+    batchSize: 35,
     status: 'approved',
     requestedOn: now,
     reviewedAt: now,
@@ -523,9 +524,9 @@ function buildRcBatches(
     requesterType: 'regional_center',
     regionalCenterId: center.id,
     regionalCenterName: center.name,
-    courseId: tech.id,
-    courseName: tech.title,
-    category: tech.category,
+    courseId: soft.id,
+    courseName: soft.title,
+    category: soft.category,
     yearOfGraduation: 'All',
     branch: 'All RC members',
     startDate: isoDay(20),

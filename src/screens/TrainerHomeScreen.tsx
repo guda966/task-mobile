@@ -74,6 +74,13 @@ export function TrainerHomeScreen({ navigation }: Props) {
     () => sessions.filter((s) => s.backupTrainerId === user?.trainerId),
     [sessions, user?.trainerId],
   );
+  const upNext = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return [...primary, ...backup]
+      .filter((s) => s.endDate >= today)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+      .slice(0, 3);
+  }, [primary, backup]);
   const isActive = profile?.status === 'active';
 
   const uploadResume = async () => {
@@ -213,7 +220,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
                 </Text>
                 {profile.status === 'active' ? (
                   <Text style={styles.ok}>
-                    Active trainer — open My sessions to run materials, attendance, and certificates.
+                    Active trainer — open My sessions to run materials, student attendance, session photos, and certificates.
                   </Text>
                 ) : profile.status === 'inactive' ? (
                   <Text style={styles.warn}>
@@ -259,15 +266,23 @@ export function TrainerHomeScreen({ navigation }: Props) {
                 />
 
                 <SectionLabel>Up next</SectionLabel>
-                {primary[0] ? (
-                  <SessionCard item={primary[0]} role="Primary trainer" />
-                ) : backup[0] ? (
-                  <SessionCard item={backup[0]} role="Backup trainer" />
-                ) : (
+                {upNext.length === 0 ? (
                   <EmptyState
                     title="No sessions assigned yet"
                     body="TASK Admin assigns you to approved college and Regional Centre batches. Check back after assignment."
                   />
+                ) : (
+                  upNext.map((item) => (
+                    <SessionCard
+                      key={item.id}
+                      item={item}
+                      role={
+                        item.trainerId === user?.trainerId
+                          ? 'Primary trainer'
+                          : 'Backup trainer'
+                      }
+                    />
+                  ))
                 )}
 
                 <View style={styles.gap} />
@@ -281,7 +296,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
           <>
             <PanelHeader
               title="My sessions"
-              subtitle="Open a batch workspace for materials, assignments, attendance, certificates, and queries"
+              subtitle="Open a batch workspace for materials, assignments, student attendance, session photos, certificates, and queries"
             />
             {!isActive ? (
               <EmptyState

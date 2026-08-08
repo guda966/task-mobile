@@ -236,10 +236,10 @@ export function StudentSessionDetailScreen({ route }: Props) {
       value: 'results',
       label: scoredResults.length ? `Results (${scoredResults.length})` : 'Results',
     },
-    { value: 'attendance', label: 'Attendance' },
+    { value: 'attendance', label: 'Student attendance' },
     {
       value: 'evidence',
-      label: evidence.length ? `Evidence (${evidence.length})` : 'Evidence',
+      label: evidence.length ? `Session photos (${evidence.length})` : 'Session photos',
     },
     { value: 'certificates', label: certificates.length ? 'Certificate' : 'Certificate' },
     {
@@ -393,15 +393,15 @@ export function StudentSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('assignments'),
                 },
                 {
-                  label: 'Attendance',
+                  label: 'Student attendance',
                   value: `${attendanceStats.pct}%`,
                   hint: `${attendanceStats.marked} day(s) marked`,
                   onPress: () => setTab('attendance'),
                 },
                 {
-                  label: 'Evidence',
+                  label: 'Session photos',
                   value: String(evidence.length),
-                  hint: 'Session photos',
+                  hint: 'With location',
                   onPress: () => setTab('evidence'),
                 },
                 {
@@ -420,8 +420,8 @@ export function StudentSessionDetailScreen({ route }: Props) {
             <SectionLabel>Suggested path</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Open Materials → 2. Submit Assignments → 3. Check Attendance → 4. View session
-                evidence photos → 5. View Results → 6. Share Feedback → 7. Collect Certificate when
+                1. Open Materials → 2. Submit Assignments → 3. Check student attendance → 4. View
+                session photos → 5. View Results → 6. Share Feedback → 7. Collect Certificate when
                 ready.
               </Text>
             </DataCard>
@@ -682,13 +682,13 @@ export function StudentSessionDetailScreen({ route }: Props) {
         {tab === 'evidence' ? (
           <>
             <PanelHeader
-              title="Session evidence"
-              subtitle="Geo-tagged photos posted by your trainer as proof of delivery"
+              title="Session photos"
+              subtitle="Photos with location posted by your trainer"
             />
             {evidence.length === 0 ? (
               <EmptyState
-                title="No evidence posted yet"
-                body="When your trainer posts a geo-tagged session photo, it will appear here."
+                title="No session photos yet"
+                body="When your trainer posts a session photo with location, it will appear here."
               />
             ) : (
               evidence.map((item) => (

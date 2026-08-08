@@ -547,7 +547,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       const pos = await getCurrentPosition();
       setEvidenceGeo(pos);
       Alert.alert(
-        'Location captured',
+        'Location added',
         `${pos.latitude}, ${pos.longitude}${
           pos.accuracyMeters ? ` (±${pos.accuracyMeters} m)` : ''
         }`,
@@ -572,11 +572,11 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const postEvidence = async () => {
     if (!user?.trainerId || !user.name) return;
     if (!evidencePhoto) {
-      Alert.alert('Photo required', 'Take or choose a session photo first.');
+      Alert.alert('Photo required', 'Add a session photo before posting.');
       return;
     }
     if (!evidenceGeo) {
-      Alert.alert('Location required', 'Capture GPS location to geo-tag this photo.');
+      Alert.alert('Location required', 'Add your current location to tag this photo.');
       return;
     }
     try {
@@ -598,7 +598,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       setEvidenceCaption('');
       setEvidencePhoto(null);
       setEvidenceGeo(null);
-      Alert.alert('Evidence posted', 'Geo-tagged session photo saved for this day.');
+      Alert.alert('Photo posted', 'Session photo with location saved for this day.');
       await loadCore();
     } catch (e) {
       Alert.alert('Unable to post', e instanceof Error ? e.message : 'Try again');
@@ -626,11 +626,13 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     },
     {
       value: 'attendance',
-      label: attStats.unmarked ? `Attendance (${attStats.unmarked})` : 'Attendance',
+      label: attStats.unmarked
+        ? `Student attendance (${attStats.unmarked})`
+        : 'Student attendance',
     },
     {
       value: 'evidence',
-      label: evidence.length ? `Evidence (${evidence.length})` : 'Evidence',
+      label: evidence.length ? `Session photos (${evidence.length})` : 'Session photos',
     },
     {
       value: 'certificates',
@@ -701,9 +703,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('attendance'),
                 },
                 {
-                  label: 'Evidence photos',
+                  label: 'Session photos',
                   value: String(evidence.length),
-                  hint: 'Geo-tagged',
+                  hint: 'With location',
                   onPress: () => setTab('evidence'),
                 },
                 {
@@ -716,8 +718,8 @@ export function TrainerSessionDetailScreen({ route }: Props) {
             <SectionLabel>Suggested workflow</SectionLabel>
             <DataCard>
               <Text style={styles.body}>
-                1. Upload materials → 2. Post assignments → 3. Mark attendance each day → 4. Post
-                geo-tagged session photo evidence → 5. Review submissions → 6. Issue certificates
+                1. Upload materials → 2. Post assignments → 3. Mark student attendance each day → 4.
+                Post a session photo with location → 5. Review submissions → 6. Issue certificates
                 when eligible.
               </Text>
             </DataCard>
@@ -942,7 +944,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         {tab === 'attendance' ? (
           <>
             <PanelHeader
-              title="Daily attendance"
+              title="Student attendance"
               subtitle={
                 session
                   ? `${session.startDate} → ${session.endDate}`
@@ -1162,18 +1164,18 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         {tab === 'evidence' ? (
           <>
             <PanelHeader
-              title="Session evidence"
+              title="Session photos"
               subtitle={
                 session
-                  ? `Geo-tagged photo proof for each day · ${session.startDate} → ${session.endDate}`
-                  : 'Capture GPS, attach a photo, then post'
+                  ? `Photo with location for each day · ${session.startDate} → ${session.endDate}`
+                  : 'Add location, attach a photo, then post'
               }
             />
 
             <DataCard>
-              <Text style={styles.sectionHint}>Post evidence for a session day</Text>
+              <Text style={styles.sectionHint}>Post a photo for a session day</Text>
               <Text style={styles.meta}>
-                1. Choose the day · 2. Capture GPS · 3. Attach photo · 4. Post
+                1. Choose the day · 2. Add location · 3. Add photo · 4. Post
               </Text>
               <View style={styles.gap} />
               <View style={styles.attDayBar}>
@@ -1184,7 +1186,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                     setEvidenceDateWithinSession(shiftDate(evidenceDate, -1));
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Previous evidence day"
+                  accessibilityLabel="Previous photo day"
                 >
                   <Ionicons name="chevron-back" size={20} color={colors.primaryDark} />
                 </Pressable>
@@ -1206,7 +1208,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                     setEvidenceDateWithinSession(shiftDate(evidenceDate, 1));
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Next evidence day"
+                  accessibilityLabel="Next photo day"
                 >
                   <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />
                 </Pressable>
@@ -1214,13 +1216,13 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
               <View style={styles.evStepRow}>
                 <PrimaryButton
-                  title={evidenceGeo ? 'Location captured ✓' : 'Capture GPS'}
+                  title={evidenceGeo ? 'Location added ✓' : 'Add location'}
                   variant="secondary"
                   onPress={captureGeo}
                   disabled={saving}
                 />
                 <PrimaryButton
-                  title={evidencePhoto ? 'Change photo' : 'Take / choose photo'}
+                  title={evidencePhoto ? 'Change photo' : 'Add photo'}
                   variant="secondary"
                   onPress={pickEvidencePhoto}
                   disabled={saving}
@@ -1229,7 +1231,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
               {evidenceGeo ? (
                 <View style={styles.evGeoBox}>
-                  <Text style={styles.evGeoTitle}>Geo tag ready</Text>
+                  <Text style={styles.evGeoTitle}>Location ready</Text>
                   <Text style={styles.meta}>
                     {evidenceGeo.latitude}, {evidenceGeo.longitude}
                     {evidenceGeo.accuracyMeters
@@ -1245,7 +1247,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   </Pressable>
                 </View>
               ) : (
-                <Text style={styles.warnLine}>GPS not captured yet.</Text>
+                <Text style={styles.warnLine}>Location not added yet.</Text>
               )}
 
               {evidencePhoto ? (
@@ -1260,7 +1262,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.warnLine}>No photo attached yet.</Text>
+                <Text style={styles.warnLine}>No photo added yet.</Text>
               )}
 
               <FormField
@@ -1270,19 +1272,19 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                 placeholder="e.g. Day 2 lab session — campus lab block B"
               />
               <PrimaryButton
-                title={saving ? 'Posting…' : 'Post geo-tagged evidence'}
+                title={saving ? 'Posting…' : 'Post session photo'}
                 onPress={postEvidence}
                 disabled={saving}
               />
             </DataCard>
 
             <SectionLabel>
-              {`Posted evidence${evidence.length ? ` (${evidence.length})` : ''}`}
+              {`Posted photos${evidence.length ? ` (${evidence.length})` : ''}`}
             </SectionLabel>
             {evidence.length === 0 ? (
               <EmptyState
-                title="No evidence yet"
-                body="Post a geo-tagged photo after each session day as proof of delivery."
+                title="No session photos yet"
+                body="Post a photo with location after each session day as proof of delivery."
               />
             ) : (
               evidence.map((item) => (

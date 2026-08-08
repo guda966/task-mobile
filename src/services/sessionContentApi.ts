@@ -516,7 +516,7 @@ export const sessionContentApi = {
       Number.isNaN(input.geo.latitude) ||
       Number.isNaN(input.geo.longitude)
     ) {
-      throw new Error('Capture GPS location to geo-tag this photo.');
+      throw new Error('Add your current location to tag this photo.');
     }
 
     const entry: SessionEvidence = {
