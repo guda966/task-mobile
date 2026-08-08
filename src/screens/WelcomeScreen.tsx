@@ -247,7 +247,8 @@ export function WelcomeScreen({ navigation }: Props) {
               <Text style={styles.detailText}>
                 Students may also join one of 16 TASK Regional Centres for ₹599 (valid 6 months)
                 to attend local RC courses and services. Choose RC during student registration or
-                later from Trainings → RC.
+                Also join a TASK Regional Centre during registration, or skip and join later from
+              Trainings → RC.
               </Text>
             </View>
             <View style={styles.detailItem}>

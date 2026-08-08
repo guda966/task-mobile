@@ -26,7 +26,7 @@ import { studentFeeLabel, validateStudentDraft } from '../utils/studentValidatio
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentRegistration'>;
 
-const STEP_LABELS = ['Personal', 'College', '10th & 12th', 'Login & fee'];
+const STEP_LABELS = ['Personal', 'College', '10th & 12th', 'Regional Centre', 'Login & fee'];
 
 export function StudentRegistrationScreen({ navigation, route }: Props) {
   const { setUser } = useAuth();
@@ -209,10 +209,13 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
         'twelfthPercentage',
         'twelfthHallTicketNo',
       ],
-      ['password', 'confirmPassword', 'feeAcknowledged', 'termsAccepted', 'declarationAccepted', 'regionalCenterId', 'rcFeeAcknowledged'],
+      ['regionalCenterId', 'rcFeeAcknowledged'],
+      ['password', 'confirmPassword', 'feeAcknowledged', 'termsAccepted', 'declarationAccepted'],
     ];
     const picked: typeof all = {};
     for (const key of fields[step]) {
+      // Only enforce RC field errors when the student chose to join.
+      if (step === 3 && !draft.joinRegionalCenter) continue;
       if (all[key]) picked[key] = all[key];
     }
     setErrors(picked);
@@ -249,7 +252,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
   };
 
   return (
-    <Screen showLogo={false} subtitle={`Step ${step + 1} of 4`}>
+    <Screen showLogo={false} subtitle={`Step ${step + 1} of ${STEP_LABELS.length}`}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.stepper}>
           {STEP_LABELS.map((label, index) => (
@@ -513,6 +516,68 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
 
         {step === 3 && (
           <>
+            <Text style={styles.section}>TASK Regional Centre</Text>
+            <Text style={styles.rcIntro}>
+              Optional but recommended. Join one of 16 Regional Centres for local courses and
+              services. Membership is ₹{RC_MEMBERSHIP_FEE} and stays valid for{' '}
+              {RC_MEMBERSHIP_MONTHS} months.
+            </Text>
+            <CheckboxRow
+              checked={draft.joinRegionalCenter}
+              onToggle={() => {
+                const next = !draft.joinRegionalCenter;
+                update('joinRegionalCenter', next);
+                if (!next) {
+                  update('regionalCenterId', '');
+                  update('rcFeeAcknowledged', false);
+                }
+              }}
+              label="Yes, I want to register with a Regional Centre"
+            />
+            <CheckboxRow
+              checked={!draft.joinRegionalCenter}
+              onToggle={() => {
+                update('joinRegionalCenter', false);
+                update('regionalCenterId', '');
+                update('rcFeeAcknowledged', false);
+              }}
+              label="Skip for now — I will join later from Trainings → RC"
+            />
+            {draft.joinRegionalCenter ? (
+              <>
+                <DropdownField
+                  label="Select Regional Centre"
+                  required
+                  value={draft.regionalCenterId}
+                  onChange={(v) => update('regionalCenterId', v)}
+                  options={REGIONAL_CENTERS.map((c) => ({
+                    value: c.id,
+                    label: regionalCenterLabel(c),
+                  }))}
+                  placeholder="Choose your nearest centre"
+                  error={errors.regionalCenterId}
+                />
+                <View style={styles.feeBox}>
+                  <Text style={styles.feeLabel}>RC membership fee</Text>
+                  <Text style={styles.feeValue}>₹ {RC_MEMBERSHIP_FEE}</Text>
+                  <Text style={styles.feeHint}>
+                    Mandatory for RC courses and services. Valid for {RC_MEMBERSHIP_MONTHS}{' '}
+                    months from payment. Non-refundable.
+                  </Text>
+                </View>
+                <CheckboxRow
+                  checked={draft.rcFeeAcknowledged}
+                  onToggle={() => update('rcFeeAcknowledged', !draft.rcFeeAcknowledged)}
+                  label={`I acknowledge the ₹${RC_MEMBERSHIP_FEE} Regional Centre membership fee.`}
+                  error={errors.rcFeeAcknowledged}
+                />
+              </>
+            ) : null}
+          </>
+        )}
+
+        {step === 4 && (
+          <>
             <View style={styles.feeBox}>
               <Text style={styles.feeLabel}>Registration Fee</Text>
               <Text style={styles.feeValue}>
@@ -529,45 +594,6 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
               label="I acknowledge the student registration fee."
               error={errors.feeAcknowledged}
             />
-
-            <Text style={styles.section}>Regional Centre (optional)</Text>
-            <CheckboxRow
-              checked={draft.joinRegionalCenter}
-              onToggle={() =>
-                update('joinRegionalCenter', !draft.joinRegionalCenter)
-              }
-              label={`Also register with a TASK Regional Centre (₹${RC_MEMBERSHIP_FEE}, valid ${RC_MEMBERSHIP_MONTHS} months)`}
-            />
-            {draft.joinRegionalCenter ? (
-              <>
-                <DropdownField
-                  label="Regional Centre"
-                  required
-                  value={draft.regionalCenterId}
-                  onChange={(v) => update('regionalCenterId', v)}
-                  options={REGIONAL_CENTERS.map((c) => ({
-                    value: c.id,
-                    label: regionalCenterLabel(c),
-                  }))}
-                  placeholder="Select Regional Centre"
-                  error={errors.regionalCenterId}
-                />
-                <View style={styles.feeBox}>
-                  <Text style={styles.feeLabel}>RC membership fee</Text>
-                  <Text style={styles.feeValue}>₹ {RC_MEMBERSHIP_FEE}</Text>
-                  <Text style={styles.feeHint}>
-                    Mandatory for RC courses and services. Valid for {RC_MEMBERSHIP_MONTHS}{' '}
-                    months from payment.
-                  </Text>
-                </View>
-                <CheckboxRow
-                  checked={draft.rcFeeAcknowledged}
-                  onToggle={() => update('rcFeeAcknowledged', !draft.rcFeeAcknowledged)}
-                  label={`I acknowledge the ₹${RC_MEMBERSHIP_FEE} Regional Centre membership fee.`}
-                  error={errors.rcFeeAcknowledged}
-                />
-              </>
-            ) : null}
 
             <Text style={styles.section}>Login details</Text>
             <FormField
@@ -609,6 +635,10 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
               <Text style={styles.termsItem}>
                 • Student registration fee payments are final and will not be refunded.
               </Text>
+              <Text style={styles.termsItem}>
+                • Regional Centre membership (if chosen) is ₹{RC_MEMBERSHIP_FEE} for{' '}
+                {RC_MEMBERSHIP_MONTHS} months and is non-refundable.
+              </Text>
             </View>
           </>
         )}
@@ -617,7 +647,7 @@ export function StudentRegistrationScreen({ navigation, route }: Props) {
           {step > 0 ? (
             <PrimaryButton title="Back" variant="secondary" onPress={() => setStep((s) => s - 1)} />
           ) : null}
-          {step < 3 ? (
+          {step < STEP_LABELS.length - 1 ? (
             <PrimaryButton
               title="Continue"
               onPress={() => {
