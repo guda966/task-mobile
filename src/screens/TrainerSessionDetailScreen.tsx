@@ -1161,7 +1161,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="My attendance"
-              subtitle="Geo-tagged class photos for this session day"
+              subtitle="Upload a geo-tagged class photo at start and at close"
             />
             <Text style={styles.evNote}>Only geo-tagged photos are considered.</Text>
             <DateField
@@ -1185,9 +1185,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                     <Text style={styles.evCheckMark}>{done ? '✓' : '○'}</Text>
                     <View style={styles.flex}>
                       <Text style={styles.evCheckTitle}>{slot.moment}</Text>
-                      <Text style={styles.evCheckHint}>
-                        {done ? 'Class photo posted' : 'Class photo required'}
-                      </Text>
+                      <Text style={styles.evCheckHint}>{done ? 'Done' : 'Needed'}</Text>
                     </View>
                   </View>
                 );
@@ -1201,14 +1199,12 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   <View key={slot.kind} style={[styles.evSlotCol, wide && styles.evSlotColWide]}>
                     <DataCard>
                       <View style={styles.evSlotHeader}>
-                        <View style={styles.flex}>
-                          <Text style={styles.evMoment}>{slot.moment}</Text>
-                          <Text style={styles.cardTitle}>Class photo</Text>
-                        </View>
+                        <Text style={styles.cardTitle}>{slot.moment}</Text>
                         <Text style={posted ? styles.evBadgeOk : styles.evBadgePending}>
-                          {posted ? 'Posted' : 'Required'}
+                          {posted ? 'Done' : 'Needed'}
                         </Text>
                       </View>
+                      <Text style={styles.meta}>Class photo (geo-tagged)</Text>
 
                       {posted ? (
                         <>
@@ -1245,7 +1241,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                             </View>
                             <View style={styles.evActionBtn}>
                               <PrimaryButton
-                                title="Reupload"
+                                title="Upload"
                                 variant="secondary"
                                 onPress={() => postClassPhoto(slot.kind, 'gallery')}
                                 disabled={saving}
@@ -1254,11 +1250,23 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                           </View>
                         </>
                       ) : (
-                        <PrimaryButton
-                          title={saving ? 'Saving…' : 'Add class photo'}
-                          onPress={() => postClassPhoto(slot.kind, 'camera')}
-                          disabled={saving}
-                        />
+                        <View style={styles.evActionRow}>
+                          <View style={styles.evActionBtn}>
+                            <PrimaryButton
+                              title={saving ? 'Saving…' : 'Take photo'}
+                              onPress={() => postClassPhoto(slot.kind, 'camera')}
+                              disabled={saving}
+                            />
+                          </View>
+                          <View style={styles.evActionBtn}>
+                            <PrimaryButton
+                              title="Upload"
+                              variant="secondary"
+                              onPress={() => postClassPhoto(slot.kind, 'gallery')}
+                              disabled={saving}
+                            />
+                          </View>
+                        </View>
                       )}
                     </DataCard>
                   </View>
@@ -1527,43 +1535,31 @@ const styles = StyleSheet.create({
   evSlotGridWide: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   evSlotCol: { width: '100%' },
   evSlotColWide: { flex: 1, minWidth: 0 },
-  evMoment: {
-    fontWeight: '700',
-    color: colors.textMuted,
-    fontSize: 11,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
   evSlotHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   evBadgeOk: {
     color: colors.success,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
+    fontWeight: '700',
+    fontSize: 12,
   },
   evBadgePending: {
     color: colors.warning,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
+    fontWeight: '700',
+    fontSize: 12,
   },
   evPreview: {
     width: '100%',
     height: 140,
     borderRadius: 10,
     backgroundColor: colors.background,
-    marginTop: 4,
+    marginTop: 8,
   },
-  evActionRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  evActionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   evActionBtn: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },

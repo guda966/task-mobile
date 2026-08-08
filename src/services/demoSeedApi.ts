@@ -23,7 +23,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v21';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v22';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
