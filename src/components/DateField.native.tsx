@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../theme/colors';
 
 function toIsoDate(date: Date) {
@@ -29,7 +30,7 @@ export function DateField({
   const selected = value ? new Date(`${value}T00:00:00`) : new Date();
   const display = value
     ? new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', {
-        day: 'numeric',
+        day: '2-digit',
         month: 'short',
         year: 'numeric',
       })
@@ -46,7 +47,9 @@ export function DateField({
         style={[styles.trigger, error ? styles.inputError : null]}
       >
         <Text style={value ? styles.value : styles.placeholder}>{display}</Text>
-        <Text style={styles.chevron}>📅</Text>
+        <View style={styles.iconBtn}>
+          <Ionicons name="calendar-outline" size={20} color={colors.primaryDark} />
+        </View>
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {open ? (
@@ -79,16 +82,25 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    minHeight: 48,
+    paddingLeft: 14,
+    paddingRight: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
   inputError: { borderColor: colors.danger },
-  value: { color: colors.text, fontSize: 15, flex: 1 },
+  value: { color: colors.text, fontSize: 15, fontWeight: '500', flex: 1 },
   placeholder: { color: colors.textMuted, fontSize: 15, flex: 1 },
-  chevron: { marginLeft: 8 },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   error: { color: colors.danger, marginTop: 4, fontSize: 12 },
   done: {
     marginTop: 8,
