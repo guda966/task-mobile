@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
-  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -40,7 +39,6 @@ import type {
 import type { StudentRecord } from '../types/student';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import { requesterLabel } from '../utils/courseRequestLabels';
-import { mapsUrl } from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentSessionDetail'>;
