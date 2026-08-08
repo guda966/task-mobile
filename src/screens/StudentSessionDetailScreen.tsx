@@ -681,20 +681,20 @@ export function StudentSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="Trainer attendance photos"
-              subtitle="Morning and evening class photo proof"
+              subtitle="Session start and session close class photos"
             />
             {evidence.length === 0 ? (
               <EmptyState
                 title="No trainer photos yet"
-                body="When your trainer posts morning and evening class photos, they appear here."
+                body="When your trainer posts session start and close class photos, they appear here."
               />
             ) : (
               evidence.map((item) => {
                 const kindLabel =
                   item.kind === 'start_class'
-                    ? 'Morning'
+                    ? 'Session start'
                     : item.kind === 'end_class'
-                      ? 'Evening'
+                      ? 'Session close'
                       : 'Attendance photo';
                 return (
                   <DataCard key={item.id}>

@@ -1156,7 +1156,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="My attendance"
-              subtitle="Morning and evening class photo proof"
+              subtitle="Session start and session close class photo"
             />
             <DateField
               label="Session day"

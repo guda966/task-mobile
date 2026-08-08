@@ -75,21 +75,21 @@ export type TrainerAttendancePhotoKind = 'start_class' | 'end_class';
 
 export const TRAINER_ATTENDANCE_PHOTO_SLOTS: {
   kind: TrainerAttendancePhotoKind;
-  moment: 'Morning' | 'Evening';
+  moment: 'Session start' | 'Session close';
   title: string;
   hint: string;
 }[] = [
   {
     kind: 'start_class',
-    moment: 'Morning',
+    moment: 'Session start',
     title: 'Class photo',
-    hint: 'Morning class photo for attendance proof.',
+    hint: 'Class photo at session start.',
   },
   {
     kind: 'end_class',
-    moment: 'Evening',
+    moment: 'Session close',
     title: 'Class photo',
-    hint: 'Evening class photo for attendance proof.',
+    hint: 'Class photo at session close.',
   },
 ];
 
