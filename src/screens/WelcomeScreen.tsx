@@ -163,6 +163,11 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
       </View>
 
+      <View style={[styles.card, styles.announceCard, styles.announcePriority]}>
+        <Text style={styles.cardHeading}>Announcements</Text>
+        <NewsTicker />
+      </View>
+
       <View style={styles.navStrip}>
         <Text style={styles.navActive}>Home</Text>
       </View>
@@ -175,11 +180,6 @@ export function WelcomeScreen({ navigation }: Props) {
             synergy among Government, Industry and Academia. Established in 2004 as IEG/JKC and
             renamed TASK in 2014, it skills youth and builds employability for today’s workplace.
           </Text>
-        </View>
-
-        <View style={[styles.card, styles.announceCard]}>
-          <Text style={styles.cardHeading}>Announcements</Text>
-          <NewsTicker />
         </View>
 
         <Text style={styles.statsHeading}>TASK at a glance</Text>
