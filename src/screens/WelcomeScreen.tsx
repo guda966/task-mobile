@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import {
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +25,34 @@ export function WelcomeScreen({ navigation }: Props) {
 
   useEffect(() => {
     void ensureDemoData();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const id = 'task-welcome-scrollbar';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      [data-welcome-scroll="1"] {
+        overflow-y: scroll !important;
+        scrollbar-gutter: stable;
+        scrollbar-width: thin;
+        scrollbar-color: ${colors.primaryDark} #d7e2e2;
+      }
+      [data-welcome-scroll="1"]::-webkit-scrollbar {
+        width: 12px;
+      }
+      [data-welcome-scroll="1"]::-webkit-scrollbar-track {
+        background: #d7e2e2;
+      }
+      [data-welcome-scroll="1"]::-webkit-scrollbar-thumb {
+        background: ${colors.primaryDark};
+        border-radius: 8px;
+        border: 2px solid #d7e2e2;
+      }
+    `;
+    document.head.appendChild(style);
   }, []);
 
   const emblemSize = compact ? 64 : 96;
@@ -53,83 +82,24 @@ export function WelcomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {compact ? (
-        <View style={styles.brandHeaderMobile}>
-          <View style={styles.brandLogoRow}>
-            <Image
-              source={require('../../assets/brand/ts-logo.png')}
-              style={{ width: emblemSize, height: emblemSize }}
-              resizeMode="contain"
-              accessibilityLabel="Government of Telangana"
-            />
-            <Image
-              source={require('../../assets/brand/task-logo.png')}
-              style={{ width: taskLogoSize, height: taskLogoSize }}
-              resizeMode="contain"
-              accessibilityLabel="TASK logo"
-            />
-          </View>
-          <Text style={styles.brandTitleMobile}>
-            Telangana Academy for{'\n'}Skill and Knowledge
-          </Text>
-          <Text style={styles.brandSubtitleMobile}>
-            Department of ITE&C, Government of Telangana
-          </Text>
-          <View style={styles.officialsRow}>
-            <View style={styles.officialCell}>
-              <OfficialPortrait
-                source={require('../../assets/officials/cm-site.jpeg')}
-                size={portraitSize}
-                label="Hon’ble Chief Minister"
+      <ScrollView
+        style={styles.mainScroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator
+        persistentScrollbar
+        {...(Platform.OS === 'web'
+          ? ({ dataSet: { welcomeScroll: '1' } } as object)
+          : {})}
+      >
+        {compact ? (
+          <View style={styles.brandHeaderMobile}>
+            <View style={styles.brandLogoRow}>
+              <Image
+                source={require('../../assets/brand/ts-logo.png')}
+                style={{ width: emblemSize, height: emblemSize }}
+                resizeMode="contain"
+                accessibilityLabel="Government of Telangana"
               />
-              <Text style={styles.officialCaption} numberOfLines={2}>
-                Hon’ble Chief Minister
-              </Text>
-            </View>
-            <View style={styles.officialCell}>
-              <OfficialPortrait
-                source={require('../../assets/officials/minister-site.jpg')}
-                size={portraitSize}
-                label="Hon’ble Minister for ITE&C"
-              />
-              <Text style={styles.officialCaption} numberOfLines={2}>
-                Hon’ble Minister for ITE&C
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.brandHeader}>
-          <View style={styles.brandSide}>
-            <Image
-              source={require('../../assets/brand/ts-logo.png')}
-              style={{ width: emblemSize, height: emblemSize }}
-              resizeMode="contain"
-              accessibilityLabel="Government of Telangana"
-            />
-            <OfficialPortrait
-              source={require('../../assets/officials/cm-site.jpeg')}
-              size={portraitSize}
-              label="Hon’ble Chief Minister"
-            />
-          </View>
-
-          <View style={styles.brandCenter}>
-            <Text style={styles.brandTitle}>
-              Telangana Academy for{'\n'}Skill and Knowledge
-            </Text>
-            <Text style={styles.brandSubtitle} numberOfLines={2}>
-              Department of ITE&C, Government of Telangana
-            </Text>
-          </View>
-
-          <View style={[styles.brandSide, styles.brandSideRight]}>
-            <OfficialPortrait
-              source={require('../../assets/officials/minister-site.jpg')}
-              size={portraitSize}
-              label="Hon’ble Minister for ITE&C"
-            />
-            <View style={styles.logoWrap}>
               <Image
                 source={require('../../assets/brand/task-logo.png')}
                 style={{ width: taskLogoSize, height: taskLogoSize }}
@@ -137,93 +107,162 @@ export function WelcomeScreen({ navigation }: Props) {
                 accessibilityLabel="TASK logo"
               />
             </View>
+            <Text style={styles.brandTitleMobile}>
+              Telangana Academy for{'\n'}Skill and Knowledge
+            </Text>
+            <Text style={styles.brandSubtitleMobile}>
+              Department of ITE&C, Government of Telangana
+            </Text>
+            <View style={styles.officialsRow}>
+              <View style={styles.officialCell}>
+                <OfficialPortrait
+                  source={require('../../assets/officials/cm-site.jpeg')}
+                  size={portraitSize}
+                  label="Hon’ble Chief Minister"
+                />
+                <Text style={styles.officialCaption} numberOfLines={2}>
+                  Hon’ble Chief Minister
+                </Text>
+              </View>
+              <View style={styles.officialCell}>
+                <OfficialPortrait
+                  source={require('../../assets/officials/minister-site.jpg')}
+                  size={portraitSize}
+                  label="Hon’ble Minister for ITE&C"
+                />
+                <Text style={styles.officialCaption} numberOfLines={2}>
+                  Hon’ble Minister for ITE&C
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.brandHeader}>
+            <View style={styles.brandSide}>
+              <Image
+                source={require('../../assets/brand/ts-logo.png')}
+                style={{ width: emblemSize, height: emblemSize }}
+                resizeMode="contain"
+                accessibilityLabel="Government of Telangana"
+              />
+              <OfficialPortrait
+                source={require('../../assets/officials/cm-site.jpeg')}
+                size={portraitSize}
+                label="Hon’ble Chief Minister"
+              />
+            </View>
+
+            <View style={styles.brandCenter}>
+              <Text style={styles.brandTitle}>
+                Telangana Academy for{'\n'}Skill and Knowledge
+              </Text>
+              <Text style={styles.brandSubtitle} numberOfLines={2}>
+                Department of ITE&C, Government of Telangana
+              </Text>
+            </View>
+
+            <View style={[styles.brandSide, styles.brandSideRight]}>
+              <OfficialPortrait
+                source={require('../../assets/officials/minister-site.jpg')}
+                size={portraitSize}
+                label="Hon’ble Minister for ITE&C"
+              />
+              <View style={styles.logoWrap}>
+                <Image
+                  source={require('../../assets/brand/task-logo.png')}
+                  style={{ width: taskLogoSize, height: taskLogoSize }}
+                  resizeMode="contain"
+                  accessibilityLabel="TASK logo"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={[styles.accessBox, styles.accessBoxTop]}>
+          <Text style={styles.accessTitle}>Portal login</Text>
+          <Text style={styles.accessSubtitle}>
+            Register a new account or sign in to continue to your dashboard.
+          </Text>
+          <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
+            <View style={styles.accessBtn}>
+              <PrimaryButton
+                title="Register / Sign up"
+                onPress={() => navigation.navigate('Register')}
+              />
+            </View>
+            <View style={styles.accessBtn}>
+              <PrimaryButton
+                title="Already have an account? Sign In"
+                variant="secondary"
+                onPress={() => navigation.navigate('SignIn')}
+              />
+            </View>
           </View>
         </View>
-      )}
 
-      <View style={[styles.accessBox, styles.accessBoxTop]}>
-        <Text style={styles.accessTitle}>Portal login</Text>
-        <Text style={styles.accessSubtitle}>
-          Register a new account or sign in to continue to your dashboard.
-        </Text>
-        <View style={[styles.accessActions, compact && styles.accessActionsCompact]}>
-          <View style={styles.accessBtn}>
-            <PrimaryButton
-              title="Register / Sign up"
-              onPress={() => navigation.navigate('Register')}
-            />
-          </View>
-          <View style={styles.accessBtn}>
-            <PrimaryButton
-              title="Already have an account? Sign In"
-              variant="secondary"
-              onPress={() => navigation.navigate('SignIn')}
-            />
-          </View>
+        <View style={[styles.card, styles.announceCard, styles.announcePriority]}>
+          <Text style={styles.cardHeading}>Announcements</Text>
+          <NewsTicker />
         </View>
-      </View>
 
-      <View style={[styles.card, styles.announceCard, styles.announcePriority]}>
-        <Text style={styles.cardHeading}>Announcements</Text>
-        <NewsTicker />
-      </View>
+        <View style={styles.navStrip}>
+          <Text style={styles.navActive}>Home</Text>
+        </View>
 
-      <View style={styles.navStrip}>
-        <Text style={styles.navActive}>Home</Text>
-      </View>
+        <View style={styles.lowerSection}>
+          <View style={styles.card}>
+            <Text style={styles.cardHeading}>About Us</Text>
+            <Text style={styles.aboutText}>
+              TASK is a not-for-profit organization created by the Government of Telangana to bring
+              synergy among Government, Industry and Academia. Established in 2004 as IEG/JKC and
+              renamed TASK in 2014, it skills youth and builds employability for today’s workplace.
+            </Text>
+          </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <Text style={styles.cardHeading}>About Us</Text>
-          <Text style={styles.aboutText}>
-            TASK is a not-for-profit organization created by the Government of Telangana to bring
-            synergy among Government, Industry and Academia. Established in 2004 as IEG/JKC and
-            renamed TASK in 2014, it skills youth and builds employability for today’s workplace.
+          <Text style={styles.statsHeading}>TASK at a glance</Text>
+          <RollingStats compact={compact} />
+          <Text style={styles.statsSource}>
+            Impact figures from TASK’s first decade of operations (public reports).
+          </Text>
+
+          <View style={styles.detailsBox}>
+            <Text style={styles.detailsTitle}>Important details</Text>
+            <View style={styles.detailsList}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Skill offerings</Text>
+                <Text style={styles.detailText}>
+                  Engineering, Degree, Pharmacy, Polytechnic, and MBA / MCA / PG programmes.
+                </Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Who can join</Text>
+                <Text style={styles.detailText}>
+                  Colleges, students, and corporates can register on this portal for TASK
+                  programmes and partnerships.
+                </Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Focus areas</Text>
+                <Text style={styles.detailText}>
+                  Technology skills, soft skills, finishing school, jobs & internships, and training
+                  calendar programmes.
+                </Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Contact</Text>
+                <Text style={styles.detailText}>
+                  040-35485290 · enquiry_task@telangana.gov.in{'\n'}
+                  Sanketika Vidya Bhavan, Masabtank, Hyderabad - 500028
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.footer}>
+            Telangana Academy for Skill and Knowledge · Masabtank, Hyderabad
           </Text>
         </View>
-
-        <Text style={styles.statsHeading}>TASK at a glance</Text>
-        <RollingStats compact={compact} />
-        <Text style={styles.statsSource}>
-          Impact figures from TASK’s first decade of operations (public reports).
-        </Text>
-
-        <View style={styles.detailsBox}>
-          <Text style={styles.detailsTitle}>Important details</Text>
-          <View style={styles.detailsList}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Skill offerings</Text>
-              <Text style={styles.detailText}>
-                Engineering, Degree, Pharmacy, Polytechnic, and MBA / MCA / PG programmes.
-              </Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Who can join</Text>
-              <Text style={styles.detailText}>
-                Colleges, students, and corporates can register on this portal for TASK
-                programmes and partnerships.
-              </Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Focus areas</Text>
-              <Text style={styles.detailText}>
-                Technology skills, soft skills, finishing school, jobs & internships, and training
-                calendar programmes.
-              </Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Contact</Text>
-              <Text style={styles.detailText}>
-                040-35485290 · enquiry_task@telangana.gov.in{'\n'}
-                Sanketika Vidya Bhavan, Masabtank, Hyderabad - 500028
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.footer}>
-          Telangana Academy for Skill and Knowledge · Masabtank, Hyderabad
-        </Text>
       </ScrollView>
     </View>
   );
@@ -260,6 +299,17 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: '#EEF2F3',
+  },
+  mainScroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+    gap: 14,
+  },
+  lowerSection: {
+    paddingHorizontal: 16,
+    gap: 14,
   },
   topBar: {
     backgroundColor: colors.primaryDark,
@@ -413,11 +463,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
     paddingBottom: 2,
   },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-    gap: 14,
-  },
   card: {
     backgroundColor: colors.white,
     borderRadius: 12,
@@ -426,7 +471,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   announceCard: {
-    width: '100%',
+    width: 'auto',
+  },
+  announcePriority: {
+    marginHorizontal: 16,
+    marginTop: 0,
   },
   cardHeading: {
     color: colors.primary,
