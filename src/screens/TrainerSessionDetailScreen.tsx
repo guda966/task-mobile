@@ -43,7 +43,7 @@ import { TRAINER_ATTENDANCE_PHOTO_SLOTS } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 import { requesterLabel } from '../utils/courseRequestLabels';
-import { getCurrentPosition, pickImageWithPreview, type PickImageMode } from '../utils/geoPhoto';
+import { getCurrentPosition, pickImageWithPreview } from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
@@ -137,6 +137,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
   const [evidenceDate, setEvidenceDate] = useState(todayIso());
+  const [photoDrafts, setPhotoDrafts] = useState<
+    Partial<Record<TrainerAttendancePhotoKind, { fileName: string; sizeLabel: string; dataUrl: string }>>
+  >({});
   const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
@@ -286,6 +289,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   };
 
   const setEvidenceDateWithinSession = (next: string) => {
+    setPhotoDrafts({});
     if (!session) {
       setEvidenceDate(next);
       return;
@@ -563,15 +567,23 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     [evidenceByKind],
   );
 
-  const postClassPhoto = async (
-    kind: TrainerAttendancePhotoKind,
-    mode: PickImageMode = 'camera',
-  ) => {
+  const chooseClassPhoto = async (kind: TrainerAttendancePhotoKind) => {
+    try {
+      const photo = await pickImageWithPreview('gallery');
+      setPhotoDrafts((prev) => ({ ...prev, [kind]: photo }));
+    } catch (e) {
+      if (e instanceof Error && e.message === 'Cancelled') return;
+      Alert.alert('Unable to choose photo', e instanceof Error ? e.message : 'Try again');
+    }
+  };
+
+  const saveClassPhoto = async (kind: TrainerAttendancePhotoKind) => {
     if (!user?.trainerId || !user.name) return;
+    const draft = photoDrafts[kind];
+    if (!draft) return;
     try {
       setSaving(true);
       const geo = await getCurrentPosition();
-      const photo = await pickImageWithPreview(mode);
       await sessionContentApi.addEvidence({
         requestId,
         trainerId: user.trainerId,
@@ -579,21 +591,24 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         sessionDate: evidenceDate,
         kind,
         photo: {
-          fileName: photo.fileName,
-          sizeLabel: photo.sizeLabel,
+          fileName: draft.fileName,
+          sizeLabel: draft.sizeLabel,
           uploadedAt: new Date().toISOString(),
-          dataUrl: photo.dataUrl,
+          dataUrl: draft.dataUrl,
         },
         geo,
+      });
+      setPhotoDrafts((prev) => {
+        const next = { ...prev };
+        delete next[kind];
+        return next;
       });
       await loadCore();
     } catch (e) {
       if (e instanceof Error && e.message === 'Cancelled') return;
       Alert.alert(
-        'Photo not accepted',
-        e instanceof Error
-          ? e.message
-          : 'Only geo-tagged photos are considered. Allow location and try again.',
+        'Unable to save',
+        e instanceof Error ? e.message : 'Allow location and try again.',
       );
     } finally {
       setSaving(false);
@@ -1156,7 +1171,6 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         {tab === 'evidence' ? (
           <>
             <PanelHeader title="My attendance" subtitle="Class photo at start and close" />
-            <Text style={styles.evNote}>Only geo-tagged photos are considered.</Text>
             <DateField
               label="Session day"
               required
@@ -1169,47 +1183,38 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
             {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
               const posted = evidenceByKind[slot.kind];
+              const draft = photoDrafts[slot.kind];
+              const previewUri = draft?.dataUrl || posted?.photo.dataUrl;
               return (
                 <DataCard key={slot.kind}>
                   <Text style={styles.cardTitle}>{slot.moment}</Text>
-                  {posted?.photo.dataUrl ? (
+                  {previewUri ? (
                     <Image
-                      source={{ uri: posted.photo.dataUrl }}
+                      source={{ uri: previewUri }}
                       style={styles.evPreview}
                       resizeMode="cover"
                     />
                   ) : (
                     <Text style={styles.meta}>No photo yet</Text>
                   )}
-                  {posted ? (
-                    <Text style={styles.meta}>
-                      {posted.geo.latitude}, {posted.geo.longitude}
-                    </Text>
-                  ) : null}
                   <View style={styles.gap} />
-                  {posted ? (
-                    <View style={styles.evActionRow}>
-                      <View style={styles.evActionBtn}>
-                        <PrimaryButton
-                          title={saving ? 'Saving…' : 'Retake'}
-                          variant="secondary"
-                          onPress={() => postClassPhoto(slot.kind, 'camera')}
-                          disabled={saving}
-                        />
-                      </View>
-                      <View style={styles.evActionBtn}>
-                        <PrimaryButton
-                          title="Upload"
-                          variant="secondary"
-                          onPress={() => postClassPhoto(slot.kind, 'gallery')}
-                          disabled={saving}
-                        />
-                      </View>
-                    </View>
+                  {draft ? (
+                    <PrimaryButton
+                      title={saving ? 'Saving…' : 'Save'}
+                      onPress={() => saveClassPhoto(slot.kind)}
+                      disabled={saving}
+                    />
+                  ) : posted ? (
+                    <PrimaryButton
+                      title="Change photo"
+                      variant="secondary"
+                      onPress={() => chooseClassPhoto(slot.kind)}
+                      disabled={saving}
+                    />
                   ) : (
                     <PrimaryButton
-                      title={saving ? 'Saving…' : 'Upload class photo'}
-                      onPress={() => postClassPhoto(slot.kind, 'gallery')}
+                      title="Choose photo"
+                      onPress={() => chooseClassPhoto(slot.kind)}
                       disabled={saving}
                     />
                   )}
@@ -1439,22 +1444,13 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   gap: { height: 10 },
-  evNote: {
-    color: colors.warning,
-    fontWeight: '700',
-    fontSize: 13,
-    marginBottom: 10,
-    lineHeight: 18,
-  },
   evPreview: {
     width: '100%',
-    height: 140,
+    height: 160,
     borderRadius: 10,
     backgroundColor: colors.background,
     marginTop: 8,
   },
-  evActionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  evActionBtn: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },
   rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },

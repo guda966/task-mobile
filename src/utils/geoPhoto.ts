@@ -92,8 +92,8 @@ export function getCurrentPosition(): Promise<GeoPosition> {
           reject(
             new Error(
               err.code === 1
-                ? 'Location permission denied. Only geo-tagged photos are considered — allow location access.'
-                : 'Unable to read GPS. Only geo-tagged photos are considered — try again outdoors or check permissions.',
+                ? 'Location permission denied. Allow location access and try again.'
+                : 'Unable to read GPS. Try again outdoors or check permissions.',
             ),
           );
         },
