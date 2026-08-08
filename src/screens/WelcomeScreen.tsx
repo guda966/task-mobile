@@ -14,7 +14,6 @@ import { NewsTicker } from '../components/NewsTicker';
 import { RollingStats } from '../components/RollingStats';
 import { PrimaryButton } from '../components/ui';
 import type { RootStackParamList } from '../navigation/types';
-import { ensureDemoData } from '../services/demoSeedApi';
 import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
@@ -22,11 +21,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 export function WelcomeScreen({ navigation }: Props) {
   const { width } = useWindowDimensions();
   const compact = width < 760;
-
-  useEffect(() => {
-    void ensureDemoData();
-  }, []);
-
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const id = 'task-welcome-scrollbar';
