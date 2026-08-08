@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,11 +19,10 @@ import {
   EmptyState,
   PanelHeader,
   SectionLabel,
-  SegmentedTabs,
   StatTiles,
 } from '../components/college/PanelChrome';
 import { DateField } from '../components/DateField';
-import { FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
+import { DropdownField, FormField, PrimaryButton, Screen, StatusBadge } from '../components/ui';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -125,6 +125,8 @@ function StatusChip({
 export function TrainerSessionDetailScreen({ route }: Props) {
   const { requestId } = route.params;
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const wide = width >= 720;
   const [tab, setTab] = useState<Tab>('overview');
   const [session, setSession] = useState<CourseRequest | null>(null);
   const [materials, setMaterials] = useState<SessionMaterial[]>([]);
@@ -660,7 +662,12 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           </DataCard>
         ) : null}
 
-        <SegmentedTabs value={tab} options={tabOptions} onChange={setTab} />
+        <DropdownField
+          label="Section"
+          value={tab}
+          onChange={(v) => setTab(v as Tab)}
+          options={tabOptions.map((o) => ({ value: o.value, label: o.label }))}
+        />
 
         {tab === 'overview' ? (
           <>
@@ -682,15 +689,15 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   onPress: () => setTab('queries'),
                 },
                 {
-                  label: 'Unmarked today',
+                  label: 'Student unmarked',
                   value: String(attStats.unmarked),
                   hint: attendanceDate,
                   onPress: () => setTab('attendance'),
                 },
                 {
-                  label: 'My attendance',
+                  label: 'Class photos',
                   value: `${myAttendancePostedCount}/2`,
-                  hint: myAttendanceComplete ? 'Complete today' : 'Photos required',
+                  hint: myAttendanceComplete ? 'My attendance done' : 'My attendance due',
                   onPress: () => setTab('evidence'),
                 },
                 {
@@ -1154,7 +1161,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="My attendance"
-              subtitle="Class photo at session start and session close"
+              subtitle="Geo-tagged class photos for this session day"
             />
             <Text style={styles.evNote}>Only geo-tagged photos are considered.</Text>
             <DateField
@@ -1167,15 +1174,37 @@ export function TrainerSessionDetailScreen({ route }: Props) {
               }
             />
 
-            {(['Session start', 'Session close'] as const).map((moment) => (
-              <View key={moment}>
-                <SectionLabel>{moment}</SectionLabel>
-                {TRAINER_ATTENDANCE_PHOTO_SLOTS.filter((s) => s.moment === moment).map((slot) => {
-                  const posted = evidenceByKind[slot.kind];
-                  return (
-                    <DataCard key={slot.kind}>
+            <View style={styles.evCheckRow}>
+              {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
+                const done = !!evidenceByKind[slot.kind];
+                return (
+                  <View
+                    key={slot.kind}
+                    style={[styles.evCheckItem, done ? styles.evCheckDone : styles.evCheckOpen]}
+                  >
+                    <Text style={styles.evCheckMark}>{done ? '✓' : '○'}</Text>
+                    <View style={styles.flex}>
+                      <Text style={styles.evCheckTitle}>{slot.moment}</Text>
+                      <Text style={styles.evCheckHint}>
+                        {done ? 'Class photo posted' : 'Class photo required'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={[styles.evSlotGrid, wide && styles.evSlotGridWide]}>
+              {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
+                const posted = evidenceByKind[slot.kind];
+                return (
+                  <View key={slot.kind} style={[styles.evSlotCol, wide && styles.evSlotColWide]}>
+                    <DataCard>
                       <View style={styles.evSlotHeader}>
-                        <Text style={styles.cardTitle}>{slot.title}</Text>
+                        <View style={styles.flex}>
+                          <Text style={styles.evMoment}>{slot.moment}</Text>
+                          <Text style={styles.cardTitle}>Class photo</Text>
+                        </View>
                         <Text style={posted ? styles.evBadgeOk : styles.evBadgePending}>
                           {posted ? 'Posted' : 'Required'}
                         </Text>
@@ -1205,20 +1234,24 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                           >
                             <Text style={styles.link}>Open in Maps</Text>
                           </Pressable>
-                          <View style={styles.gap} />
-                          <PrimaryButton
-                            title={saving ? 'Saving…' : 'Retake'}
-                            variant="secondary"
-                            onPress={() => postClassPhoto(slot.kind, 'camera')}
-                            disabled={saving}
-                          />
-                          <View style={styles.gap} />
-                          <PrimaryButton
-                            title="Reupload"
-                            variant="secondary"
-                            onPress={() => postClassPhoto(slot.kind, 'gallery')}
-                            disabled={saving}
-                          />
+                          <View style={styles.evActionRow}>
+                            <View style={styles.evActionBtn}>
+                              <PrimaryButton
+                                title={saving ? 'Saving…' : 'Retake'}
+                                variant="secondary"
+                                onPress={() => postClassPhoto(slot.kind, 'camera')}
+                                disabled={saving}
+                              />
+                            </View>
+                            <View style={styles.evActionBtn}>
+                              <PrimaryButton
+                                title="Reupload"
+                                variant="secondary"
+                                onPress={() => postClassPhoto(slot.kind, 'gallery')}
+                                disabled={saving}
+                              />
+                            </View>
+                          </View>
                         </>
                       ) : (
                         <PrimaryButton
@@ -1228,10 +1261,10 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                         />
                       )}
                     </DataCard>
-                  );
-                })}
-              </View>
-            ))}
+                  </View>
+                );
+              })}
+            </View>
           </>
         ) : null}
 
@@ -1462,10 +1495,50 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 18,
   },
+  evCheckRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  evCheckItem: {
+    flexGrow: 1,
+    flexBasis: '46%',
+    minWidth: 140,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  evCheckDone: { backgroundColor: '#E7F5EC' },
+  evCheckOpen: { backgroundColor: '#FFF6E5' },
+  evCheckMark: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.primaryDark,
+    width: 22,
+    textAlign: 'center',
+  },
+  evCheckTitle: { fontWeight: '800', color: colors.text, fontSize: 13 },
+  evCheckHint: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  evSlotGrid: { gap: 0 },
+  evSlotGridWide: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  evSlotCol: { width: '100%' },
+  evSlotColWide: { flex: 1, minWidth: 0 },
+  evMoment: {
+    fontWeight: '700',
+    color: colors.textMuted,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
   evSlotHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     marginBottom: 8,
   },
@@ -1485,11 +1558,13 @@ const styles = StyleSheet.create({
   },
   evPreview: {
     width: '100%',
-    height: 160,
+    height: 140,
     borderRadius: 10,
     backgroundColor: colors.background,
     marginTop: 4,
   },
+  evActionRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  evActionBtn: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },
   rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
