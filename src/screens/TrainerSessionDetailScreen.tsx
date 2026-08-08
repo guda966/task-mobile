@@ -151,6 +151,9 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
   const [evidenceDate, setEvidenceDate] = useState(todayIso());
   const [slotDrafts, setSlotDrafts] = useState(emptySlotDrafts);
+  const [retakingKinds, setRetakingKinds] = useState<
+    Partial<Record<TrainerAttendancePhotoKind, boolean>>
+  >({});
   const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
@@ -303,6 +306,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     if (!session) {
       setEvidenceDate(next);
       setSlotDrafts(emptySlotDrafts());
+      setRetakingKinds({});
       return;
     }
     if (!DATE_RE.test(next)) {
@@ -311,6 +315,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     }
     setEvidenceDate(clampDate(next, session.startDate, session.endDate));
     setSlotDrafts(emptySlotDrafts());
+    setRetakingKinds({});
   };
 
   const addMaterial = async () => {
@@ -638,6 +643,11 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         ...prev,
         [kind]: { photo: null, geo: null },
       }));
+      setRetakingKinds((prev) => {
+        const next = { ...prev };
+        delete next[kind];
+        return next;
+      });
       await loadCore();
     } catch (e) {
       Alert.alert('Unable to post', e instanceof Error ? e.message : 'Try again');
@@ -646,14 +656,24 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     }
   };
 
-  const removeEvidence = async (id: string) => {
-    if (!user?.trainerId) return;
-    try {
-      await sessionContentApi.removeEvidence(id, user.trainerId);
-      await loadCore();
-    } catch (e) {
-      Alert.alert('Unable to remove', e instanceof Error ? e.message : 'Try again');
-    }
+  const startRetake = (kind: TrainerAttendancePhotoKind) => {
+    setSlotDrafts((prev) => ({
+      ...prev,
+      [kind]: { photo: null, geo: null },
+    }));
+    setRetakingKinds((prev) => ({ ...prev, [kind]: true }));
+  };
+
+  const cancelRetake = (kind: TrainerAttendancePhotoKind) => {
+    setSlotDrafts((prev) => ({
+      ...prev,
+      [kind]: { photo: null, geo: null },
+    }));
+    setRetakingKinds((prev) => {
+      const next = { ...prev };
+      delete next[kind];
+      return next;
+    });
   };
 
   const tabOptions: { value: Tab; label: string }[] = [
@@ -1266,19 +1286,23 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                 {TRAINER_ATTENDANCE_PHOTO_SLOTS.filter((s) => s.moment === moment).map((slot) => {
                   const posted = evidenceByKind[slot.kind];
                   const draft = slotDrafts[slot.kind];
+                  const retaking = !!retakingKinds[slot.kind];
+                  const editing = !posted || retaking;
                   return (
                     <DataCard key={slot.kind}>
                       <View style={styles.evSlotHeader}>
                         <Text style={styles.cardTitle}>{slot.title}</Text>
                         <Text
-                          style={posted ? styles.evBadgeOk : styles.evBadgePending}
+                          style={
+                            posted && !retaking ? styles.evBadgeOk : styles.evBadgePending
+                          }
                         >
-                          {posted ? 'Posted' : 'Required'}
+                          {posted && !retaking ? 'Posted' : retaking ? 'Retaking' : 'Required'}
                         </Text>
                       </View>
                       <Text style={styles.meta}>{slot.hint}</Text>
 
-                      {posted ? (
+                      {posted && !retaking ? (
                         <View style={styles.evPostedBlock}>
                           {posted.photo.dataUrl ? (
                             <Image
@@ -1302,12 +1326,23 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                           >
                             <Text style={styles.link}>Open in Maps</Text>
                           </Pressable>
-                          <Pressable onPress={() => removeEvidence(posted.id)}>
-                            <Text style={styles.linkDanger}>Remove & repost</Text>
-                          </Pressable>
+                          <View style={styles.gap} />
+                          <PrimaryButton
+                            title="Retake"
+                            variant="secondary"
+                            onPress={() => startRetake(slot.kind)}
+                            disabled={saving}
+                          />
                         </View>
-                      ) : (
+                      ) : null}
+
+                      {editing ? (
                         <View style={styles.evDraftBlock}>
+                          {retaking ? (
+                            <Text style={styles.evHint}>
+                              Add a new location and photo, then save to replace the posted one.
+                            </Text>
+                          ) : null}
                           <PrimaryButton
                             title={draft.geo ? 'Location added ✓' : 'Add location'}
                             variant="secondary"
@@ -1349,12 +1384,29 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
                           <View style={styles.gap} />
                           <PrimaryButton
-                            title={saving ? 'Saving…' : `Save ${slot.title.toLowerCase()}`}
+                            title={
+                              saving
+                                ? 'Saving…'
+                                : retaking
+                                  ? `Replace ${slot.title.toLowerCase()}`
+                                  : `Save ${slot.title.toLowerCase()}`
+                            }
                             onPress={() => postSlot(slot.kind)}
                             disabled={saving}
                           />
+                          {retaking ? (
+                            <>
+                              <View style={styles.gap} />
+                              <PrimaryButton
+                                title="Cancel retake"
+                                variant="secondary"
+                                onPress={() => cancelRetake(slot.kind)}
+                                disabled={saving}
+                              />
+                            </>
+                          ) : null}
                         </View>
-                      )}
+                      ) : null}
                     </DataCard>
                   );
                 })}
