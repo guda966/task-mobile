@@ -2,14 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
-  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -45,7 +43,7 @@ import { TRAINER_ATTENDANCE_PHOTO_SLOTS } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 import { requesterLabel } from '../utils/courseRequestLabels';
-import { getCurrentPosition, mapsUrl, pickImageWithPreview, type PickImageMode } from '../utils/geoPhoto';
+import { getCurrentPosition, pickImageWithPreview, type PickImageMode } from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
@@ -125,8 +123,6 @@ function StatusChip({
 export function TrainerSessionDetailScreen({ route }: Props) {
   const { requestId } = route.params;
   const { user } = useAuth();
-  const { width } = useWindowDimensions();
-  const wide = width >= 720;
   const [tab, setTab] = useState<Tab>('overview');
   const [session, setSession] = useState<CourseRequest | null>(null);
   const [materials, setMaterials] = useState<SessionMaterial[]>([]);
@@ -1159,10 +1155,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
         {tab === 'evidence' ? (
           <>
-            <PanelHeader
-              title="My attendance"
-              subtitle="Upload a geo-tagged class photo at start and at close"
-            />
+            <PanelHeader title="My attendance" subtitle="Class photo at start and close" />
             <Text style={styles.evNote}>Only geo-tagged photos are considered.</Text>
             <DateField
               label="Session day"
@@ -1174,105 +1167,55 @@ export function TrainerSessionDetailScreen({ route }: Props) {
               }
             />
 
-            <View style={styles.evCheckRow}>
-              {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
-                const done = !!evidenceByKind[slot.kind];
-                return (
-                  <View
-                    key={slot.kind}
-                    style={[styles.evCheckItem, done ? styles.evCheckDone : styles.evCheckOpen]}
-                  >
-                    <Text style={styles.evCheckMark}>{done ? '✓' : '○'}</Text>
-                    <View style={styles.flex}>
-                      <Text style={styles.evCheckTitle}>{slot.moment}</Text>
-                      <Text style={styles.evCheckHint}>{done ? 'Done' : 'Needed'}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-
-            <View style={[styles.evSlotGrid, wide && styles.evSlotGridWide]}>
-              {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
-                const posted = evidenceByKind[slot.kind];
-                return (
-                  <View key={slot.kind} style={[styles.evSlotCol, wide && styles.evSlotColWide]}>
-                    <DataCard>
-                      <View style={styles.evSlotHeader}>
-                        <Text style={styles.cardTitle}>{slot.moment}</Text>
-                        <Text style={posted ? styles.evBadgeOk : styles.evBadgePending}>
-                          {posted ? 'Done' : 'Needed'}
-                        </Text>
+            {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
+              const posted = evidenceByKind[slot.kind];
+              return (
+                <DataCard key={slot.kind}>
+                  <Text style={styles.cardTitle}>{slot.moment}</Text>
+                  {posted?.photo.dataUrl ? (
+                    <Image
+                      source={{ uri: posted.photo.dataUrl }}
+                      style={styles.evPreview}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.meta}>No photo yet</Text>
+                  )}
+                  {posted ? (
+                    <Text style={styles.meta}>
+                      {posted.geo.latitude}, {posted.geo.longitude}
+                    </Text>
+                  ) : null}
+                  <View style={styles.gap} />
+                  {posted ? (
+                    <View style={styles.evActionRow}>
+                      <View style={styles.evActionBtn}>
+                        <PrimaryButton
+                          title={saving ? 'Saving…' : 'Retake'}
+                          variant="secondary"
+                          onPress={() => postClassPhoto(slot.kind, 'camera')}
+                          disabled={saving}
+                        />
                       </View>
-                      <Text style={styles.meta}>Class photo (geo-tagged)</Text>
-
-                      {posted ? (
-                        <>
-                          {posted.photo.dataUrl ? (
-                            <Image
-                              source={{ uri: posted.photo.dataUrl }}
-                              style={styles.evPreview}
-                              resizeMode="cover"
-                            />
-                          ) : null}
-                          <Text style={styles.meta}>
-                            {posted.geo.latitude}, {posted.geo.longitude}
-                            {posted.geo.accuracyMeters
-                              ? ` · ±${posted.geo.accuracyMeters} m`
-                              : ''}
-                          </Text>
-                          <Pressable
-                            onPress={() =>
-                              Linking.openURL(
-                                mapsUrl(posted.geo.latitude, posted.geo.longitude),
-                              )
-                            }
-                          >
-                            <Text style={styles.link}>Open in Maps</Text>
-                          </Pressable>
-                          <View style={styles.evActionRow}>
-                            <View style={styles.evActionBtn}>
-                              <PrimaryButton
-                                title={saving ? 'Saving…' : 'Retake'}
-                                variant="secondary"
-                                onPress={() => postClassPhoto(slot.kind, 'camera')}
-                                disabled={saving}
-                              />
-                            </View>
-                            <View style={styles.evActionBtn}>
-                              <PrimaryButton
-                                title="Upload"
-                                variant="secondary"
-                                onPress={() => postClassPhoto(slot.kind, 'gallery')}
-                                disabled={saving}
-                              />
-                            </View>
-                          </View>
-                        </>
-                      ) : (
-                        <View style={styles.evActionRow}>
-                          <View style={styles.evActionBtn}>
-                            <PrimaryButton
-                              title={saving ? 'Saving…' : 'Take photo'}
-                              onPress={() => postClassPhoto(slot.kind, 'camera')}
-                              disabled={saving}
-                            />
-                          </View>
-                          <View style={styles.evActionBtn}>
-                            <PrimaryButton
-                              title="Upload"
-                              variant="secondary"
-                              onPress={() => postClassPhoto(slot.kind, 'gallery')}
-                              disabled={saving}
-                            />
-                          </View>
-                        </View>
-                      )}
-                    </DataCard>
-                  </View>
-                );
-              })}
-            </View>
+                      <View style={styles.evActionBtn}>
+                        <PrimaryButton
+                          title="Upload"
+                          variant="secondary"
+                          onPress={() => postClassPhoto(slot.kind, 'gallery')}
+                          disabled={saving}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <PrimaryButton
+                      title={saving ? 'Saving…' : 'Upload class photo'}
+                      onPress={() => postClassPhoto(slot.kind, 'gallery')}
+                      disabled={saving}
+                    />
+                  )}
+                </DataCard>
+              );
+            })}
           </>
         ) : null}
 
@@ -1503,55 +1446,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 18,
   },
-  evCheckRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  evCheckItem: {
-    flexGrow: 1,
-    flexBasis: '46%',
-    minWidth: 140,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  evCheckDone: { backgroundColor: '#E7F5EC' },
-  evCheckOpen: { backgroundColor: '#FFF6E5' },
-  evCheckMark: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.primaryDark,
-    width: 22,
-    textAlign: 'center',
-  },
-  evCheckTitle: { fontWeight: '800', color: colors.text, fontSize: 13 },
-  evCheckHint: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
-  evSlotGrid: { gap: 0 },
-  evSlotGridWide: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  evSlotCol: { width: '100%' },
-  evSlotColWide: { flex: 1, minWidth: 0 },
-  evSlotHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  evBadgeOk: {
-    color: colors.success,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  evBadgePending: {
-    color: colors.warning,
-    fontWeight: '700',
-    fontSize: 12,
-  },
   evPreview: {
     width: '100%',
     height: 140,
@@ -1559,7 +1453,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     marginTop: 8,
   },
-  evActionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  evActionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   evActionBtn: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },
