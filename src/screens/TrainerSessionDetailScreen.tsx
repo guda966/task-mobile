@@ -606,11 +606,6 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
   const tabOptions: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
-    { value: 'materials', label: `Materials (${materials.length})` },
-    {
-      value: 'assignments',
-      label: pendingSubs.length ? `Assignments (${pendingSubs.length})` : 'Assignments',
-    },
     {
       value: 'attendance',
       label: attStats.unmarked
@@ -621,15 +616,20 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       value: 'evidence',
       label: `My attendance (${myAttendancePostedCount}/2)`,
     },
+    { value: 'materials', label: `Materials (${materials.length})` },
+    {
+      value: 'assignments',
+      label: pendingSubs.length ? `Assignments (${pendingSubs.length})` : 'Assignments',
+    },
     {
       value: 'certificates',
       label: eligibleForCert.length ? `Certificates (${eligibleForCert.length})` : 'Certificates',
     },
-    { value: 'feedback', label: `Feedback (${feedback.length})` },
     {
       value: 'queries',
       label: openQueries.length ? `Queries (${openQueries.length})` : 'Queries',
     },
+    { value: 'feedback', label: `Feedback (${feedback.length})` },
   ];
 
   return (
@@ -663,7 +663,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         ) : null}
 
         <DropdownField
-          label="Section"
+          label="Go to"
           value={tab}
           onChange={(v) => setTab(v as Tab)}
           options={tabOptions.map((o) => ({ value: o.value, label: o.label }))}
