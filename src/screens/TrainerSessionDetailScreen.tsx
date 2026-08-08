@@ -43,7 +43,11 @@ import { TRAINER_ATTENDANCE_PHOTO_SLOTS } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 import { requesterLabel } from '../utils/courseRequestLabels';
-import { getCurrentPosition, pickImageWithPreview } from '../utils/geoPhoto';
+import {
+  getCurrentPosition,
+  pickImageWithPreview,
+  type PickImageMode,
+} from '../utils/geoPhoto';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
@@ -137,9 +141,6 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   const [queries, setQueries] = useState<StudentTrainerQuery[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(todayIso());
   const [evidenceDate, setEvidenceDate] = useState(todayIso());
-  const [photoDrafts, setPhotoDrafts] = useState<
-    Partial<Record<TrainerAttendancePhotoKind, { fileName: string; sizeLabel: string; dataUrl: string }>>
-  >({});
   const [dateReady, setDateReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matTitle, setMatTitle] = useState('');
@@ -289,7 +290,6 @@ export function TrainerSessionDetailScreen({ route }: Props) {
   };
 
   const setEvidenceDateWithinSession = (next: string) => {
-    setPhotoDrafts({});
     if (!session) {
       setEvidenceDate(next);
       return;
@@ -567,22 +567,11 @@ export function TrainerSessionDetailScreen({ route }: Props) {
     [evidenceByKind],
   );
 
-  const chooseClassPhoto = async (kind: TrainerAttendancePhotoKind) => {
-    try {
-      const photo = await pickImageWithPreview('gallery');
-      setPhotoDrafts((prev) => ({ ...prev, [kind]: photo }));
-    } catch (e) {
-      if (e instanceof Error && e.message === 'Cancelled') return;
-      Alert.alert('Unable to choose photo', e instanceof Error ? e.message : 'Try again');
-    }
-  };
-
-  const saveClassPhoto = async (kind: TrainerAttendancePhotoKind) => {
+  const saveClassPhoto = async (kind: TrainerAttendancePhotoKind, mode: PickImageMode) => {
     if (!user?.trainerId || !user.name) return;
-    const draft = photoDrafts[kind];
-    if (!draft) return;
     try {
       setSaving(true);
+      const photo = await pickImageWithPreview(mode);
       const geo = await getCurrentPosition();
       await sessionContentApi.addEvidence({
         requestId,
@@ -591,23 +580,18 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         sessionDate: evidenceDate,
         kind,
         photo: {
-          fileName: draft.fileName,
-          sizeLabel: draft.sizeLabel,
+          fileName: photo.fileName,
+          sizeLabel: photo.sizeLabel,
           uploadedAt: new Date().toISOString(),
-          dataUrl: draft.dataUrl,
+          dataUrl: photo.dataUrl,
         },
         geo,
-      });
-      setPhotoDrafts((prev) => {
-        const next = { ...prev };
-        delete next[kind];
-        return next;
       });
       await loadCore();
     } catch (e) {
       if (e instanceof Error && e.message === 'Cancelled') return;
       Alert.alert(
-        'Unable to save',
+        'Unable to save photo',
         e instanceof Error ? e.message : 'Allow location and try again.',
       );
     } finally {
@@ -1170,10 +1154,12 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
         {tab === 'evidence' ? (
           <>
-            <PanelHeader title="My attendance" subtitle="Class photo at start and close" />
+            <PanelHeader
+              title="My attendance"
+              subtitle="Morning and evening class photo proof"
+            />
             <DateField
               label="Session day"
-              required
               value={evidenceDate}
               onChange={setEvidenceDateWithinSession}
               minimumDate={
@@ -1183,41 +1169,51 @@ export function TrainerSessionDetailScreen({ route }: Props) {
 
             {TRAINER_ATTENDANCE_PHOTO_SLOTS.map((slot) => {
               const posted = evidenceByKind[slot.kind];
-              const draft = photoDrafts[slot.kind];
-              const previewUri = draft?.dataUrl || posted?.photo.dataUrl;
               return (
                 <DataCard key={slot.kind}>
-                  <Text style={styles.cardTitle}>{slot.moment}</Text>
-                  {previewUri ? (
+                  <View style={styles.evHead}>
+                    <Text style={styles.cardTitle}>{slot.moment}</Text>
+                    <Text style={posted ? styles.evDone : styles.evPending}>
+                      {posted ? 'Done' : 'Pending'}
+                    </Text>
+                  </View>
+                  {posted?.photo.dataUrl ? (
                     <Image
-                      source={{ uri: previewUri }}
+                      source={{ uri: posted.photo.dataUrl }}
                       style={styles.evPreview}
                       resizeMode="cover"
                     />
                   ) : (
-                    <Text style={styles.meta}>No photo yet</Text>
+                    <View style={styles.evEmpty}>
+                      <Ionicons name="camera-outline" size={28} color={colors.textMuted} />
+                      <Text style={styles.evEmptyText}>Add class photo</Text>
+                    </View>
                   )}
                   <View style={styles.gap} />
-                  {draft ? (
-                    <PrimaryButton
-                      title={saving ? 'Saving…' : 'Save'}
-                      onPress={() => saveClassPhoto(slot.kind)}
-                      disabled={saving}
-                    />
-                  ) : posted ? (
-                    <PrimaryButton
-                      title="Change photo"
-                      variant="secondary"
-                      onPress={() => chooseClassPhoto(slot.kind)}
-                      disabled={saving}
-                    />
-                  ) : (
-                    <PrimaryButton
-                      title="Choose photo"
-                      onPress={() => chooseClassPhoto(slot.kind)}
-                      disabled={saving}
-                    />
-                  )}
+                  <View style={styles.evActionRow}>
+                    <View style={styles.evActionBtn}>
+                      <PrimaryButton
+                        title={
+                          saving
+                            ? 'Saving…'
+                            : posted
+                              ? 'Retake'
+                              : 'Take photo'
+                        }
+                        variant={posted ? 'secondary' : 'primary'}
+                        onPress={() => saveClassPhoto(slot.kind, 'camera')}
+                        disabled={saving}
+                      />
+                    </View>
+                    <View style={styles.evActionBtn}>
+                      <PrimaryButton
+                        title={posted ? 'Reupload' : 'Upload'}
+                        variant="secondary"
+                        onPress={() => saveClassPhoto(slot.kind, 'gallery')}
+                        disabled={saving}
+                      />
+                    </View>
+                  </View>
                 </DataCard>
               );
             })}
@@ -1444,13 +1440,36 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   gap: { height: 10 },
+  evHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  evDone: { color: colors.success, fontWeight: '700', fontSize: 13 },
+  evPending: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
   evPreview: {
     width: '100%',
-    height: 160,
-    borderRadius: 10,
+    height: 180,
+    borderRadius: 12,
     backgroundColor: colors.background,
-    marginTop: 8,
+    marginTop: 10,
   },
+  evEmpty: {
+    height: 140,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.background,
+    marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  evEmptyText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  evActionRow: { flexDirection: 'row', gap: 8 },
+  evActionBtn: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },
   rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },

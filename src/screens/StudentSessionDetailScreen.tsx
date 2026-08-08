@@ -683,20 +683,20 @@ export function StudentSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="Trainer attendance photos"
-              subtitle="Class photos posted by your trainer at session start and close"
+              subtitle="Morning and evening class photo proof"
             />
             {evidence.length === 0 ? (
               <EmptyState
                 title="No trainer photos yet"
-                body="When your trainer posts start and close class photos, they appear here."
+                body="When your trainer posts morning and evening class photos, they appear here."
               />
             ) : (
               evidence.map((item) => {
                 const kindLabel =
                   item.kind === 'start_class'
-                    ? 'Session start · Class photo'
+                    ? 'Morning'
                     : item.kind === 'end_class'
-                      ? 'Session close · Class photo'
+                      ? 'Evening'
                       : 'Attendance photo';
                 return (
                   <DataCard key={item.id}>
@@ -713,16 +713,6 @@ export function StudentSessionDetailScreen({ route }: Props) {
                       <View style={styles.flex}>
                         <Text style={styles.cardTitle}>{kindLabel}</Text>
                         <Text style={styles.meta}>{item.sessionDate}</Text>
-                        <Text style={styles.meta}>
-                          {item.trainerName} · {item.geo.latitude}, {item.geo.longitude}
-                        </Text>
-                        <Pressable
-                          onPress={() =>
-                            Linking.openURL(mapsUrl(item.geo.latitude, item.geo.longitude))
-                          }
-                        >
-                          <Text style={styles.link}>Open location in Maps</Text>
-                        </Pressable>
                       </View>
                     </View>
                   </DataCard>
