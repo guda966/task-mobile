@@ -83,13 +83,13 @@ export const TRAINER_ATTENDANCE_PHOTO_SLOTS: {
     kind: 'start_class',
     moment: 'Session start',
     title: 'Class photo',
-    hint: 'Classroom / batch photo at start (auto geo-tagged)',
+    hint: 'Take a photo of the class when the session starts.',
   },
   {
     kind: 'end_class',
     moment: 'Session close',
     title: 'Class photo',
-    hint: 'Classroom / batch photo at closing (auto geo-tagged)',
+    hint: 'Take a photo of the class when the session ends.',
   },
 ];
 

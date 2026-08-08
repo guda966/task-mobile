@@ -1145,7 +1145,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="My attendance"
-              subtitle="Mandatory geo-tagged class photo at session start and close"
+              subtitle="Post a class photo at session start and at session close"
             />
 
             <DataCard>
@@ -1195,8 +1195,8 @@ export function TrainerSessionDetailScreen({ route }: Props) {
               >
                 <Text style={styles.evStatusText}>
                   {myAttendanceComplete
-                    ? 'Both mandatory class photos posted for this day'
-                    : `${myAttendancePostedCount} of 2 mandatory class photos posted`}
+                    ? 'Start and close class photos posted for this day'
+                    : `${myAttendancePostedCount} of 2 class photos posted`}
                 </Text>
               </View>
             </DataCard>
@@ -1251,7 +1251,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                       ) : (
                         <View style={styles.evDraftBlock}>
                           <PrimaryButton
-                            title={saving ? 'Posting…' : 'Add geo-tagged photo'}
+                            title={saving ? 'Posting…' : 'Add class photo'}
                             onPress={() => postGeoPhoto(slot.kind)}
                             disabled={saving}
                           />

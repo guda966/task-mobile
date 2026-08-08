@@ -683,12 +683,12 @@ export function StudentSessionDetailScreen({ route }: Props) {
           <>
             <PanelHeader
               title="Trainer attendance photos"
-              subtitle="Geo-tagged class photos at session start and close"
+              subtitle="Class photos posted by your trainer at session start and close"
             />
             {evidence.length === 0 ? (
               <EmptyState
                 title="No trainer photos yet"
-                body="When your trainer posts start/close class photos, they appear here."
+                body="When your trainer posts start and close class photos, they appear here."
               />
             ) : (
               evidence.map((item) => {

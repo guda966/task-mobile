@@ -23,7 +23,7 @@ import type { TrainerRecord } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
 
 /** Bump this when the seed shape changes so browsers auto-refresh once. */
-export const DEMO_SEED_VERSION = '2026-08-08-demo-v20';
+export const DEMO_SEED_VERSION = '2026-08-08-demo-v21';
 
 const META_KEY = 'task.demoSeed.meta.v1';
 
@@ -741,8 +741,7 @@ function buildSessionContent(trainer: TrainerRecord, student: StudentRecord) {
     encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">
       <rect fill="#0F6E6E" width="100%" height="100%"/>
-      <text x="50%" y="46%" fill="#fff" font-size="24" text-anchor="middle" font-family="sans-serif">${label}</text>
-      <text x="50%" y="56%" fill="#D7EEEE" font-size="16" text-anchor="middle" font-family="sans-serif">Geo-tagged demo</text>
+      <text x="50%" y="50%" fill="#fff" font-size="24" text-anchor="middle" font-family="sans-serif">${label}</text>
     </svg>`,
     );
 
