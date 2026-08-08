@@ -682,6 +682,12 @@ const styles = StyleSheet.create({
   stepChipText: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
   stepChipTextActive: { color: colors.white },
   section: { fontWeight: '700', color: colors.text, marginBottom: 10, fontSize: 15 },
+  rcIntro: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
   sectionGap: { marginTop: 16 },
   hint: { color: colors.textMuted, fontSize: 12, marginBottom: 10, lineHeight: 18 },
   warn: { color: colors.danger, marginBottom: 12, lineHeight: 18 },
