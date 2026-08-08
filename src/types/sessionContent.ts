@@ -87,25 +87,25 @@ export const TRAINER_ATTENDANCE_PHOTO_SLOTS: {
     kind: 'start_selfie',
     moment: 'Session start',
     title: 'Selfie',
-    hint: 'Your selfie at session start, with location',
+    hint: 'Your selfie at session start (auto geo-tagged)',
   },
   {
     kind: 'start_class',
     moment: 'Session start',
     title: 'Class photo',
-    hint: 'Classroom / batch photo at start, with location',
+    hint: 'Classroom / batch photo at start (auto geo-tagged)',
   },
   {
     kind: 'end_selfie',
     moment: 'Session close',
     title: 'Selfie',
-    hint: 'Your selfie at closing time, with location',
+    hint: 'Your selfie at closing time (auto geo-tagged)',
   },
   {
     kind: 'end_class',
     moment: 'Session close',
     title: 'Class photo',
-    hint: 'Classroom / batch photo at closing time, with location',
+    hint: 'Classroom / batch photo at closing (auto geo-tagged)',
   },
 ];
 
