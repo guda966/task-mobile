@@ -912,19 +912,15 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                   ))}
                 </View>
 
-                <View style={styles.attToolbar}>
-                  <Pressable
-                    style={styles.attToolLink}
+                <View style={styles.attActions}>
+                  <PrimaryButton
+                    title={saving ? 'Saving…' : 'Mark all present'}
                     onPress={() => markMany(roster, 'present')}
                     disabled={saving}
-                  >
-                    <Text style={styles.attToolLinkText}>
-                      {saving ? 'Saving…' : 'All present'}
-                    </Text>
-                  </Pressable>
-                  <Text style={styles.attToolDot}>·</Text>
-                  <Pressable
-                    style={styles.attToolLink}
+                  />
+                  <PrimaryButton
+                    title="Mark unmarked absent"
+                    variant="secondary"
                     onPress={() =>
                       markMany(
                         roster.filter((r) => !attendanceMap[r.studentId]),
@@ -932,41 +928,38 @@ export function TrainerSessionDetailScreen({ route }: Props) {
                       )
                     }
                     disabled={saving || attStats.unmarked === 0}
-                  >
-                    <Text
-                      style={[
-                        styles.attToolLinkText,
-                        (saving || attStats.unmarked === 0) && styles.attToolDisabled,
-                      ]}
+                  />
+                </View>
+
+                <View style={styles.attSelectRow}>
+                  <Text style={styles.attSelectHint}>
+                    {selectedAttendanceList.length > 0
+                      ? `${selectedAttendanceList.length} selected`
+                      : 'Tap students to select, then apply a status'}
+                  </Text>
+                  <View style={styles.attSelectBtns}>
+                    <Pressable
+                      style={styles.attSelectChip}
+                      onPress={() => {
+                        const next: Record<string, boolean> = {};
+                        for (const r of roster) next[r.studentId] = true;
+                        setSelectedAttendance(next);
+                      }}
                     >
-                      Unmarked → absent
-                    </Text>
-                  </Pressable>
-                  <View style={styles.attToolSpacer} />
-                  <Pressable
-                    style={styles.attToolLink}
-                    onPress={() => {
-                      const next: Record<string, boolean> = {};
-                      for (const r of roster) next[r.studentId] = true;
-                      setSelectedAttendance(next);
-                    }}
-                  >
-                    <Text style={styles.attToolLinkText}>Select all</Text>
-                  </Pressable>
-                  <Text style={styles.attToolDot}>·</Text>
-                  <Pressable
-                    style={styles.attToolLink}
-                    onPress={() => setSelectedAttendance({})}
-                  >
-                    <Text style={styles.attToolLinkText}>Clear</Text>
-                  </Pressable>
+                      <Text style={styles.attSelectChipText}>Select all</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.attSelectChip}
+                      onPress={() => setSelectedAttendance({})}
+                    >
+                      <Text style={styles.attSelectChipText}>Clear</Text>
+                    </Pressable>
+                  </View>
                 </View>
 
                 {selectedAttendanceList.length > 0 ? (
                   <View style={styles.attApplyBar}>
-                    <Text style={styles.attApplyLabel}>
-                      Apply to {selectedAttendanceList.length} selected
-                    </Text>
+                    <Text style={styles.attApplyLabel}>Apply status to selected</Text>
                     <View style={styles.chipRow}>
                       <StatusChip
                         label="Present"
@@ -1332,18 +1325,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
   },
-  attToolbar: {
+  attActions: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  attSelectRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+    paddingRight: 4,
   },
-  attToolLink: { paddingVertical: 4, paddingHorizontal: 2 },
-  attToolLinkText: { color: colors.primaryDark, fontWeight: '700', fontSize: 13 },
-  attToolDisabled: { color: colors.textMuted },
-  attToolDot: { color: colors.textMuted, fontWeight: '700' },
-  attToolSpacer: { flex: 1, minWidth: 8 },
+  attSelectHint: {
+    flex: 1,
+    minWidth: 160,
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  attSelectBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  attSelectChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  attSelectChipText: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+    fontSize: 12,
+  },
   attApplyBar: {
     backgroundColor: colors.primarySoft,
     borderRadius: 10,
