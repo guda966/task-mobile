@@ -37,6 +37,7 @@ import type {
 } from '../types/sessionContent';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
 import type { TrainingRegistration } from '../types/training';
+import { requesterLabel } from '../utils/courseRequestLabels';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerSessionDetail'>;
@@ -541,7 +542,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
       title={session?.courseName || 'Session workspace'}
       subtitle={
         session
-          ? `${session.collegeName} · ${session.startDate} → ${session.endDate}`
+          ? `${requesterLabel(session)} · ${session.startDate} → ${session.endDate}`
           : 'Loading batch…'
       }
       showLogo={false}
@@ -556,6 +557,7 @@ export function TrainerSessionDetailScreen({ route }: Props) {
         {session ? (
           <DataCard>
             <Text style={styles.eyebrow}>Session workspace</Text>
+            <Text style={styles.meta}>{requesterLabel(session)}</Text>
             <Text style={styles.meta}>
               {session.branch} · Batch {session.batchSize} · YOG {session.yearOfGraduation}
             </Text>

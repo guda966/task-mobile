@@ -10,6 +10,7 @@ export interface TrainingRegistration {
   category: string;
   collegeName: string;
   enrollmentId: string;
+  requesterType?: 'college' | 'regional_center';
   branch: string;
   yearOfGraduation: string;
   startDate: string;

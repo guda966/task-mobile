@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { StudentRecord } from '../types/student';
+import type { RcMembership } from '../types/regionalCentre';
+import { isMembershipActive } from '../types/regionalCentre';
 import type {
   AudienceScope,
   TaskAnnouncement,
@@ -13,6 +15,7 @@ const ANNOUNCEMENTS_KEY = 'task.adminAnnouncements.v1';
 const SESSIONS_KEY = 'task.adminProgramSessions.v1';
 const ENROLLMENTS_KEY = 'task.adminProgramEnrollments.v1';
 const STUDENTS_KEY = 'task.studentRegistrations.v1';
+const RC_MEMBERSHIPS_KEY = 'task.rcMemberships.v1';
 
 function uid(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -42,6 +45,9 @@ function validateScope(scope: AudienceScope): void {
   if (scope.kind === 'college' && !scope.enrollmentId?.trim()) {
     throw new Error('Select a college.');
   }
+  if (scope.kind === 'regional_center' && !scope.regionalCenterId?.trim()) {
+    throw new Error('Select a Regional Centre.');
+  }
 }
 
 async function matchingStudents(scope: AudienceScope): Promise<StudentRecord[]> {
@@ -54,6 +60,18 @@ async function matchingStudents(scope: AudienceScope): Promise<StudentRecord[]> 
   }
   if (scope.kind === 'university') {
     return active.filter((s) => s.affiliatedUniversity === scope.university);
+  }
+  if (scope.kind === 'regional_center') {
+    const memberships = await readJson<RcMembership[]>(RC_MEMBERSHIPS_KEY, []);
+    const memberIds = new Set(
+      memberships
+        .filter(
+          (m) =>
+            m.regionalCenterId === scope.regionalCenterId && isMembershipActive(m),
+        )
+        .map((m) => m.studentId),
+    );
+    return active.filter((s) => memberIds.has(s.id));
   }
   return active.filter((s) => s.enrollmentId === scope.enrollmentId);
 }

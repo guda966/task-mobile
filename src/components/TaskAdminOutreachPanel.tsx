@@ -8,7 +8,7 @@ import {
   SegmentedTabs,
 } from '../components/college/PanelChrome';
 import { DropdownField, FormField, PrimaryButton, StatusBadge } from './ui';
-import { AFFILIATED_UNIVERSITIES, DISTRICTS } from '../constants/lookups';
+import { AFFILIATED_UNIVERSITIES, DISTRICTS, REGIONAL_CENTERS, regionalCenterLabel } from '../constants/lookups';
 import { taskBroadcastApi } from '../services/taskBroadcastApi';
 import { colors } from '../theme/colors';
 import type { CollegeEnrollment } from '../types/enrollment';
@@ -40,6 +40,7 @@ export function TaskAdminOutreachPanel({
   const [district, setDistrict] = useState('');
   const [university, setUniversity] = useState('');
   const [collegeId, setCollegeId] = useState('');
+  const [regionalCenterId, setRegionalCenterId] = useState('');
 
   const [annTitle, setAnnTitle] = useState('');
   const [annBody, setAnnBody] = useState('');
@@ -78,6 +79,15 @@ export function TaskAdminOutreachPanel({
         label: audienceScopeLabel({ kind: 'university', university, label: '' }),
       };
     }
+    if (scopeKind === 'regional_center') {
+      const center = REGIONAL_CENTERS.find((c) => c.id === regionalCenterId);
+      const name = center ? regionalCenterLabel(center) : 'Regional Centre';
+      return {
+        kind: 'regional_center',
+        regionalCenterId,
+        label: `Regional Centre · ${name}`,
+      };
+    }
     const college = approvedColleges.find((c) => c.id === collegeId);
     return {
       kind: 'college',
@@ -86,7 +96,7 @@ export function TaskAdminOutreachPanel({
         ? `College · ${college.institutionName}`
         : audienceScopeLabel({ kind: 'college', enrollmentId: collegeId, label: 'College' }),
     };
-  }, [scopeKind, district, university, collegeId, approvedColleges]);
+  }, [scopeKind, district, university, collegeId, regionalCenterId, approvedColleges]);
 
   const load = useCallback(async () => {
     const list = await taskBroadcastApi.listProgramSessions();
@@ -122,7 +132,8 @@ export function TaskAdminOutreachPanel({
   const ScopeFields = (
     <DataCard>
       <Text style={styles.hint}>
-        Choose who receives this — entire state, one district, one university, or one college.
+        Choose who receives this — entire state, one district, one university, one college, or one
+        Regional Centre (active RC members).
       </Text>
       <DropdownField
         label="Audience"
@@ -134,6 +145,7 @@ export function TaskAdminOutreachPanel({
           { value: 'district', label: 'Particular district' },
           { value: 'university', label: 'Affiliated university' },
           { value: 'college', label: 'Particular college' },
+          { value: 'regional_center', label: 'Particular Regional Centre (members)' },
         ]}
       />
       {scopeKind === 'district' ? (
@@ -167,6 +179,19 @@ export function TaskAdminOutreachPanel({
             label: `${c.institutionName} · ${c.district}`,
           }))}
           placeholder="Select college"
+        />
+      ) : null}
+      {scopeKind === 'regional_center' ? (
+        <DropdownField
+          label="Regional Centre"
+          required
+          value={regionalCenterId}
+          onChange={setRegionalCenterId}
+          options={REGIONAL_CENTERS.map((c) => ({
+            value: c.id,
+            label: regionalCenterLabel(c),
+          }))}
+          placeholder="Select Regional Centre"
         />
       ) : null}
       <Text style={styles.preview}>

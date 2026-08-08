@@ -3,6 +3,9 @@ export interface BatchProgressRow {
   courseName: string;
   collegeName: string;
   enrollmentId: string;
+  requesterType?: 'college' | 'regional_center';
+  regionalCenterId?: string;
+  regionalCenterName?: string;
   branch: string;
   yearOfGraduation: string;
   startDate: string;
@@ -82,6 +85,8 @@ export interface PlatformSummary {
   trainersActive: number;
   trainersPending: number;
   sessionsApproved: number;
+  /** Approved batches requested by Regional Centres (subset of sessionsApproved). */
+  sessionsRcApproved: number;
   certificatesIssued: number;
   submissionsPending: number;
   /** Students currently registered or completed in approved batches. */

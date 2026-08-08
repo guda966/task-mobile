@@ -43,6 +43,7 @@ import type { TaskProgramSession } from '../types/taskBroadcast';
 import type { RcMembership } from '../types/regionalCentre';
 import type { TrainingRegistration } from '../types/training';
 import { RC_MEMBERSHIP_FEE, RC_MEMBERSHIP_MONTHS, REGIONAL_CENTERS, regionalCenterLabel } from '../constants/lookups';
+import { requesterLabel } from '../utils/courseRequestLabels';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
 type TrainingTab = 'enrolled' | 'available' | 'task' | 'rc';
@@ -316,8 +317,8 @@ export function StudentHomeScreen({ navigation }: Props) {
             <Text style={styles.name}>Regional Centre membership</Text>
             <Text style={styles.alertBody}>
               {rcMembership
-                ? `You are active at ${rcMembership.regionalCenterName} until ${new Date(rcMembership.expiresAt).toLocaleDateString('en-IN')}. Open Trainings → RC to enrol in centre sessions.`
-                : `TASK has 16 Regional Centres across Telangana. Pay ₹${RC_MEMBERSHIP_FEE} (valid ${RC_MEMBERSHIP_MONTHS} months) to access RC courses and services near you.`}
+                ? `You are active at ${rcMembership.regionalCenterName} until ${new Date(rcMembership.expiresAt).toLocaleDateString('en-IN')}. Open Trainings → RC to enrol in TASK-approved centre batches.`
+                : `TASK has 16 Regional Centres. Pay ₹${RC_MEMBERSHIP_FEE} (valid ${RC_MEMBERSHIP_MONTHS} months), then enrol after TASK Admin approves your centre’s course requests.`}
             </Text>
             <View style={styles.gap} />
             <PrimaryButton
@@ -608,8 +609,15 @@ export function StudentHomeScreen({ navigation }: Props) {
                       {item.startDate} to {item.endDate}
                     </Text>
                     <Text style={styles.meta}>
-                      {item.branch} · Grad year {item.yearOfGraduation}
+                      {item.requesterType === 'regional_center'
+                        ? requesterLabel(item)
+                        : `${item.branch} · Grad year ${item.yearOfGraduation}`}
                     </Text>
+                    {item.requesterType === 'regional_center' ? (
+                      <Text style={styles.meta}>
+                        {item.branch} · Grad year {item.yearOfGraduation}
+                      </Text>
+                    ) : null}
                     <View style={styles.gap} />
                     <PrimaryButton
                       title="Open session"

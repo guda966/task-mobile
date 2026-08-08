@@ -184,8 +184,9 @@ export function CourseRequestDetailScreen({ navigation, route }: Props) {
               {item.trainerId ? 'Edit trainer assignment' : 'Assign trainers'}
             </Text>
             <Text style={styles.assignLead}>
-              Only approved (authorised) trainers appear here. Colleges will see the assigned
-              trainer details on their calendar.
+              Only approved (authorised) trainers appear here. The{' '}
+              {isRcRequest ? 'Regional Centre' : 'college'} will see the assigned trainer on their
+              calendar.
             </Text>
             <DropdownField
               label="Primary trainer"

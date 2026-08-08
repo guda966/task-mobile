@@ -3,7 +3,7 @@ export const STUDENT_ANNOUNCEMENTS = [
   {
     id: 'ann_rc_membership_2026',
     title: 'Join a TASK Regional Centre',
-    body: 'Pay ₹599 (valid 6 months) to access RC courses and services near you. Open Trainings → RC to join or view sessions.',
+    body: 'Pay ₹599 (valid 6 months) to join an RC. After TASK Admin approves your centre’s course request, enrol under Trainings → RC.',
   },
   {
     id: 'ann_skills_2026',

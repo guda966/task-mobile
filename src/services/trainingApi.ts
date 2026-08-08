@@ -192,6 +192,7 @@ export const trainingApi = {
       category: session.category,
       collegeName: session.collegeName,
       enrollmentId: session.enrollmentId || session.regionalCenterId || '',
+      requesterType: session.requesterType || 'college',
       branch: session.branch,
       yearOfGraduation: session.yearOfGraduation,
       startDate: session.startDate,

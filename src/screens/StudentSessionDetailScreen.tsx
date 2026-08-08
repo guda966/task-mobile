@@ -36,6 +36,7 @@ import type {
 } from '../types/sessionContent';
 import type { StudentRecord } from '../types/student';
 import type { StudentTrainerQuery, TrainerFeedback } from '../types/trainer';
+import { requesterLabel } from '../utils/courseRequestLabels';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentSessionDetail'>;
@@ -329,7 +330,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
       title={session?.courseName || 'Session'}
       subtitle={
         session
-          ? `${session.collegeName} · ${session.startDate} → ${session.endDate}`
+          ? `${requesterLabel(session)} · ${session.startDate} → ${session.endDate}`
           : 'Loading session…'
       }
       showLogo={false}
@@ -351,6 +352,7 @@ export function StudentSessionDetailScreen({ route }: Props) {
         {session ? (
           <DataCard>
             <Text style={styles.eyebrow}>Your training session</Text>
+            <Text style={styles.meta}>{requesterLabel(session)}</Text>
             <Text style={styles.meta}>
               {session.branch} · YOG {session.yearOfGraduation}
               {session.trainerName ? ` · Trainer ${session.trainerName}` : ''}

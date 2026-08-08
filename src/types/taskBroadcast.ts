@@ -1,5 +1,10 @@
 /** Audience targeting for TASK Admin announcements and statewide sessions. */
-export type AudienceScopeKind = 'state' | 'district' | 'university' | 'college';
+export type AudienceScopeKind =
+  | 'state'
+  | 'district'
+  | 'university'
+  | 'college'
+  | 'regional_center';
 
 export interface AudienceScope {
   kind: AudienceScopeKind;
@@ -9,6 +14,8 @@ export interface AudienceScope {
   university?: string;
   /** Required when kind is college — CollegeEnrollment.id */
   enrollmentId?: string;
+  /** Required when kind is regional_center */
+  regionalCenterId?: string;
   /** Display label cached at publish time */
   label: string;
 }
@@ -64,5 +71,8 @@ export function audienceScopeLabel(scope: AudienceScope): string {
   if (scope.kind === 'state') return 'Entire Telangana (all registered students)';
   if (scope.kind === 'district') return `District · ${scope.district || '—'}`;
   if (scope.kind === 'university') return `University · ${scope.university || '—'}`;
+  if (scope.kind === 'regional_center') {
+    return `Regional Centre · ${scope.label.replace(/^Regional Centre · /, '') || '—'}`;
+  }
   return `College · ${scope.label.replace(/^College · /, '')}`;
 }

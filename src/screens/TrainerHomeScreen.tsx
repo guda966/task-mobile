@@ -25,6 +25,7 @@ import { trainerApi } from '../services/trainerApi';
 import { colors } from '../theme/colors';
 import type { CourseRequest } from '../types/collegePortal';
 import type { TrainerFeedback, TrainerRecord } from '../types/trainer';
+import { requesterLabel } from '../utils/courseRequestLabels';
 import { pickMockDocument } from '../utils/mockFilePick';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainerHome'>;
@@ -149,7 +150,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
         <StatusBadge status="approved" />
       </View>
       <Text style={styles.rolePill}>{role}</Text>
-      <Text style={styles.meta}>{item.collegeName}</Text>
+      <Text style={styles.meta}>{requesterLabel(item)}</Text>
       <Text style={styles.meta}>
         {item.startDate} → {item.endDate} · {item.branch} · Batch {item.batchSize}
       </Text>
@@ -265,7 +266,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
                 ) : (
                   <EmptyState
                     title="No sessions assigned yet"
-                    body="TASK Admin assigns you to approved college batches. Check back after assignment."
+                    body="TASK Admin assigns you to approved college and Regional Centre batches. Check back after assignment."
                   />
                 )}
 
@@ -412,7 +413,7 @@ export function TrainerHomeScreen({ navigation }: Props) {
               history.map((item) => (
                 <DataCard key={item.id}>
                   <Text style={styles.cardTitle}>{item.courseName}</Text>
-                  <Text style={styles.meta}>{item.collegeName}</Text>
+                  <Text style={styles.meta}>{requesterLabel(item)}</Text>
                   <Text style={styles.meta}>
                     {item.startDate} → {item.endDate} · Batch {item.batchSize}
                   </Text>

@@ -20,6 +20,8 @@ import type {
   SessionAttendance,
   SessionCertificate,
 } from '../types/sessionContent';
+import { REGIONAL_CENTERS } from '../constants/lookups';
+import { requesterOrgName } from '../utils/courseRequestLabels';
 import { sessionContentApi } from './sessionContentApi';
 
 const REQUESTS_KEY = 'task.courseRequests.v1';
@@ -74,6 +76,29 @@ function filterEnrollments(
   });
 }
 
+/** Include college batches via enrollment scope, and RC batches via centre / district. */
+function requestMatchesScope(
+  request: CourseRequest,
+  collegeIds: Set<string>,
+  scope?: ReportScopeFilter,
+): boolean {
+  if (!hasScope(scope)) return true;
+
+  if (request.requesterType === 'regional_center') {
+    if (scope?.enrollmentId) return false;
+    if (scope?.regionalCenterId && scope.regionalCenterId !== 'All') {
+      return request.regionalCenterId === scope.regionalCenterId;
+    }
+    if (scope?.district && scope.district !== 'All') {
+      const center = REGIONAL_CENTERS.find((c) => c.id === request.regionalCenterId);
+      return center?.district === scope.district;
+    }
+    return false;
+  }
+
+  return collegeIds.has(request.enrollmentId);
+}
+
 function toCsv(headers: string[], rows: string[][]): string {
   const escape = (v: string) => {
     if (v.includes(',') || v.includes('"') || v.includes('\n')) {
@@ -113,7 +138,7 @@ export const reportsApi = {
       : students.filter((s) => collegeIds.has(s.enrollmentId));
     const scopedRequests = statewide
       ? requests
-      : requests.filter((r) => collegeIds.has(r.enrollmentId));
+      : requests.filter((r) => requestMatchesScope(r, collegeIds, scope));
     const requestIds = new Set(scopedRequests.map((r) => r.id));
     const scopedRegs = statewide
       ? registrations
@@ -134,6 +159,9 @@ export const reportsApi = {
       trainersActive: trainers.filter((t) => t.status === 'active').length,
       trainersPending: trainers.filter((t) => t.status === 'pending').length,
       sessionsApproved: scopedRequests.filter((r) => r.status === 'approved').length,
+      sessionsRcApproved: scopedRequests.filter(
+        (r) => r.status === 'approved' && r.requesterType === 'regional_center',
+      ).length,
       certificatesIssued: scopedCerts.length,
       submissionsPending: scopedSubs.filter((s) => s.status === 'submitted').length,
       studentsInTrainings: scopedRegs.filter(
@@ -179,7 +207,12 @@ export const reportsApi = {
       .filter(
         (r) =>
           r.status === 'approved' &&
-          (!useScope || allowedEnrollmentIds.has(r.enrollmentId)),
+          (!useScope || requestMatchesScope(r, allowedEnrollmentIds, {
+            enrollmentId,
+            district: district && district !== 'All' ? district : undefined,
+            regionalCenterId:
+              regionalCenterId && regionalCenterId !== 'All' ? regionalCenterId : undefined,
+          })),
       )
       .sort((a, b) => b.startDate.localeCompare(a.startDate));
 
@@ -227,8 +260,11 @@ export const reportsApi = {
       rows.push({
         requestId: session.id,
         courseName: session.courseName,
-        collegeName: session.collegeName,
+        collegeName: requesterOrgName(session),
         enrollmentId: session.enrollmentId,
+        requesterType: session.requesterType || 'college',
+        regionalCenterId: session.regionalCenterId,
+        regionalCenterName: session.regionalCenterName,
         branch: session.branch,
         yearOfGraduation: session.yearOfGraduation,
         startDate: session.startDate,
@@ -508,7 +544,8 @@ export const reportsApi = {
     return toCsv(
       [
         'Course',
-        'College',
+        'Organisation',
+        'Type',
         'Branch',
         'Students',
         'Avg Attendance %',
@@ -522,6 +559,7 @@ export const reportsApi = {
       rows.map((r) => [
         r.courseName,
         r.collegeName,
+        r.requesterType === 'regional_center' ? 'Regional Centre' : 'College',
         r.branch,
         String(r.registeredStudents),
         String(r.avgAttendancePercent),

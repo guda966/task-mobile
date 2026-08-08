@@ -26,6 +26,7 @@ import { colors } from '../theme/colors';
 import type { CourseRequest } from '../types/collegePortal';
 import type { AppNotification, CollegeEnrollment } from '../types/enrollment';
 import type { TrainerRecord } from '../types/trainer';
+import { requesterLabel } from '../utils/courseRequestLabels';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskAdminHome'>;
 type AdminTab =
@@ -152,9 +153,17 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
             <StatTiles
               items={[
                 { label: 'Pending colleges', value: String(pendingRegs.length) },
-                { label: 'Course requests', value: String(pendingReqs.length) },
+                {
+                  label: 'Course requests',
+                  value: String(pendingReqs.length),
+                },
+                {
+                  label: 'RC pending',
+                  value: String(
+                    pendingReqs.filter((r) => r.requesterType === 'regional_center').length,
+                  ),
+                },
                 { label: 'Need trainers', value: String(needsTrainerAssign.length) },
-                { label: 'Active trainers', value: String(trainers.filter((t) => t.status === 'active').length) },
               ]}
             />
             <View style={{ height: 8 }} />
@@ -176,7 +185,8 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
               <View style={styles.caughtUp}>
                 <Text style={styles.caughtUpTitle}>You are all caught up</Text>
                 <Text style={styles.caughtUpBody}>
-                  No pending college approvals, course requests, or trainer assignments right now.
+                  No pending college approvals, college/RC course requests, or trainer assignments
+                  right now.
                 </Text>
               </View>
             ) : null}
@@ -212,7 +222,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                   <ActionRow
                     key={item.id}
                     title={item.courseName}
-                    meta={`${item.requesterType === 'regional_center' ? 'RC · ' : ''}${item.collegeName} · ${item.startDate} → ${item.endDate}`}
+                    meta={`${requesterLabel(item)} · ${item.startDate} → ${item.endDate}`}
                     badge="pending"
                     cta="Review"
                     onPress={() =>
@@ -233,7 +243,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                   <ActionRow
                     key={item.id}
                     title={item.courseName}
-                    meta={`${item.requesterType === 'regional_center' ? 'RC · ' : ''}${item.collegeName} · ${item.branch} · Batch ${item.batchSize}`}
+                    meta={`${requesterLabel(item)} · ${item.branch} · Batch ${item.batchSize}`}
                     badge="approved"
                     cta="Assign trainer"
                     onPress={() =>
@@ -254,7 +264,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                   <ActionRow
                     key={item.id}
                     title={item.courseName}
-                    meta={`${item.collegeName} · Trainer: ${item.trainerName}${
+                    meta={`${requesterLabel(item)} · Trainer: ${item.trainerName}${
                       item.backupTrainerName ? ` · Backup: ${item.backupTrainerName}` : ''
                     }`}
                     badge="approved"
@@ -314,10 +324,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                     <Text style={styles.name}>{item.courseName}</Text>
                     <StatusBadge status={item.status} />
                   </View>
-                  <Text style={styles.meta}>
-                    {item.requesterType === 'regional_center' ? 'RC · ' : 'College · '}
-                    {item.collegeName}
-                  </Text>
+                  <Text style={styles.meta}>{requesterLabel(item)}</Text>
                   <Text style={styles.meta}>
                     {item.startDate} → {item.endDate} · Batch {item.batchSize}
                   </Text>
@@ -377,7 +384,8 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
           <>
             <Text style={styles.section}>Approved training calendar</Text>
             <Text style={styles.lead}>
-              Clear list of approved college trainings across institutions.
+              Approved college and Regional Centre trainings. Tap a session to assign or edit
+              trainers.
             </Text>
             {calendar.length === 0 ? (
               <Text style={styles.empty}>No approved calendar sessions yet.</Text>
@@ -391,7 +399,7 @@ export function TaskAdminHomeScreen({ navigation }: Props) {
                   }
                 >
                   <Text style={styles.name}>{item.courseName}</Text>
-                  <Text style={styles.meta}>{item.collegeName}</Text>
+                  <Text style={styles.meta}>{requesterLabel(item)}</Text>
                   <Text style={styles.dates}>
                     {item.startDate} – {item.endDate}
                   </Text>

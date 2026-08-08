@@ -34,6 +34,7 @@ import {
   type ManagedAdminRole,
 } from '../types/adminUser';
 import type { BatchProgressRow, PlatformSummary, ReportScopeFilter } from '../types/reports';
+import { requesterLabel } from '../utils/courseRequestLabels';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SuperAdminHome'>;
 /** Menu: Dashboard data · Create users · Extract / download data */
@@ -317,7 +318,7 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
           <>
             <PanelHeader
               title="Dashboard"
-              subtitle="Live counts for colleges, students, trainings, and placements"
+              subtitle="Live counts for colleges, Regional Centres, students, trainings, and placements"
               action={
                 <PrimaryButton
                   title="Profile"
@@ -371,7 +372,12 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                   {
                     label: 'Active batches',
                     value: String(summary.sessionsApproved),
-                    hint: 'Approved course sessions',
+                    hint: 'Approved college + RC sessions',
+                  },
+                  {
+                    label: 'RC batches',
+                    value: String(summary.sessionsRcApproved),
+                    hint: 'Regional Centre approved',
                   },
                   {
                     label: 'Certificates issued',
@@ -405,7 +411,7 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                 <DataCard key={b.requestId}>
                   <Text style={styles.cardTitle}>{b.courseName}</Text>
                   <Text style={styles.meta}>
-                    {b.collegeName} · {b.branch} YOG {b.yearOfGraduation}
+                    {requesterLabel(b)} · {b.branch} YOG {b.yearOfGraduation}
                   </Text>
                   <Text style={styles.meta}>
                     {b.registeredStudents} students · {b.avgAttendancePercent}% attendance ·{' '}
@@ -572,7 +578,7 @@ export function SuperAdminHomeScreen({ navigation }: Props) {
                 <DataCard key={b.requestId}>
                   <Text style={styles.cardTitle}>{b.courseName}</Text>
                   <Text style={styles.meta}>
-                    {b.collegeName} · {b.registeredStudents} students · {b.avgAttendancePercent}%
+                    {requesterLabel(b)} · {b.registeredStudents} students · {b.avgAttendancePercent}%
                     att.
                   </Text>
                 </DataCard>
