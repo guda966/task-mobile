@@ -32,12 +32,11 @@ export function WelcomeScreen({ navigation }: Props) {
 
   return (
     <View style={styles.page}>
-      <View style={[styles.topBar, compact && styles.topBarCompact]}>
-        <View style={[styles.topBarLeft, compact && styles.topBarLeftCompact]}>
+      <View style={styles.topBar}>
+        <View style={styles.topBarContact}>
           <Text style={[styles.topBarText, compact && styles.topBarTextCompact]} numberOfLines={1}>
             040-35485290
           </Text>
-          <Text style={styles.topBarDot}>·</Text>
           <Text
             style={[styles.topBarText, compact && styles.topBarTextCompact, styles.topBarEmail]}
             numberOfLines={1}
@@ -276,44 +275,33 @@ const styles = StyleSheet.create({
   topBar: {
     backgroundColor: colors.primaryDark,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  topBarCompact: {
+    paddingVertical: 10,
     flexDirection: 'column',
     alignItems: 'stretch',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     gap: 10,
   },
-  topBarLeft: {
+  topBarContact: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: 6,
-  },
-  topBarLeftCompact: {
+    justifyContent: 'space-between',
+    gap: 12,
     width: '100%',
-    justifyContent: 'flex-start',
-    gap: 5,
   },
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 8,
   },
   topBarRightCompact: {
     width: '100%',
+    justifyContent: 'stretch',
   },
   topBarText: {
     color: colors.white,
     fontSize: 12,
     fontWeight: '600',
-    flexShrink: 1,
+    flexShrink: 0,
   },
   topBarTextCompact: {
     fontSize: 11,
@@ -321,11 +309,7 @@ const styles = StyleSheet.create({
   topBarEmail: {
     flexShrink: 1,
     minWidth: 0,
-  },
-  topBarDot: {
-    color: '#9FD0D0',
-    fontSize: 12,
-    flexShrink: 0,
+    textAlign: 'right',
   },
   topLink: {
     paddingHorizontal: 10,
