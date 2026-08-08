@@ -8,6 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { NewsTicker } from '../components/NewsTicker';
 import { RollingStats } from '../components/RollingStats';
@@ -29,20 +30,27 @@ export function WelcomeScreen({ navigation }: Props) {
   const emblemSize = compact ? 48 : 64;
   const portraitSize = compact ? 56 : 76;
   const taskLogoSize = compact ? 64 : 96;
+  const contactIconSize = compact ? 14 : 15;
 
   return (
     <View style={styles.page}>
       <View style={styles.topBar}>
         <View style={styles.topBarContact}>
-          <Text style={[styles.topBarText, compact && styles.topBarTextCompact]} numberOfLines={1}>
-            040-35485290
-          </Text>
-          <Text
-            style={[styles.topBarText, compact && styles.topBarTextCompact, styles.topBarEmail]}
-            numberOfLines={1}
-          >
-            enquiry_task@telangana.gov.in
-          </Text>
+          <View style={styles.contactItem}>
+            <Ionicons name="call-outline" size={contactIconSize} color={colors.white} />
+            <Text style={[styles.topBarText, compact && styles.topBarTextCompact]} numberOfLines={1}>
+              040-35485290
+            </Text>
+          </View>
+          <View style={[styles.contactItem, styles.contactItemEnd]}>
+            <Ionicons name="mail-outline" size={contactIconSize} color={colors.white} />
+            <Text
+              style={[styles.topBarText, compact && styles.topBarTextCompact, styles.topBarEmail]}
+              numberOfLines={1}
+            >
+              enquiry_task@telangana.gov.in
+            </Text>
+          </View>
         </View>
         <View style={[styles.topBarRight, compact && styles.topBarRightCompact]}>
           <Pressable
@@ -286,6 +294,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     width: '100%',
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  contactItemEnd: {
+    justifyContent: 'flex-end',
   },
   topBarRight: {
     flexDirection: 'row',
